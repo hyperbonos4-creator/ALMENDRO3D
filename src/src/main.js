@@ -418,11 +418,12 @@ function skirt(pts, fy, yb) { // pared vertical bajo un borde de rampa
 // ---------- v4: vehículos procedurales en las plazas medidas de PL_A004 ----------
 const VMAT = vehicleMaterials(); VMAT.trim.side = THREE.DoubleSide; VMAT.rim.side = THREE.DoubleSide; VMAT.tyre.side = THREE.DoubleSide;
 function carMesh(color, type = 'sedan', lit = false) { const G = mergeVehicles([{ parts: carParts(type, color), m: new THREE.Matrix4() }], VMAT); if (lit) G.children.forEach((m) => { if (m.material === VMAT.lightF) { m.material = VMAT.lightF.clone(); m.material.emissiveIntensity = 1.4; } }); return G; }
-// plazas (rectángulo de la plaza en el vector): x0,x1,z0,z1 · cabecera (frente del carro) en z0 (f=-1) o z1 (f=+1)
+// plazas (rectángulo de la plaza en PL_A004, cotas 2,50 × 4,50): x0,x1,z0,z1.
+// El pasillo está en z bajo (rampa o circulación). f=-1: trompa hacia el pasillo. f=+1: trompa hacia el muro.
 const SPOTS = [
   { n: 1, r: [16.86, 19.35, 3.87, 8.37], f: -1, t: 'hatch', c: 0xe4e4e1 }, { n: 2, r: [19.35, 21.85, 3.87, 8.37], f: -1, t: 'cuv', c: 0x2d3135 }, { n: 3, r: [21.85, 24.35, 3.87, 8.37], f: -1, t: 'hatch', c: 0x6a1020 },
   { n: 4, r: [19.29, 21.79, 12.69, 17.19], f: -1, t: 'sedan', c: 0x8d9196 }, { n: 5, r: [21.85, 24.35, 12.69, 17.19], f: -1, t: 'sedan', c: 0x5e0d12 },
-  { n: 6, r: [17.02, 19.52, 20.95, 25.44], f: 1, t: 'hatch', c: 0xc8cbcf }, { n: 7, r: [19.52, 22.02, 20.95, 25.44], f: 1, t: 'sedan', c: 0x111214 }, { n: 8, r: [22.02, 24.52, 20.95, 25.44], f: 1, t: 'suv', c: 0x16171a }, { n: 9, r: [24.52, 27.02, 20.95, 25.44], f: 1, t: 'sedan', c: 0xeceae6 },
+  { n: 6, r: [17.02, 19.52, 20.95, 25.44], f: -1, t: 'hatch', c: 0xc8cbcf }, { n: 7, r: [19.52, 22.02, 20.95, 25.44], f: -1, t: 'sedan', c: 0x111214 }, { n: 8, r: [22.02, 24.52, 20.95, 25.44], f: -1, t: 'suv', c: 0x16171a }, { n: 9, r: [24.52, 27.02, 20.95, 25.44], f: -1, t: 'sedan', c: 0xeceae6 },
 ];
 const MOTO_Z = [[12.69, 13.81], [13.81, 14.93], [14.93, 16.05], [16.05, 17.19]]; // 1.12 / 1.12 / 1.12 / 1.14 (PL_A004)
 const MOTO_C = [0x141414, 0x9b1c1c, 0x1c3e88, 0xe6e6e6];
@@ -471,9 +472,49 @@ const RAMPG = {};
 const DEMO_SPOT = 3;
 const SOT8 = { rail: [], planters: [] };
 const floorAt = (x, z) => (pip(S.deck, x, z) ? RAMP.deck : pip(S.lane2, x, z) ? laneY(z) : RAMP.low);
+function meshExtent(parts) {
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const [k, gs] of Object.entries(parts)) {
+    if (k === 'wheels') continue;
+    for (const g of gs) {
+      const a = g.attributes.position;
+      for (let i = 0; i < a.count; i++) {
+        const x = a.getX(i), z = a.getZ(i);
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z;
+      }
+    }
+  }
+  return { x0, x1, z0, z1, L: x1 - x0, W: z1 - z0 };
+}
+const CAR_EXT = Object.fromEntries(Object.keys(CAR_TYPES).map((t) => [t, meshExtent(carParts(t, 0xffffff))]));
+const MOTO_EXT = meshExtent(motoParts(0xffffff));
+// Holgura dentro de la línea de la plaza: 0,22 m del lado del pasillo (detrás del bordillo) y 0,08 m del muro.
+const AISLE_IN = 0.22, BACK_IN = 0.18, SIDE_IN = 0.08;
 const VEH = { cars: [], motos: [] };
-SPOTS.forEach((p) => { const L = CAR_TYPES[p.t].L, Wd = CAR_TYPES[p.t].W; const cx = (p.r[0] + p.r[1]) / 2; const cz = p.f < 0 ? p.r[2] + 0.06 + L / 2 : p.r[3] - 0.22 - L / 2; p.y = floorAt(cx, (p.r[2] + p.r[3]) / 2); p.cx = cx; p.cz = cz; p.L = L; p.Wd = Wd; VEH.cars.push(p); });
-MOTO_Z.forEach(([z0, z1], i) => VEH.motos.push({ n: i + 1, x: 17.08 + 1.02, z: (z0 + z1) / 2, y: RAMP.low, c: MOTO_C[i] }));
+SPOTS.forEach((p) => {
+  const ex = CAR_EXT[p.t]; const depth = p.r[3] - p.r[2], width = p.r[1] - p.r[0];
+  const sc = Math.min(1, (depth - AISLE_IN - BACK_IN) / ex.L, (width - 2 * SIDE_IN) / ex.W);
+  const cx = (p.r[0] + p.r[1]) / 2;
+  // f<0: giro +90°, +X local (trompa) → −Z. f>0: giro −90°, +X → +Z. El extremo que da al pasillo queda en z0+AISLE_IN.
+  const cz = p.f < 0 ? p.r[2] + AISLE_IN + ex.x1 * sc : p.r[2] + AISLE_IN - ex.x0 * sc;
+  const zOf = (lx) => (p.f < 0 ? cz - lx * sc : cz + lx * sc);
+  p.sc = sc; p.ex = ex; p.cx = cx; p.cz = cz; p.y = floorAt(cx, (p.r[2] + p.r[3]) / 2);
+  p.noseZ = zOf(ex.x1); p.tailZ = zOf(ex.x0);
+  p.zMin = Math.min(p.noseZ, p.tailZ); p.zMax = Math.max(p.noseZ, p.tailZ);
+  const xSign = p.f < 0 ? 1 : -1; // +Z local → +X si f<0, → −X si f>0
+  p.xMin = Math.min(cx + xSign * ex.z0 * sc, cx + xSign * ex.z1 * sc);
+  p.xMax = Math.max(cx + xSign * ex.z0 * sc, cx + xSign * ex.z1 * sc);
+  p.L = p.zMax - p.zMin; p.Wd = p.xMax - p.xMin;
+  VEH.cars.push(p);
+});
+MOTO_Z.forEach(([z0, z1], i) => {
+  const xA = 16.70, xB = 19.15, depth = xB - xA, width = z1 - z0; // celda entre las líneas 16,58–19,29 y el ancho 1,12 / 1,14
+  const sc = Math.min(1, (depth - 0.10) / MOTO_EXT.L, (width - 0.06) / MOTO_EXT.W);
+  const x = (xA + xB) / 2, z = (z0 + z1) / 2;
+  // giro de 180°: local (x,z) → mundo (−x, −z)
+  const xs = [x - MOTO_EXT.x0 * sc, x - MOTO_EXT.x1 * sc], zs = [z - MOTO_EXT.z0 * sc, z - MOTO_EXT.z1 * sc];
+  VEH.motos.push({ n: i + 1, x, z, y: RAMP.low, c: MOTO_C[i], sc, z0, z1, xMin: Math.min(...xs), xMax: Math.max(...xs), zMin: Math.min(...zs), zMax: Math.max(...zs) });
+});
 // pintura del piso y señalización con funciones simples
 function decalGeo(pts, fy, dy = 0.014) { const sh = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z))); const g = new THREE.ShapeGeometry(sh); g.rotateX(-Math.PI / 2); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, fy(p.getX(i), p.getZ(i)) + dy); g.computeVertexNormals(); return g.index ? g.toNonIndexed() : g; }
 const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.7, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
@@ -532,9 +573,13 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
   const tm = meshOf(tubes, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.25 }), false); B.add(tm);
   B.add(meshOf(rims, new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.5 }), false));
   // v8: topellantas amarillos (dos bloques por celda), detrás de la llanta que queda contra el final de la celda
-  { const ws = []; for (const p of VEH.cars) { const ct = CAR_TYPES[p.t]; const e = Math.sqrt(ct.r * ct.r - (ct.r - 0.1) * (ct.r - 0.1)) + 0.015;
-      let za, zb; if (p.n <= 3) { const ra = p.cz - p.L / 2 + ct.fo + ct.wb; za = ra + e; zb = za + 0.15; } else if (p.f < 0) { const fa = p.cz - p.L / 2 + ct.fo; zb = fa - e; za = zb - 0.15; } else { const fa = p.cz + p.L / 2 - ct.fo; za = fa + e; zb = za + 0.15; }
-      const fy = floorAt(p.cx, (za + zb) / 2); for (const sx of [-1, 1]) { const g = new THREE.BoxGeometry(0.6, 0.1, 0.15, 1, 1, 1); const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) if (pp.getY(i) > 0) pp.setZ(i, pp.getZ(i) * 0.6); g.translate(p.cx + sx * 0.62, fy + 0.05, (za + zb) / 2); g.computeVertexNormals(); ws.push(g.toNonIndexed()); } }
+  { const ws = []; for (const p of VEH.cars) {
+      // Tope al fondo de la celda, contra el muro, como el bloque gris de PL_A004 (detrás de la cola).
+      const za = p.r[3] - 0.16, zb = p.r[3] - 0.04;
+      const fy = floorAt(p.cx, (za + zb) / 2);
+      const g = new THREE.BoxGeometry(Math.min(1.7, p.r[1] - p.r[0] - 0.35), 0.1, zb - za);
+      const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) if (pp.getY(i) > 0) pp.setZ(i, pp.getZ(i) * 0.55);
+      g.translate(p.cx, fy + 0.05, (za + zb) / 2); g.computeVertexNormals(); ws.push(g.toNonIndexed()); }
     B.add(meshOf(ws, M.yellow)); }
   // v8: baranda de vidrio en el borde del desnivel de las plazas 1–3 (ref_04) — postes negros y pasamanos oscuro
   { const zr = 8.255, segs = [[16.62, 21.8], [22.24, 24.5]], fr = [], gl = [];
@@ -556,8 +601,8 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
     const pm = new THREE.Mesh(mergeGeometries(pl), PM8.trop); pm.castShadow = true; B.add(pm); }
   // carros y motos: geometría fusionada por material (≈9 llamadas de dibujo para todos)
   const list = []; const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
-  for (const p of VEH.cars) { if (p.n === DEMO_SPOT) continue; q.setFromAxisAngle(up, p.f < 0 ? Math.PI / 2 : -Math.PI / 2); list.push({ parts: carParts(p.t, p.c), m: new THREE.Matrix4().compose(new THREE.Vector3(p.cx, p.y, p.cz), q.clone(), new THREE.Vector3(1, 1, 1)) }); }
-  for (const m of VEH.motos) { q.setFromAxisAngle(up, Math.PI); list.push({ parts: motoParts(m.c), m: new THREE.Matrix4().compose(new THREE.Vector3(m.x, m.y, m.z), q.clone(), new THREE.Vector3(1, 1, 1)) }); }
+  for (const p of VEH.cars) { if (p.n === DEMO_SPOT) continue; q.setFromAxisAngle(up, p.f < 0 ? Math.PI / 2 : -Math.PI / 2); list.push({ parts: carParts(p.t, p.c), m: new THREE.Matrix4().compose(new THREE.Vector3(p.cx, p.y, p.cz), q.clone(), new THREE.Vector3(p.sc, p.sc, p.sc)) }); }
+  for (const m of VEH.motos) { q.setFromAxisAngle(up, Math.PI); list.push({ parts: motoParts(m.c), m: new THREE.Matrix4().compose(new THREE.Vector3(m.x, m.y, m.z), q.clone(), new THREE.Vector3(m.sc, m.sc, m.sc)) }); }
   const VG = mergeVehicles(list, VMAT); VG.name = 'vehiculos'; B.add(VG); VEH.group = VG;
 }
 // ---------- v4: cuartos de servicio bajo la rampa (PL_A004, vector) ----------
@@ -699,7 +744,7 @@ function carPose(c, u, dir) {
   CAR.m.position.set(x, (yF + yR) / 2 + 0.005, z); CAR.m.rotation.set(0, h, Math.atan2(yF - yR, CAR.wb));
   return { x, z, h };
 }
-function carPark() { const p = CAR.spot; CAR.m.position.set(p.cx, p.y + 0.005, p.cz); CAR.m.rotation.set(0, p.f < 0 ? Math.PI / 2 : -Math.PI / 2, 0); CAR.m.visible = true; CAR.state = 'parked'; CAR.ph = null; CAR.wheels.forEach((w) => { w.steer.rotation.y = 0; }); carLights(false); carBtn(); }
+function carPark() { const p = CAR.spot; CAR.m.position.set(p.cx, p.y + 0.005, p.cz); CAR.m.rotation.set(0, p.f < 0 ? Math.PI / 2 : -Math.PI / 2, 0); CAR.m.scale.setScalar(p.sc); CAR.m.visible = true; CAR.state = 'parked'; CAR.ph = null; CAR.wheels.forEach((w) => { w.steer.rotation.y = 0; }); carLights(false); carBtn(); }
 function carLights(on) { CAR.lit.forEach((m) => { m.material.emissiveIntensity = on ? (m.material.color.r > 0.5 ? 1.4 : 1.1) : 0.15; }); }
 function carStart(kind) {
   if (CAR.ph) return false;
@@ -727,7 +772,7 @@ function carUpdate(dt) {
     if (CAR.k >= CAR.ph.length) { if (CAR.kind === 'in') carPark(); else { CAR.ph = null; CAR.state = 'out'; CAR.m.visible = false; carLights(false); carBtn(); } } }
 }
 function carBtn() { const b = $('#bCar'); if (!b) return; b.textContent = CAR.ph ? (CAR.kind === 'in' ? 'Entrando a la celda ' + DEMO_SPOT + '…' : 'Saliendo de la celda ' + DEMO_SPOT + '…') : CAR.state === 'parked' ? 'Sacar carro de la celda ' + DEMO_SPOT : 'Entrar carro → celda ' + DEMO_SPOT + ' (libre)'; b.disabled = !!CAR.ph; }
-function carSegs() { if (CAR.state !== 'parked') return []; const p = CAR.spot, hw = p.Wd / 2 + 0.05, hl = p.L / 2 + 0.03; return segsOf([{ o: [[p.cx - hw, p.cz - hl], [p.cx + hw, p.cz - hl], [p.cx + hw, p.cz + hl], [p.cx - hw, p.cz + hl]] }]); }
+function carSegs() { if (CAR.state !== 'parked') return []; const p = CAR.spot; return segsOf([{ o: [[p.xMin, p.zMin], [p.xMax, p.zMin], [p.xMax, p.zMax], [p.xMin, p.zMax]] }]); }
 carPark();
 
 
@@ -1167,8 +1212,8 @@ function grid(segs) { const G = new Map(); for (const s of segs) { const x0 = Ma
 const SEGS_SOT = [...segsOf([...I.sotx.walls_in, ...I.sotx.walls_out]).filter((g) => !(Math.max(g[0], g[2]) < 7.7 && Math.min(g[1], g[3]) > 3.75 && Math.max(g[1], g[3]) < 4.25)), ...segsOf(I.sotx.cols_in), ...SV.segs,
   [1.2, 3.97, 7.8, 3.97], [16.4, 8.3, 24.55, 8.3], [16.5, 3.97, 21.79, 3.97], [24.55, 8.3, 24.55, 12.6],
   ...SOT8.planters.flatMap(([a, z0, b, z1]) => segsOf([{ o: [[a, z0], [b, z0], [b, z1], [a, z1]] }])),
-  ...VEH.cars.filter((p) => p.n !== DEMO_SPOT).flatMap((p) => { const hw = p.Wd / 2 + 0.05, hl = p.L / 2 + 0.03; return segsOf([{ o: [[p.cx - hw, p.cz - hl], [p.cx + hw, p.cz - hl], [p.cx + hw, p.cz + hl], [p.cx - hw, p.cz + hl]] }]); }),
-  ...VEH.motos.flatMap((m) => segsOf([{ o: [[m.x - 1.05, m.z - 0.3], [m.x + 1.05, m.z - 0.3], [m.x + 1.05, m.z + 0.3], [m.x - 1.05, m.z + 0.3]] }])), [STR.x0, STR.zm, STR.x0, STR.z1]];
+  ...VEH.cars.filter((p) => p.n !== DEMO_SPOT).flatMap((p) => segsOf([{ o: [[p.xMin, p.zMin], [p.xMax, p.zMin], [p.xMax, p.zMax], [p.xMin, p.zMax]] }])),
+  ...VEH.motos.flatMap((m) => segsOf([{ o: [[m.xMin, m.zMin], [m.xMax, m.zMin], [m.xMax, m.zMax], [m.xMin, m.zMax]] }])), [STR.x0, STR.zm, STR.x0, STR.z1]];
 const SEGS_GROUND = [[1.2, 3.97, 7.884, 3.97], [0, 0.49, 0, 0.64], [0, 6.74, 0, 6.89], [-0.12, 0.49, 0.12, 0.49], [-0.12, 6.89, 0.12, 6.89], [0.1, 6.74, 7.884, 6.74], [7.884, 6.4, 7.884, 6.74], [7.884, 3.9, 7.884, 4.1]];
 const GRID = {
   sot: grid([...SEGS_SOT, ...W.seg.stair, ...W.seg.elev]),

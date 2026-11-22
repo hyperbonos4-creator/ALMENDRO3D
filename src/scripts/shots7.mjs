@@ -1,3 +1,4 @@
+import { viewerUrl } from './html-url.mjs';
 import { chromium } from 'playwright';
 import fs from 'fs';
 const only = process.argv[2] ? process.argv[2].split(',') : null;
@@ -5,7 +6,7 @@ const OUT = '../shots7'; fs.mkdirSync(OUT, { recursive: true });
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } }); const errs = [];
 p.on('pageerror', (e) => { errs.push(e.message); console.log('ERR', e.message); });
-await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+await p.goto(viewerUrl());
 await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
 await p.evaluate(() => { __app.setQuality('alta'); __app.fpEnter(); });
 const ST = `({st:__app.EV.state, door:+__app.EV.door.toFixed(2), y:+__app.EV.y.toFixed(3), fi:__app.EV.fi, tgt:__app.EV.target, q:__app.EV.q.join(), lab:__app.EV.curLabel, inCab:__app.FP.inCab, fx:+__app.FP.x.toFixed(2), fy:+__app.FP.y.toFixed(3), fz:+__app.FP.z.toFixed(2), lvl:__app.FP.lvl, hud:document.querySelector('#elevSt')?.textContent})`;

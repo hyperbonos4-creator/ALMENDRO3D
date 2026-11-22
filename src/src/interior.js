@@ -320,7 +320,7 @@ export function buildWorld(ctx) {
     sl.add(mesh(SB.geo(), MI.alu), mesh(SG.geo(), MI.glass, false)); parent.add(sl);
     // baranda de vidrio en el borde del balcón
     const bx = Math.min(...BAL.o.map((p) => p[0])) + 0.03, bz0 = Math.min(...BAL.o.map((p) => p[1])), bz1 = Math.max(...BAL.o.map((p) => p[1]));
-    // v8 (ref_02/ref_03): parales redondos blancos, 5 cables de acero y pasamanos plano amarillo.
+    // Fotos: parales blancos, 4 cables y pasamanos plano amarillo-oro (el video pide cobre; mandan las fotos).
     // Van en el grupo exterior del nivel (no en el interior) para que el balcón se vea también desde la vista orbital.
     const ext = new THREE.Group(); ext.name = 'balExt'; ext.position.y = LEVY[levelId]; lv(levelId).g.add(ext); const parent0 = parent; parent = ext;
     // vano V-7 visto desde afuera (solo cuando el interior está oculto): vidrio oscuro + marco negro
@@ -330,8 +330,8 @@ export function buildWorld(ctx) {
     { const n = Math.max(2, Math.round((bz1 - bz0) / 1.05)); const posts = [];
       for (let i = 0; i <= n; i++) { const z = bz0 + 0.04 + (bz1 - bz0 - 0.08) * i / n; const c = new THREE.CylinderGeometry(0.021, 0.021, 0.985, 14); c.translate(bx, 0.4925, z); posts.push(c.toNonIndexed()); }
       parent.add(mesh(mergeGeometries(posts), MI.wpost));
-      const CB = new GB(); for (const y of [0.16, 0.31, 0.46, 0.61, 0.76]) CB.box(bx - 0.003, bx + 0.003, y - 0.003, y + 0.003, bz0 + 0.02, bz1 - 0.02, C('#c9ced3'));
-      CB.box(bx - 0.035, bx + 0.035, 0.985, 1.015, bz0, bz1, C('#e0a526')); parent.add(mesh(CB.geo(), MI.railVC)); // cables + pasamanos amarillo en una sola malla
+      const CB = new GB(); for (const y of [0.22, 0.40, 0.58, 0.76]) CB.box(bx - 0.003, bx + 0.003, y - 0.003, y + 0.003, bz0 + 0.02, bz1 - 0.02, C('#c9ced3'));
+      CB.box(bx - 0.035, bx + 0.035, 0.985, 1.015, bz0, bz1, C('#e0b04a')); parent.add(mesh(CB.geo(), MI.railVC)); // 4 cables + pasamanos amarillo-oro (fotos)
       // matera con planta tropical y silla blanca (ilustrativas, como en los renders)
       const px = bx + 0.3, pz = bz0 + 0.32, PB = new GB(1, 1), oct = (r) => [...Array(10)].map((_, i) => [px + r * Math.cos(i * Math.PI / 5), pz + r * Math.sin(i * Math.PI / 5)]);
       PB.prism(oct(0.15), 0, 0.12, C('#d68f4f')); PB.prism(oct(0.152), 0.12, 0.2, C('#f1ece2')); PB.prism(oct(0.154), 0.2, 0.3, C('#2f6b5a')); PB.prism(oct(0.14), 0.3, 0.31, C('#3a2c20'));
@@ -385,21 +385,21 @@ export function buildWorld(ctx) {
     const kk = Math.min(NT, Math.floor((ST.x1 - x) / TW) + 1); return P.m + kk * P.hr;
   }
   function stairGeo(P) {
-    let B = new GB(1.2, 1.2); const Rl = new GB(), tc = C('#ffffff'), rc = C('#ffffff'), D = new GB(), dc = C('#ffffff');
-    // v8: huella de concreto claro (5 cm, con nariz) sobre cuerpo grafito; la contrahuella queda retrasada 3 cm (ref_04/ref_10).
-    // El volumen total de cada escalón es el mismo de v7 (sin huecos): cuerpo desplazado 3 cm + relleno bajo la nariz siguiente.
-    const TT = 0.05, SB = 0.03;
-    D.box(ST.x0 + 0.002, ST.x0 + SB, P.a - 0.16, P.a - 0.002, ST.z0 + 0.002, ST.zm - 0.03, dc);
-    for (let k = 1; k <= NT; k++) { const xa = ST.x0 + (k - 1) * TW, xb = xa + TW, y = P.a + k * P.hr; B.box(xa, xb, y - TT, y, ST.z0, ST.zm - 0.03, tc);
-      D.box(xa + SB, xb + SB, y - P.hr - 0.16, y - TT, ST.z0 + 0.002, ST.zm - 0.03, dc); D.box(xb, xb + SB, y - TT, y, ST.z0 + 0.002, ST.zm - 0.03, dc); }
-    B.box(ST.x1, ST.xl, P.m - TT, P.m, ST.z0, ST.z1, tc); D.box(ST.x1 + SB, ST.xl, P.m - 0.16, P.m - TT, ST.z0 + 0.002, ST.zm - 0.03, dc); D.box(ST.x1, ST.xl, P.m - 0.16, P.m - TT, ST.zm - 0.03, ST.z1, dc);
-    D.box(ST.x1 - SB, ST.x1, P.m - 0.16, P.m, ST.zm + 0.03, ST.z1, dc);
-    for (let kk = 1; kk <= NT; kk++) { const xb = ST.x1 - (kk - 1) * TW, xa = xb - TW, y = P.m + kk * P.hr; B.box(xa, xb, y - TT, y, ST.zm + 0.03, ST.z1, tc);
-      D.box(xa - SB, xb - SB, y - P.hr - 0.16, y - TT, ST.zm + 0.03, ST.z1, dc); if (kk < NT) D.box(xa - SB, xa, y - TT, y, ST.zm + 0.03, ST.z1, dc); }
-    // losa inclinada bajo cada tramo (intradós)
-    const soffit = (xa, ya, xb, yb, z0, z1) => { const n = [-(yb - ya), (xb - xa), 0]; const L = Math.hypot(n[0], n[1]); n[0] /= L; n[1] /= L; B.quad([xa, ya, z0], [xb, yb, z0], [xb, yb, z1], [xa, ya, z1], [-n[0], -n[1], 0], tc);
-      B.quad([xa, ya, z0], [xb, yb, z0], [xb, yb + 0.1, z0], [xa, ya + 0.1, z0], [0, 0, -1], tc); B.quad([xa, ya, z1], [xb, yb, z1], [xb, yb + 0.1, z1], [xa, ya + 0.1, z1], [0, 0, 1], tc); }; // v8: 0,10 (no invade la huella clara)
-    { const B0 = B; B = D; soffit(ST.x0, P.a - 0.16, ST.x1, P.m - 0.16, ST.z0, ST.zm - 0.03); soffit(ST.x1, P.m - 0.16, ST.x0, P.b - 0.16 - P.hr, ST.zm + 0.03, ST.z1); B = B0; }
+    const B = new GB(1.2, 1.2); const Rl = new GB(), tc = C('#d8d6d0'), rc = C('#1a1a1a'), D = new GB(), sc = C('#333333');
+    // Huella abierta: concreto claro de 5 cm en la cota de la planta (7 × 0,30 m) y zanca de acero #333.
+    // La escalera sigue siendo la U del plano, no la zanca única del video.
+    const TT = 0.05;
+    for (let k = 1; k <= NT; k++) { const xa = ST.x0 + (k - 1) * TW, xb = xa + TW, y = P.a + k * P.hr; B.box(xa, xb + 0.015, y - TT, y, ST.z0, ST.zm - 0.04, tc); }
+    B.box(ST.x1, ST.xl, P.m - TT, P.m, ST.z0, ST.z1, tc);
+    for (let kk = 1; kk <= NT; kk++) { const xb = ST.x1 - (kk - 1) * TW, xa = xb - TW, y = P.m + kk * P.hr; B.box(xa - 0.015, xb, y - TT, y, ST.zm + 0.04, ST.z1, tc); }
+    const yA0 = P.a + P.hr - 0.1, yA1 = P.m - 0.1, yB1 = P.b - P.hr - 0.1;
+    D.bar([ST.x0, yA0, ST.z0 + 0.08], [ST.x1, yA1, ST.z0 + 0.08], 0.042, sc);
+    D.bar([ST.x0, yA0, ST.zm - 0.1], [ST.x1, yA1, ST.zm - 0.1], 0.042, sc);
+    D.bar([ST.x1, yA1, ST.zm + 0.1], [ST.x0 + TW, yB1, ST.zm + 0.1], 0.042, sc);
+    D.bar([ST.x1, yA1, ST.z1 - 0.08], [ST.x0 + TW, yB1, ST.z1 - 0.08], 0.042, sc);
+    D.bar([ST.x1, P.m - 0.1, ST.z0 + 0.08], [ST.xl - 0.05, P.m - 0.1, ST.z0 + 0.08], 0.042, sc);
+    D.bar([ST.x1, P.m - 0.1, ST.z1 - 0.08], [ST.xl - 0.05, P.m - 0.1, ST.z1 - 0.08], 0.042, sc);
+    D.bar([ST.xl - 0.06, P.m - 0.1, ST.z0 + 0.08], [ST.xl - 0.06, P.m - 0.1, ST.z1 - 0.08], 0.042, sc);
     // pasamanos en el ojo de la escalera (eje z = zm) + balaustres anclados a cada huella
     const hy = 0.9; const p0 = [ST.x0, P.a + P.hr + hy, ST.zm - 0.05], p1 = [ST.x1, P.m + hy, ST.zm - 0.05], q0 = [ST.x1, P.m + hy, ST.zm + 0.05], q1 = [ST.x0, P.b - P.hr + hy, ST.zm + 0.05];
     Rl.bar(p0, p1, 0.022, rc); Rl.bar(q0, q1, 0.022, rc); Rl.bar(p1, q0, 0.022, rc);
@@ -443,7 +443,7 @@ export function buildWorld(ctx) {
   const EV = { y: LEVY.p1, fi: 1, target: null, q: [], state: 'idle', door: 0, timer: 0, t: 0, dur: 0, y0: 0, y1: 0, dir: 0, v: 0, curLabel: '1' };
   const MV = {
     sat: std({ vertexColors: true, metalness: 0.6, roughness: 0.36 }), // acero satinado (sin textura rayada → sin moiré)
-    door: std({ color: 0xc3c8cd, metalness: 0.62, roughness: 0.32 }),
+    door: std({ color: 0xd5d8dc, metalness: 0.78, roughness: 0.28 }), // acero inoxidable cepillado
     matte: std({ vertexColors: true, roughness: 0.85 }),
     shaft: std({ color: 0x8c8e8f, roughness: 0.95 }),
     led: new THREE.MeshBasicMaterial({ color: 0xfff7ea, toneMapped: false }),
@@ -524,7 +524,7 @@ export function buildWorld(ctx) {
     if (i === FLOORS.length - 1) Sh.box(SH[0] + e, ED[0] - e, yTop, yTop + 0.1, SH[1] + e, SH[3] - e, k); // losa de sala de máquinas
     g.add(mesh(Sh.geo(), MV.shaft, false, true));
     // marco (retornos que cubren el espesor del muro, arquitrabe a ras de la cara del hall), umbral y botonera
-    const F = new GB(), cS = C('#c4c9ce'), cD = C('#3a3e43'), xa = ED[0] - 0.002, xb = ED[1], ja = 0.09;
+    const F = new GB(), cS = C('#1a1a1a'), cD = C('#3a3e43'), xa = ED[0] - 0.002, xb = ED[1], ja = 0.09;
     F.box(xa, xb, 0, DOORH, ED[2] - 0.0, ED[2] + 0.02, cS); F.box(xa, xb, 0, DOORH, ED[3] - 0.02, ED[3], cS); F.box(xa, xb, DOORH, DOORH + 0.02, ED[2], ED[3], cS);
     F.box(xb, xb + 0.018, 0, DOORH + 0.02 + ja, ED[2] - ja, ED[2] + 0.02, cS); F.box(xb, xb + 0.018, 0, DOORH + 0.02 + ja, ED[3] - 0.02, ED[3] + ja, cS); F.box(xb, xb + 0.018, DOORH + 0.02, DOORH + 0.02 + ja, ED[2] - ja, ED[3] + ja, cS);
     F.box(xa, xb + 0.03, -0.01, 0.004, ED[2] + 0.02, ED[3] - 0.02, cD); // umbral de aluminio
@@ -563,7 +563,7 @@ export function buildWorld(ctx) {
     parent.add(mesh(F.geo(), MI.alu), mesh(Gf.geo(), MI.glass, false));
     const pL = new GB(), pR = new GB(); pL.box(x + 0.01, x + 0.03, 0.02, 2.29, 4.74, 5.42, w); pR.box(x + 0.01, x + 0.03, 0.02, 2.29, 5.38, 6.06, w);
     const gL = mesh(pL.geo(), MI.glass, false), gR = mesh(pR.geo(), MI.glass, false); gL.userData.dyn = gR.userData.dyn = true; parent.add(gL, gR);
-    const ent = { g: [gL, gR], a: 0, cx: x, cz: 5.4 };
+    const ent = { g: [gL, gR], a: 0, tgt: 0, cx: x, cz: 5.4 };
     ent.set = (a) => { ent.a = a; gL.position.z = -0.62 * a; gR.position.z = 0.62 * a; };
     ent.seg = () => (ent.a > 0.85 ? null : [x + 0.02, 4.7, x + 0.02, 6.1]);
     // letreros

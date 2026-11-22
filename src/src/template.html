@@ -2,12 +2,19 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Modelo 3D interactivo del Edificio Almendra (PLANEX, Cocorná, Antioquia): 7 pisos y sótano, recorrido en primera persona. Basado en los planos PL_A002, PL_A004 y PL_A006 del 09/09/2022.">
+<meta property="og:title" content="Edificio Almendra · Modelo 3D">
+<meta property="og:description" content="Recorrido 3D del Edificio Almendra en Cocorná, Antioquia. Siete pisos, sótano y acceso. VISIONYX · URBAN.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="es_CO">
+<meta property="og:url" content="https://visionyx.duckdns.org/almendra">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23A69382'/%3E%3Cpath fill='%23E7D3B0' d='M6 24 V12 l10-6 10 6 v12z'/%3E%3C/svg%3E">
 <title>Edificio Almendra · Modelo 3D · VISIONYX URBAN</title>
 <style>
 :root{--bg:#07090d;--pn:rgba(14,18,25,.9);--ln:rgba(255,255,255,.09);--tx:#e8edf3;--mu:#8b97a6;--ac:#35d3ff;--go:#c9a77c;--cab:#ffb547}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden;background:radial-gradient(1200px 800px at 70% 20%,#1a2433 0%,#0c1118 45%,#05070a 100%);color:var(--tx);font:13px/1.4 Inter,"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+html,body{height:100%;overflow:hidden;background:radial-gradient(1200px 800px at 70% 20%,#1a2433 0%,#0c1118 45%,#05070a 100%);color:var(--tx);font:13px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
 #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 .glass{background:var(--pn);border:1px solid var(--ln);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
@@ -166,7 +173,7 @@ body.fp #side,body.fp #panel{display:none}
  <label class="sw" style="margin-top:6px"><span>Alto</span></label>
  <select id="gateH"><option value="render">Proporción del render (≈4.5 m)</option><option value="std">Alto típico 2.6 m (diseño estirado)</option></select>
  <label class="sw" style="margin-top:6px"><span>Estilo</span></label>
- <select id="gateS"><option value="render">Estilo del video (grafito con X · letrero oscuro)</option><option value="calado">Calado bronce (referencia anterior, v7)</option></select>
+ <select id="gateS"><option value="foto">Puerta bronce ED.ALMENDRA (referencia)</option><option value="render">Estilo del video (grafito con X · no es la referencia)</option><option value="calado">Calado bronce anterior (v7)</option></select>
  <h3>CORTE Y PISOS</h3>
  <select id="cut"><option value="">Sin corte (edificio completo)</option></select>
  <div id="floors"></div>
@@ -226,11 +233,11 @@ body.fp #side,body.fp #panel{display:none}
  <li><b>Balcón:</b> postes blancos, cables de acero y pasamanos amarillo (render). <b>Escalera:</b> huellas de concreto claro, contrahuella oscura y barandas negras; el render muestra una escalera de huella abierta con zanca central, pero se conserva la escalera en U del plano.</li>
  <li><b>Interiores:</b> muros blancos, piso tipo mármol 60×60 en sala/comedor/cocina/circulación, porcelanato gris en alcobas, puertas de roble, mesón blanco, LED perimetral en cielo raso y cuadros abstractos: estilo de los renders, no especificación del plano.</li>
  <li><b>Sótano:</b> concreto a la vista con pasatubos, plafones LED redondos, topellantas amarillos, baranda de vidrio en el desnivel de las plazas 1–3 y jardineras-banca con empedrado junto al punto fijo (renders del hall). Las jardineras ocupan la franja libre entre el desnivel y la escalera; ubicación <b>supuesta</b>.</li>
- <li><b>Portón:</b> por defecto el estilo del video (hojas grafito con riostras en X, letrero oscuro con letras blancas y plantas); el calado en bronce de la referencia anterior queda como opción en el panel.</li></ul>
+ <li><b>Portón:</b> por defecto la puerta de bronce de la referencia (calado de hojas de almendra, dintel «ED.ALMENDRA», manija vertical y teclado en la jamba). El grafito del video y el calado anterior quedan como opciones del panel. El alto sigue siendo una estimación: el portón no está en las planchas.</li></ul>
  <h4>APROXIMADO / INFERIDO</h4>
  <ul><li><b>Acabados y colores interiores</b> (laminado en alcobas y circulación, porcelanato en sala y hall, cerámica en cocina/ropas/baños, enchape de baño, guardaescobas, cielos rasos, luminarias): ilustrativos — las planchas no especifican acabados interiores.</li>
  <li><b>Amoblado ilustrativo:</b> camas, closets, sofás, comedores, mesones, lavaderos y lavamanos siguen los bloques del plano; alturas, colores, electrodomésticos, mesas redondas (inferidas del grupo de sillas) y espejos son supuestos. Sanitarios y platos de ducha se ubican con los símbolos del plano; la división de vidrio y la grifería son ilustrativas.</li>
- <li><b>Puertas:</b> alto 2,10 m, hojas de madera y manijas supuestas; se abren al acercarse o con E. En cocinas/salas abiertas el límite entre acabados es aproximado.</li>
+ <li><b>Puertas:</b> alto 2,10 m, hojas de madera y manijas supuestas; se abren y cierran solo con E o con el botón (no al caminar cerca). En cocinas/salas abiertas el límite entre acabados es aproximado.</li>
  <li><b>Ascensor:</b> cabina, puertas de 2 hojas centrales, botonera, indicador, capacidad y velocidad NO están en los planos (ilustrativo; el viaje está acelerado para la demo).</li>
  <li><b>Escaleras:</b> 16 contrahuellas por piso (2,70/16 ≈ 0,17 m), también 1→2. El tramo sótano→1 (3,96 m) se escala con la misma planta (≈0,25 m por contrahuella, más empinado que lo real): esa escalera no está en las planchas. Barandas de vidrio de escalera y vacíos: supuestas.</li>
  <li><b>Acceso al piso 1:</b> como el piso 1 está en N+1.00 y el paso peatonal en N+0.00, se agregan 6 escalones de 0,167 m con baranda antes de la puerta del lobby: <b>supuesto</b> (la plancha 1/6 falta; podría ser rampa o estar en otro sitio).</li>

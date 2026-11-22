@@ -1,18 +1,17 @@
 {
-  "name": "build",
+  "name": "edificio-almendra-build",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "Empaqueta el visor Three.js del Edificio Almendra en un solo HTML.",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node build.mjs"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "esbuild": "^0.28.2",
-    "playwright": "1.57",
     "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "playwright": "1.57.0"
   }
 }

@@ -1,9 +1,10 @@
+import { viewerUrl } from './html-url.mjs';
 import { chromium } from 'playwright';
 const file = process.argv[2] || 'ed_almendra_3d.html', out = process.argv[3] || 'dbg';
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
 p.on('pageerror', (e) => console.log('ERR', e.message));
-await p.goto('file:///workspace/almendra/3d/' + file);
+await p.goto(viewerUrl(file));
 await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
 await p.evaluate(() => { __app.setQuality('alta'); }); await p.evaluate(() => { __app.fpEnter(); __app.fpPose(12.6, 2.4, Math.PI / 2 - 0.05, 0.12, -1.37); __app.sim(0.3); });
 await p.waitForTimeout(2500);

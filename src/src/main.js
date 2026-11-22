@@ -15,8 +15,32 @@ const fmt = (n) => n == null ? '—' : 'COP ' + n.toLocaleString('es-CO');
 
 // ---------- renderer / scene ----------
 const canvas = $('#c');
-// v6: sin preserveDrawingBuffer (costoso); resolución limitada y adaptable (ver QUAL)
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+function glFallback(msg) {
+  let el = document.getElementById('gl-fallback');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'gl-fallback';
+    el.setAttribute('role', 'alert');
+    el.style.cssText = 'position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:24px;background:#07090d;color:#e8edf3;font:16px/1.45 system-ui,Segoe UI,sans-serif';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<div style="max-width:520px"><h2 style="font-size:20px;margin-bottom:10px">No se pudo mostrar el modelo 3D</h2><p>${msg}</p><p style="margin-top:12px"><button type="button" onclick="location.reload()" style="background:#35d3ff;color:#061018;border:0;border-radius:8px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer">Recargar</button></p></div>`;
+}
+let renderer;
+let glLost = false;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+  if (!renderer.getContext()) throw new Error('sin contexto');
+} catch (err) {
+  glFallback('Este navegador no tiene WebGL disponible, o la aceleración gráfica está desactivada. Prueba con Chrome o Edge actualizado, activa la aceleración por hardware y recarga la página.');
+  throw err;
+}
+canvas.addEventListener('webglcontextlost', (ev) => {
+  ev.preventDefault();
+  glLost = true;
+  glFallback('Se perdió el contexto gráfico: la GPU dejó de responder. Recarga la página para volver a ver el edificio.');
+}, false);
+canvas.addEventListener('webglcontextrestored', () => { location.reload(); }, false);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -75,6 +99,8 @@ const texAsph = canvasTex(256, 256, (g, w, h) => {
 const loader = new THREE.TextureLoader();
 const texDoor = loader.load(TEX.door); texDoor.colorSpace = THREE.SRGBColorSpace; texDoor.anisotropy = 8;
 const texSign = loader.load(TEX.sign); texSign.colorSpace = THREE.SRGBColorSpace; texSign.anisotropy = 8;
+const texPuerta = loader.load(TEX.puerta); texPuerta.colorSpace = THREE.SRGBColorSpace; texPuerta.anisotropy = 8;
+const texLetrero = loader.load(TEX.letrero); texLetrero.colorSpace = THREE.SRGBColorSpace; texLetrero.anisotropy = 8;
 
 // ---------- materials (cuadro de materiales PL_A006) ----------
 const M = {
@@ -89,6 +115,7 @@ const M = {
   drip: new THREE.MeshStandardMaterial({ color: 0xcfcac0, roughness: 0.6 }),             // 9 cortagoteras
   roof: new THREE.MeshStandardMaterial({ color: 0xffffff, map: texRoof, metalness: 0.4, roughness: 0.5 }), // 10 cubierta termoacústica
   conc: new THREE.MeshStandardMaterial({ color: 0x9c9a94, roughness: 0.95 }),
+  park: new THREE.MeshStandardMaterial({ color: 0x8c8c8c, roughness: 0.92 }),
   asph: new THREE.MeshStandardMaterial({ color: 0xffffff, map: texAsph, roughness: 0.95 }),
   f1: new THREE.MeshStandardMaterial({ color: 0xffffff, map: texHatch, roughness: 0.9, transparent: true, opacity: 0.86 }),
   ground: new THREE.MeshStandardMaterial({ color: 0x1b2027, roughness: 1 }),
@@ -100,7 +127,7 @@ texRoof.repeat.set(2, 1);
 const T8 = makeTex8();
 const st8 = (c, map, r = 0.9, o = {}) => new THREE.MeshStandardMaterial({ color: c, map, roughness: r, ...o });
 const F8 = {
-  render: st8(0xa9845c, T8.stucco, 0.88),   // revoque café/caramelo (marcos, pilastras, antepecho)
+  render: st8(0xa69382, T8.stucco, 0.88),   // marco moca/taupe #A69382 (fotos y PL_A006, café)
   grey: st8(0xb5b1aa, T8.rough, 0.95),      // gris texturizado (graniplast)
   wood: st8(0xffdfa6, T8.slats, 0.72, { normalMap: T8.slatsN, normalScale: new THREE.Vector2(1.1, 1.1) }),      // listones de madera clara (pino)
   woodD: st8(0xffdfa6, T8.slats, 0.72, { normalMap: T8.slatsN, normalScale: new THREE.Vector2(1.1, 1.1) }),      // listones más oscuros del costado azul (ref_01)
@@ -114,8 +141,8 @@ const F8 = {
   stuccoVC: st8(0xffffff, T8.stucco, 0.87, { vertexColors: true }), // v8: revoques fundidos con color por vértice
   slatVC: st8(0xffffff, T8.slats, 0.71, { vertexColors: true, normalMap: T8.slatsN, normalScale: new THREE.Vector2(1.1, 1.1) }),    // v8: listones claros + oscuros fundidos
 };
-M.alu.color.set(0x1b1c1e); M.alu.metalness = 0.55; M.alu.roughness = 0.4; // v8: perfilería negra
-M.glass.color.set(0x2d3236); M.glass.metalness = 0.9; M.glass.roughness = 0.06; M.glass.opacity = 0.74;
+M.alu.color.set(0x1a1a1a); M.alu.metalness = 0.55; M.alu.roughness = 0.4; // perfilería negra #1A1A1A
+M.glass.color.set(0x9eb8c9); M.glass.metalness = 0.55; M.glass.roughness = 0.08; M.glass.opacity = 0.55; // vidrio levemente azulado y reflectivo (fotos)
 M.rglass = new THREE.MeshStandardMaterial({ color: 0xdfe9ec, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide });
 M.slab.color.set(0xd2d0ca);
 M.conc.map = T8.concFloor; M.conc.color.set(0xffffff); M.conc.roughness = 0.82;
@@ -294,17 +321,24 @@ const GT = { leaves: [] };
   // v8: estilo del video/renders → hojas grafito con riostras en X, franja oscura con letras blancas y plantas colgantes
   const gtex8 = gateTexture(U), stex8 = signTexture('ED. ALMENDRA');
   const ivyS = new THREE.Mesh(mergeGeometries([ivyGeo([-0.272, GT.Z0 + 0.05], [-0.272, GT.Z1 - 0.05], 0.13, 0.42), ivyGeo([-0.235, GT.Z0 + 0.3], [-0.235, GT.Z1 - 0.3], 0.15, 0.3)]), PM8.ivy); L1.add(ivyS);
-  const pot = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), bandMat); L1.add(pot); pot.castShadow = true;
-  GT.style = 'render';
-  GT.setStyle = (k) => { GT.style = k; const r = k === 'render';
-    gmat.map = r ? gtex8 : texDoor; gmat.metalness = r ? 0.45 : 0.55; gmat.roughness = r ? 0.5 : 0.42; gmat.needsUpdate = true;
-    fmat.color.set(r ? 0x2a2b2e : 0x5a3f27); hmat.color.set(r ? 0x1c1d1f : 0x3a2818);
-    signM.material.map = r ? stex8 : texSign; signM.material.emissive.set(r ? 0x000000 : 0x332a20); signM.material.needsUpdate = true;
-    bandMat.color.set(r ? 0x3b332d : 0xc9c6bf); ivyS.visible = pot.visible = r;
-    if (GT.kBronze) GT.kBronze.color.set(r ? 0x2e3034 : 0x6b4a2c); };
+  const pot = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), bandMat.clone()); L1.add(pot); pot.castShadow = true;
+  const gatePlant = new THREE.Mesh(tropicalGeo(-1.2, 0.42, GT.Z0 - 0.15, 0.85, 0.7, 0.4), PM8.trop); gatePlant.castShadow = true; L1.add(gatePlant); GT.gatePlant = gatePlant;
+  GT.style = 'foto';
+  GT.setStyle = (k) => { GT.style = k; const foto = k === 'foto', r = k === 'render';
+    gmat.map = foto ? texPuerta : r ? gtex8 : texDoor; gmat.color.set(0xffffff);
+    gmat.metalness = foto ? 0.42 : r ? 0.45 : 0.55; gmat.roughness = foto ? 0.48 : r ? 0.5 : 0.42; gmat.needsUpdate = true;
+    fmat.color.set(foto ? 0x8c6239 : r ? 0x2a2b2e : 0x5a3f27); hmat.color.set(foto ? 0x5c4328 : r ? 0x1c1d1f : 0x3a2818);
+    signM.material.map = foto ? texLetrero : r ? stex8 : texSign; signM.material.emissive.set(0x000000); signM.material.roughness = foto ? 0.82 : 0.6; signM.material.metalness = foto ? 0.05 : 0;
+    signM.material.needsUpdate = true;
+    bandMat.color.set(foto ? 0xd5d2cb : r ? 0x3b332d : 0xc9c6bf); ivyS.visible = r; pot.visible = foto || r;
+    if (gatePlant) gatePlant.visible = foto;
+    if (GT.kBronze) GT.kBronze.color.set(foto ? 0x8c6239 : r ? 0x2e3034 : 0x6b4a2c);
+    if (GT.layout) GT.layout(GT.hs || 1); };
   GT.layout = (hs) => {
     g.scale.y = hs; const top = H * hs + 0.04;
-    ivyS.position.y = top - 0.02; pot.scale.set(0.14, 0.16, W + 0.2); pot.position.set(-0.19, top + 0.06, (GT.Z0 + GT.Z1) / 2);
+    ivyS.position.y = top - 0.02;
+    if (GT.style === 'foto') { pot.scale.set(0.85, 0.42, 0.7); pot.position.set(-1.25, 0.21, GT.Z0 - 0.2); pot.material.color.set(0xf4f1ea); }
+    else { pot.scale.set(0.14, 0.16, W + 0.2); pot.position.set(-0.19, top + 0.06, (GT.Z0 + GT.Z1) / 2); pot.material.color.set(bandMat.color); }
     signM.position.set(-0.13, top + sH / 2, (GT.Z0 + GT.Z1) / 2);
     band.scale.set(0.24, sH, W + 0.3); band.position.set(0, top + sH / 2, (GT.Z0 + GT.Z1) / 2);
     postA.scale.set(0.24, top + sH, 0.15); postA.position.set(0, (top + sH) / 2, GT.Z0 - 0.075);
@@ -349,7 +383,7 @@ const GT = { leaves: [] };
     const cd = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, ky - eh / 2 - 0.35, 10), steel); cd.position.set(-0.05, (ky - eh / 2 + 0.35) / 2, kz + 0.06); K.add(cd);
     K.add(meshOf([boxG(-0.062, -0.036, 0.31, 0.37, kz + 0.04, kz + 0.08)], steel));
   }
-  GT.setStyle('render');
+  GT.setStyle('foto');
   // paso peatonal (adentro), baranda sobre la rampa, bordillo/antepecho de la rampa a cielo abierto
   L1.add(meshOf([boxG(0.05, 7.84, 0, 0.03, 4.0, 6.74)], new THREE.MeshStandardMaterial({ color: 0x7b7f86, roughness: 0.9 })));
   { const st = []; for (let k = 1; k <= STEPS.n; k++) { const xa = STEPS.x0 + (k - 1) * 0.3; st.push(boxG(xa, STEPS.x1, 0, (k / STEPS.n) * LEVY.p1, STEPS.z0, STEPS.z1)); }
@@ -446,8 +480,8 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
 {
   const B = lv('sot').g, y0 = RAMP.low, yd = RAMP.deck, CEIL = LEVY.p1 - 0.2;
   const sotWall = new THREE.MeshStandardMaterial({ color: 0xf2f1ee, map: T8.concTie, roughness: 0.9 }); M.sotWall = sotWall; // v8: concreto a la vista con pasatubos (ref_04/ref_10)
-  B.add(meshOf([extrude(S.lower, y0 - 0.25, 0.25)], M.conc));
-  B.add(meshOf([extrude(S.deck, y0 - 0.25, yd - y0 + 0.25)], M.conc));
+  B.add(meshOf([extrude(S.lower, y0 - 0.25, 0.25)], M.park));
+  B.add(meshOf([extrude(S.deck, y0 - 0.25, yd - y0 + 0.25)], M.park));
   B.add(meshOf([extrude(I.sotx.walls_in, y0, CEIL - y0)], sotWall)); B.add(meshOf([extrude(I.sotx.walls_out, y0, -0.2 - y0)], M.side));
   B.add(meshOf([extrude(I.sotx.cols_in, y0, CEIL - y0)], new THREE.MeshStandardMaterial({ color: 0xe6e5e1, map: T8.concTie, roughness: 0.9 })));
   buildRamp(B);
@@ -709,6 +743,13 @@ carPark();
   for (const c of FMOD.corners) { const d = 0.14, x0 = Math.min(c.p[0], c.p[0] + (c.n1[0] + c.n2[0]) * d), x1 = Math.max(c.p[0], c.p[0] + (c.n1[0] + c.n2[0]) * d), z0 = Math.min(c.p[1], c.p[1] + (c.n1[1] + c.n2[1]) * d), z1 = Math.max(c.p[1], c.p[1] + (c.n1[1] + c.n2[1]) * d); if (x1 - x0 > 0.01 && z1 - z0 > 0.01) par.push(worldUV(boxG(x0, x1, PT, PY, z0, z1))); }
   par.push(segBox([6.864, 4.069], [0, -1], [-1, 0], 0, 3.45, PT, PY, 0.0, 0.14)); // frente del balcón
   R.add(meshOf(par, F8.render)); R.add(meshOf(parC, F8.char)); R.add(meshOf(parIn, F8.render));
+  const flash = [];
+  for (const sg of FMOD.segs) { if (sg.cls === 'recess') continue; flash.push(segBox(sg.a, sg.u, sg.n, 0, sg.L, PY - 0.015, PY + 0.035, 0.06, 0.2)); }
+  if (flash.length) R.add(meshOf(flash, new THREE.MeshStandardMaterial({ color: 0x2a2c2e, metalness: 0.65, roughness: 0.35 })));
+  { const pv = document.createElement('canvas'); pv.width = pv.height = 256; const g = pv.getContext('2d'); g.fillStyle = '#c0c0c0'; g.fillRect(0, 0, 256, 256);
+    g.strokeStyle = '#8e8e8e'; g.lineWidth = 3; for (let i = 0; i <= 4; i++) { g.beginPath(); g.moveTo(i * 64, 0); g.lineTo(i * 64, 256); g.stroke(); g.beginPath(); g.moveTo(0, i * 64); g.lineTo(256, i * 64); g.stroke(); }
+    const pt = new THREE.CanvasTexture(pv); pt.wrapS = pt.wrapT = THREE.RepeatWrapping; pt.colorSpace = THREE.SRGBColorSpace; pt.repeat.set(0.35, 0.35);
+    const top = new THREE.Mesh(extrude(S.foot2, y + 0.005, 0.015), new THREE.MeshStandardMaterial({ map: pt, color: 0xc0c0c0, roughness: 0.9 })); top.receiveShadow = true; R.add(top); }
   R.add(meshOf([worldUV(boxG(6.864, 7.835, PT, y, 0.718, 3.969))], F8.recess)); // losa/cielo sobre el balcón del piso 7
   // volumen punto fijo sobre cubierta (aproximado, ≈N+24.4) en revoque café como en el video
   R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 24.2, 9.4, 12.6))], F8.render));
@@ -1065,7 +1106,7 @@ function kioskUpdate(dt) {
   if (N.d > 1.8) KS.armed = true;
   const inWay = FP.on && FP.x > -0.9 && FP.x < 2.1 && FP.z > GT.Z0 + GT.U.p0 * GT.W - 0.1 && FP.z < GT.Z0 + GT.U.p1 * GT.W + 0.3;
   switch (KS.st) {
-    case 'idle': if (N.look && KS.armed) { KS.st = 'scan'; KS.t = 0; } break;
+    case 'idle': break; // no abre al acercarse: solo con E / toque (pedCycle)
     case 'scan': if (!N.look && KS.t < 1.6) { KS.st = 'idle'; KS.t = 0; } else if (KS.t >= 2.4) { KS.armed = false; if (pedCycle('face')) welcome(); } break;
     case 'ok': if (KS.t >= 0.45) { GT.ped.tgt = 1; KS.st = 'open'; KS.t = 0; } break;
     case 'open': if (FP.on && FP.x > 1.6) KS.passed = true;
@@ -1088,8 +1129,7 @@ function kioskPrompt() {
     if (s === 'ok' || s === 'open') return KS.src === 'face' ? '<span class="kp ok">✓ Bienvenido, propietario · relé ESP32 → cerradura liberada · pasa por la puerta peatonal</span>' : '<span class="kp ok">✓ Puerta peatonal abierta</span>';
     if (s === 'vehopen') return '<span class="kp">Portón vehicular abierto: la peatonal permanece cerrada dentro de su hoja</span>';
     if (s === 'closing' || s === 'done') return '<span class="kp">Puerta cerrándose · cerradura fail‑secure se re‑enclava</span>';
-    if (N.d < 1.2) return '<span class="kp">Mira la pantalla del kiosko para iniciar el reconocimiento facial</span>';
-    return '<span class="kp">Acércate al kiosko (jamba derecha, ≈1,5 m) para reconocimiento facial</span>';
+    return '';
   }
   if (FP.x > 0 && FP.x < 5.5 && (s === 'open' || s === 'closing' || s === 'done')) return '<span class="kp ok">Bienvenido a Ed. Almendra · la puerta se cierra sola detrás de ti</span>';
   return '';
@@ -1186,6 +1226,7 @@ function findFocus() {
   const consider = (o, kind, px, pz, lab) => { const dx = px - FP.x, dz = pz - FP.z, d = Math.hypot(dx, dz); if (d > 1.9) return; const dot = (dx * fx + dz * fz) / (d || 1); if (d > 0.8 && dot < 0.55) return; const sc = d * (1.6 - dot); if (sc < bs) { bs = sc; best = { o, kind, lab }; } };
   if (E && Math.abs(FP.y - E.y) < 1.2) { for (const d of E.doors) consider(d, 'door', d.cx, d.cz); if (E.bal) consider(E.bal, 'bal', E.bal.cx, E.bal.cz); }
   if (FP.lvl === 'sot') for (const d of SV.doors) if (Math.abs(FP.y - d.fy) < 0.7) consider(d, 'door', d.cx, d.cz);
+  if (FP.lvl === 'p1' && E && E.ent && Math.abs(FP.y - LEVY.p1) < 0.6) consider(E.ent, 'ent', E.ent.cx, E.ent.cz);
   if (FP.lvl === 'p1' && FP.x < 3.2 && Math.abs(FP.y) < 0.4) { const pz0 = GT.Z0 + GT.U.p0 * GT.W - 0.4; if (FP.z > pz0 && FP.z < GT.Z1 + 0.8) best = { kind: FP.x > 0 ? 'rex' : 'ped' }; else if (FP.z < pz0 && FP.z > GT.Z0 - 1) best = { kind: 'veh' }; }
   return best;
 }
@@ -1194,7 +1235,7 @@ function interact(f = FP.focus) {
   if (FP.inCab) { const k = panelKeyAtCenter(); if (k) { pressKey(k); return; } if (EV.state === 'open' || EV.state === 'opening') evClose(); else evOpen(); return; }
   if (nearElev()) { evRequest(FP.lvl, 'land'); return; }
   if (!f) return;
-  if (f.kind === 'door') { f.o.tgt = f.o.tgt ? 0 : 1; f.o.manual = performance.now(); sfx('door'); }
+  if (f.kind === 'door' || f.kind === 'ent') { f.o.tgt = f.o.tgt ? 0 : 1; f.o.manual = performance.now(); sfx(f.kind === 'ent' ? 'slide' : 'door'); }
   else if (f.kind === 'bal') { f.o.tgt = f.o.tgt ? 0 : 1; sfx('slide'); }
   else if (f.kind === 'ped') { if (KS.st === 'idle') pedCycle('app'); }
   else if (f.kind === 'rex') { if (KS.st === 'idle' || KS.st === 'done') pedCycle('rex'); }
@@ -1251,18 +1292,14 @@ function evUpdate(dt) {
 }
 // ---------- puertas ----------
 function doorsUpdate(dt) {
-  const now = performance.now();
   for (const id of FLOORS) { const E = LEV[id]; if (!E || !E.int.visible) continue;
-    const pl = FP.on && Math.abs(FP.y - E.y) < 1.0;
     for (const d of E.doors) {
-      if (pl && !d.tgt && (!d.manual || now - d.manual > 4000)) { const dd = Math.hypot(FP.x - d.cx, FP.z - d.cz); if (dd < 0.95) { const fx = -Math.sin(FP.yaw), fz = -Math.cos(FP.yaw); if (((d.cx - FP.x) * fx + (d.cz - FP.z) * fz) / (dd || 1) > 0.2 || dd < 0.5) { d.tgt = 1; sfx('door'); } } }
       const goal = d.tgt * d.max; if (Math.abs(d.a - goal) > 1e-3) { d.set(d.a + Math.sign(goal - d.a) * Math.min(Math.abs(goal - d.a), dt * 2.4)); MOV.t = performance.now(); }
     }
     if (E.bal) { if (Math.abs(E.bal.a - E.bal.tgt) > 1e-3) E.bal.set(E.bal.a + Math.sign(E.bal.tgt - E.bal.a) * Math.min(Math.abs(E.bal.tgt - E.bal.a), dt * 1.2)); }
-    if (id === 'sot') for (const d of SV.doors) { const pl2 = FP.on && Math.abs(FP.y - d.fy) < 0.7;
-      if (pl2 && !d.tgt && (!d.manual || now - d.manual > 4000)) { const dd = Math.hypot(FP.x - d.cx, FP.z - d.cz); if (dd < 0.95) { const fx = -Math.sin(FP.yaw), fz = -Math.cos(FP.yaw); if (((d.cx - FP.x) * fx + (d.cz - FP.z) * fz) / (dd || 1) > 0.2 || dd < 0.5) { d.tgt = 1; sfx('door'); } } }
+    if (id === 'sot') for (const d of SV.doors) {
       const goal = d.tgt * d.max; if (Math.abs(d.a - goal) > 1e-3) d.set(d.a + Math.sign(goal - d.a) * Math.min(Math.abs(goal - d.a), dt * 2.4)); }
-    if (E.ent) { const want = pl && FP.x > 5.2 && FP.x < 10.5 && FP.z > 3.9 && FP.z < 6.9 ? 1 : 0; if (Math.abs(E.ent.a - want) > 1e-3) E.ent.set(E.ent.a + Math.sign(want - E.ent.a) * Math.min(Math.abs(want - E.ent.a), dt * 1.6)); }
+    if (E.ent) { const want = E.ent.tgt || 0; if (Math.abs(E.ent.a - want) > 1e-3) E.ent.set(E.ent.a + Math.sign(want - E.ent.a) * Math.min(Math.abs(want - E.ent.a), dt * 1.6)); }
   }
 }
 // ---------- sonido (WebAudio, silenciado por defecto) ----------
@@ -1370,7 +1407,7 @@ function fpHud() {
   if (FP.auto) pr = '<span class="auto">Recorrido automático…</span>';
   else if (FP.inCab) { pr = EV.state === 'moving' ? (EV.dir > 0 ? '▲ Subiendo' : '▼ Bajando') + ' · piso ' + EV.curLabel + (EV.target ? ' → ' + FLABEL[EV.target] : '') : 'Elige el piso: mira la botonera y <b>E</b>/clic, o teclas <b>1–7</b> · <b>0</b> = Sótano · <b>O</b> abrir · <b>C</b> cerrar'; act = EV.state === 'open' || EV.state === 'opening' ? 'Cerrar' : 'Abrir'; ek = 'cab'; }
   else if (nearElev()) { const here = evHere(FP.lvl); pr = here && EV.door > 0.6 ? 'Puertas abiertas · <b>camina</b> hacia la cabina y elige el piso adentro' : EV.target === FP.lvl || EV.q.includes(FP.lvl) ? 'Llamada registrada · la cabina viene (piso ' + EV.curLabel + ')' + (FP.hint ? ' · entra y elige ' + FLABEL[FP.hint] : '') : '<b>E</b> Llamar ascensor'; act = here && EV.door > 0.6 ? 'Mantener' : 'Llamar'; ek = 'land'; }
-  else if (f) { if (f.kind === 'door') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta · ${doorLabel(f.o, FP.lvl)}`; } else if (f.kind === 'bal') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta‑ventana del balcón`; } else if (f.kind === 'ped') { act = 'App'; pr = 'Acércate al kiosko para reconocimiento facial · <b>E</b> abrir con la app URBAN (simulado) · <b>V</b> portón vehicular'; } else if (f.kind === 'rex') { act = 'Salir'; pr = '<b>E</b> Botón de salida · abrir puerta peatonal'; } else if (f.kind === 'veh') { act = 'Portón'; pr = '<b>V</b> Abrir portón vehicular · abre en 2 hojas, la peatonal queda cerrada (motor: fase 2)'; } }
+  else if (f) { if (f.kind === 'door' || f.kind === 'ent') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; const que = f.kind === 'ent' ? 'la puerta del lobby' : ('la puerta · ' + doorLabel(f.o, FP.lvl)); pr = `<b>E</b> Presiona E / toca para ${act.toLowerCase()} ${que}`; } else if (f.kind === 'bal') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> Presiona E / toca para ${act.toLowerCase()} la puerta‑ventana del balcón`; } else if (f.kind === 'ped' || f.kind === 'rex') { act = 'Abrir'; pr = '<b>E</b> Presiona E / toca para abrir la puerta peatonal'; } else if (f.kind === 'veh') { act = GT.v1.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>V</b> Presiona V / toca para ${act.toLowerCase()} el portón`; } }
   const kp = kioskPrompt(); if (kp && !FP.inCab) pr = kp;
   const key = a + b + pr + act + ek + EV.state + EV.curLabel + EV.target + EV.q.join() + FP.lvl;
   if (key === lastHud) return; lastHud = key;
@@ -1607,6 +1644,7 @@ $('#qSel') && ($('#qSel').onchange = (e) => setQuality(e.target.value));
 goView('general', true); applyVis();
 const clock = new THREE.Clock();
 function loop(now) {
+  if (glLost) return;
   requestAnimationFrame(loop);
   const t = clock.getElapsedTime();
   if (tween) { const u = Math.min(1, (now - tween.s) / tween.d), k = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
@@ -1632,5 +1670,6 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 function sim(sec, step = 1 / 30) { for (let t = 0; t < sec; t += step) { evUpdate(step); if (FP.on) fpUpdate(step); doorsUpdate(step); gateUpdate(step); kioskUpdate(step); carUpdate(step); } }
-window.__app = { THREE, SV, VEH, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); } };
+const QA_MODE = /(?:^|[?&#])(qa|debug)=1(?:&|$)/.test(location.search + location.hash);
+if (QA_MODE) window.__app = { THREE, SV, VEH, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); } };
 document.body.classList.add('ready');

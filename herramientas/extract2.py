@@ -1,8 +1,15 @@
-import json, sys, math
+import json, sys, math, os, argparse
 from shapely.geometry import Polygon, LineString, Point, box, LinearRing
 from shapely.ops import unary_union, substring
-sys.path.insert(0,'/workspace/almendra/bom'); import items
-g=json.load(open('data/geom.json'))
+ap = argparse.ArgumentParser(description='Arma datos/scene.json desde datos/geom.json.')
+ap.add_argument('--geom', default=os.environ.get('GEOM_JSON', 'datos/geom.json'))
+ap.add_argument('--out', default=os.environ.get('SCENE_JSON', 'datos/scene.json'))
+ap.add_argument('--pypath', default=os.environ.get('ALMENDRA_PYPATH', ''), help='Carpeta con el módulo items (no está en este repo)')
+args = ap.parse_args()
+if args.pypath:
+    sys.path.insert(0, args.pypath)
+import items
+g=json.load(open(args.geom))
 P=lambda d:Polygon(d['o'],d.get('h',[])).buffer(0)
 U=lambda k:unary_union([P(d) for d in g[k]])
 def polys(geom,tol=0.008):
@@ -74,5 +81,5 @@ bom=[dict(i=i,g=x['g'],it=x['it'],q=x['q'],m=x['m'],p=x['p'],st=x['st'],why=x['w
 out=dict(walls2=polys(W2),lint2=polys(L2.difference(W2).buffer(0)),cols2=polys(C2),foot2=polys(F2),f1=polys(f1),
   walls4=polys(W4),cols4=polys(C4),foot4=polys(F4),bas_ceil=polys(F4.difference(box(-1,-1,7.8,3.95))),
   skin=skin,nflip=flip,bom=bom)
-json.dump(out,open('data/scene.json','w'),separators=(',',':'))
-import os;print(os.path.getsize('data/scene.json'))
+json.dump(out,open(args.out,'w'),separators=(',',':'))
+print(os.path.getsize(args.out))

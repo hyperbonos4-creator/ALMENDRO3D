@@ -1,7 +1,8 @@
+import { viewerUrl } from './html-url.mjs';
 import { chromium } from 'playwright';
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } }); p.on('pageerror', (e) => console.log('ERR', e.message));
-await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+await p.goto(viewerUrl());
 await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
 const r = await p.evaluate(() => { const T = __app.THREE; __app.fpEnter(); __app.fpPose(20.3, 11.3, -1.75, -0.6, 3.7); __app.sim(0.2);
   const o = new T.Vector3(20.3, 3.7 + 1.62, 11.3), out = [];

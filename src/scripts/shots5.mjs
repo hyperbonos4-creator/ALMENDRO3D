@@ -1,3 +1,4 @@
+import { viewerUrl } from './html-url.mjs';
 import { chromium } from 'playwright';
 const only = process.argv[2];
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -7,7 +8,7 @@ async function shot(name, fn, vp = { width: 1600, height: 1000 }, wait = 2500) {
   const p = await b.newPage({ viewport: vp, deviceScaleFactor: 1 });
   p.on('console', (m) => { if (m.type() !== 'log' || /error|warn/i.test(m.text())) logs.push(`[${name}] ${m.type()}: ${m.text()}`); });
   p.on('pageerror', (e) => logs.push(`[${name}] PAGEERROR: ${e.message}`));
-  await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+  await p.goto(viewerUrl());
   await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
   await p.waitForTimeout(500);
   const info = await fn(p);
@@ -35,7 +36,7 @@ await shot('58_puerta_cerrada_reenclavada', async (p) => { return await E(p, (o)
 await shot('59_veh_bloquea_peatonal_kiosko', async (p) => { return await E(p, (o) => { eval(o); __app.openVeh(true); __app.CAR.t = -1; __app.CAR.m.visible = false; __app.GT.v1.cur = __app.GT.v2.cur = 1; __app.fpEnter(); __app.CAR.m.visible = false; const r = __app.pedCycle('face'); __app.KS.frozen = true; __app.KS.dirty = true; __app.fpPose(-0.47, kz + 0.01, -Math.PI / 2, -0.34, 0); __app.sim(0.1); return { r, st: __app.KS.st, ped: __app.GT.ped.cur }; }, kz); });
 await shot('60_movil_kiosko', async (p) => { await E(p, (o) => { eval(o); __app.fpEnter(); __app.fpPose(-0.7, kz, -Math.PI / 2, -0.08, 0); __app.KS.frozen = true; __app.KS.st = 'scan'; __app.KS.t = 1.2; __app.KS.dirty = true; __app.sim(0.1); }, kz); }, { width: 390, height: 844 });
 // capturas planas de la pantalla del kiosko (canvas) en cada estado
-{ const p = await b.newPage({ viewport: { width: 800, height: 500 } }); await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html'); await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
+{ const p = await b.newPage({ viewport: { width: 800, height: 500 } }); await p.goto(viewerUrl()); await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
   const urls = await p.evaluate(() => { const K = __app.KS; K.frozen = true; const out = {}; for (const [st, t, src] of [['idle', 0, 'face'], ['scan', 1.4, 'face'], ['open', 0, 'face'], ['done', 0, 'face'], ['vehopen', 0, 'face']]) { K.st = st; K.t = t; K.src = src; __app.drawKiosk(); out[st] = __app.GT.kcv.toDataURL('image/png'); } return out; });
   const fs = await import('fs'); for (const [k, v] of Object.entries(urls)) fs.writeFileSync(`../shots5/ui_${k}.png`, Buffer.from(v.split(',')[1], 'base64')); await p.close(); }
 console.log(logs.join('\n')); console.log('all logs', logs.length);

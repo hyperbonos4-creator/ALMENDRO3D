@@ -1,4 +1,6 @@
 node_modules/
+planos/
+src/package-lock.json.bak
 *.tgz
 *.pkl
 *.npy

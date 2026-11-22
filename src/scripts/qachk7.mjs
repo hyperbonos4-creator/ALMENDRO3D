@@ -1,9 +1,10 @@
+import { viewerUrl } from './html-url.mjs';
 // v7 QA programático: coplanaridad (z-fighting), altura libre en escalera, holgura de cámara, mobiliario fuera de recintos
 import { chromium } from 'playwright';
 import fs from 'fs';
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 800, height: 450 } }); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
-await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+await p.goto(viewerUrl());
 await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
 const out = await p.evaluate(() => {
   const T = __app.THREE, W = __app.W, LEVY = __app.LEVY; const R = {};

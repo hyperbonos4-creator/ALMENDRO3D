@@ -1,3 +1,4 @@
+import { viewerUrl } from './html-url.mjs';
 import { chromium } from 'playwright';
 const only = process.argv[2];
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -7,7 +8,7 @@ async function shot(name, fn, vp = { width: 1600, height: 1000 }, wait = 2500) {
   const p = await b.newPage({ viewport: vp, deviceScaleFactor: 1 });
   p.on('console', (m) => { if (m.type() !== 'log' || /error|warn/i.test(m.text())) logs.push(`[${name}] ${m.type()}: ${m.text()}`); });
   p.on('pageerror', (e) => logs.push(`[${name}] PAGEERROR: ${e.message}`));
-  await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+  await p.goto(viewerUrl());
   await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
   await p.evaluate(() => __app.setQuality('alta'));
   await p.waitForTimeout(300);

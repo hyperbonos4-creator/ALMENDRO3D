@@ -1,5 +1,11 @@
-import pymupdf, json, re, numpy as np, sys
-sys.path.insert(0,'/workspace/almendra/work')
+import pymupdf, json, re, numpy as np, sys, os, argparse
+ap = argparse.ArgumentParser(description='Extrae geometría de PL_A002 y PL_A004. Los PDF no van en el repo público.')
+ap.add_argument('--planos', default=os.environ.get('PLANOS_DIR', 'planos'), help='Carpeta con PL_A002.pdf y PL_A004.pdf')
+ap.add_argument('--out', default=os.environ.get('GEOM_JSON', 'datos/geom.json'))
+ap.add_argument('--pypath', default=os.environ.get('ALMENDRA_PYPATH', ''), help='Carpeta con los módulos vec y sheets (no están en este repo)')
+args = ap.parse_args()
+if args.pypath:
+    sys.path.insert(0, args.pypath)
 from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 from vec import text_spans
@@ -10,7 +16,7 @@ OX,OY=243.84,95.52      # origen = esquina min de muros A004
 def w4(x,y): return ((x-OX)/PTM, (y-OY)/PTM)
 def w2(x,y): return w4(x+DX,y+DY)
 ID=lambda a,b:(a,b)
-P2=pymupdf.open('A002.pdf')[0]; P4=pymupdf.open('A004.pdf')[0]
+P2=pymupdf.open(os.path.join(args.planos,'PL_A002.pdf'))[0]; P4=pymupdf.open(os.path.join(args.planos,'PL_A004.pdf'))[0]
 D2=P2.get_drawings(); D4=P4.get_drawings()
 WALL=(0.45,0.37,0.24); FLOOR=(0.81,0.81,0.76)
 def subpaths(x,T):
@@ -153,4 +159,4 @@ def texts(page,T,minsz=4,maxsz=30):
 json.dump(dict(walls2=geo(wall2),walls4=geo(wall4),lint2=geo(lint2),lint4=geo(lint4),foot2=geo(foot2),foot4=geo(foot4),
   cols2=geo(unary_union(C2)),cols4=geo(unary_union(C4)),floors2=geo(unary_union(F2)),floors4=geo(unary_union(F4)),
   wins=wins,opens=opens,miss=[dict(code=t['name'],p=w2(t['x'],t['y']),sill=float(t['sill']),head=float(t['dint'])) for t in miss],
-  texts2=texts(P2,w2),texts4=texts(P4,w4)),open('/workspace/almendra/3d/data/geom.json','w'))
+  texts2=texts(P2,w2),texts4=texts(P4,w4)),open(args.out,'w'))

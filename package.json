@@ -1,0 +1,8 @@
+{
+  "name": "edificio-almendra",
+  "private": true,
+  "description": "Visor 3D offline del Edificio Almendra. npm run build genera publicado/ed_almendra_3d.html.",
+  "scripts": {
+    "build": "npm --prefix src install --no-audit --no-fund && npm --prefix src run build"
+  }
+}

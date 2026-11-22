@@ -1,6 +1,10 @@
-import json,sys
+import json,sys,os,argparse
 from PIL import Image, ImageDraw
-g=json.load(open('data/geom.json'))
+ap=argparse.ArgumentParser(description='Dibuja datos/geom.json para revisión.')
+ap.add_argument('--geom', default=os.environ.get('GEOM_JSON','datos/geom.json'))
+ap.add_argument('png', nargs='?', default='/tmp/viz2.png')
+args=ap.parse_args()
+g=json.load(open(args.geom))
 S=34; X0,Y0=6,-1
 im=Image.new('RGB',(int(23*S),int(27*S)),'white'); d=ImageDraw.Draw(im)
 P=lambda a,b:((a-X0)*S,(b-Y0)*S)
@@ -15,4 +19,4 @@ for o in g['opens']:
     if o['code']: d.text(P(*o['pts'][0]),o['code'],fill='blue')
 for t in g['texts2']:
     if 6<t['p'][0]<30: d.text(P(*t['p']),t['t'],fill=(200,0,0))
-im.save(sys.argv[1] if len(sys.argv)>1 else '/tmp/viz2.png')
+im.save(args.png)

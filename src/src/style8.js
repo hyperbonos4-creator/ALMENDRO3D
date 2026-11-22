@@ -23,7 +23,7 @@ export function makeTex8() {
   // listones verticales de madera clara (pino) — 1.2 m × 2.4 m, 20 listones de 6 cm con dilatación
   T.slats = tex(cvs(512, 1024, (g, w, h) => { // v8.1: pino claro ≈ #C9A46E (× color por vértice) con ranuras visibles
     const n = 16, sw = w / n;
-    for (let i = 0; i < n; i++) { const x = i * sw; const c = new THREE.Color().setHSL(0.098 + (rnd() - 0.5) * 0.01, 0.52 + rnd() * 0.06, 0.65 + (rnd() - 0.5) * 0.05); g.fillStyle = '#' + c.getHexString(); g.fillRect(x, 0, sw, h);
+    for (let i = 0; i < n; i++) { const x = i * sw; const c = new THREE.Color().setHSL(0.09, 0.08, 0.93 + (rnd() - 0.5) * 0.04); g.fillStyle = '#' + c.getHexString(); g.fillRect(x, 0, sw, h);
       for (let k = 0; k < 8; k++) { g.strokeStyle = `rgba(160,115,62,${0.07 + rnd() * 0.12})`; g.lineWidth = 0.6 + rnd() * 1.3; g.beginPath(); let xx = x + 3 + rnd() * (sw - 6); g.moveTo(xx, 0); for (let y = 0; y <= h; y += 40) { xx += (rnd() - 0.5) * 1.6; xx = Math.max(x + 4, Math.min(x + sw - 3, xx)); g.lineTo(xx, y); } g.stroke(); }
       for (let k = 0; k < 2; k++) if (rnd() < 0.45) { const ky = rnd() * h, kx = x + sw * (0.3 + rnd() * 0.4); g.fillStyle = 'rgba(140,95,45,0.3)'; g.beginPath(); g.ellipse(kx, ky, 2.4, 4.5, 0, 0, 6.3); g.fill(); g.fillStyle = 'rgba(105,65,30,0.4)'; g.beginPath(); g.ellipse(kx, ky, 1, 2, 0, 0, 6.3); g.fill(); }
       // ranura (sombra profunda) + canto iluminado + canto en sombra
@@ -179,7 +179,8 @@ export function facadeModel(S) {
 }
 
 // colores de fachada (renders/video): se usan como color por vértice sobre la textura neutra
-export const FCOL = { render: 0xa9845c, tan: 0x977652, dark: 0x4a525d, char: 0x3b3a39, white: 0xeceae5, recess: 0xdcd9d3, band: 0xe2ded6, wood: 0xffdfa6, woodD: 0xffdfa6 };
+// Fotos por encima del video: marcos moca #A69382, listón roble claro #D6B997, bahías oscuras #4E545C.
+export const FCOL = { render: 0xa69382, tan: 0x8d7356, dark: 0x4e545c, char: 0x3a3e44, white: 0xf3f1ec, recess: 0xe4e0d8, band: 0xf4f2ee, wood: 0xd6b997, woodD: 0xd6b997 };
 export function buildFacadeFloor(FM, fy, mats, opts = {}) {
   const G = { render: [], grey: [], wood: [], tan: [], dark: [], band: [], spandrel: [], white: [], recess: [], woodD: [], char: [] };
   const BLUE = { render: 'char', grey: 'dark', wood: 'wood', tan: 'char', dark: 'char', band: 'band', spandrel: 'char' };

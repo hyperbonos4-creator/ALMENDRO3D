@@ -1,3 +1,4 @@
+import { viewerUrl } from './html-url.mjs';
 import { chromium } from 'playwright';
 import fs from 'fs';
 // uso: node qa7.mjs poses.json outdir
@@ -5,7 +6,7 @@ const poses = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')); const OUT = 
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } }); let errs = 0;
 p.on('pageerror', (e) => { errs++; console.log('ERR', e.message); });
-await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+await p.goto(viewerUrl());
 await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
 await p.evaluate(() => { __app.setQuality('alta'); __app.fpEnter(); document.querySelectorAll('#elev,#fpPrompt').forEach((e) => (e.style.visibility = 'hidden')); });
 for (const [name, x, z, yaw, pitch, y, js] of poses) {

@@ -1,0 +1,12 @@
+import { build } from 'esbuild';
+import fs from 'fs';
+const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: true, format: 'iife', write: false, target: 'es2020', legalComments: 'none' });
+const app = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
+const scene = fs.readFileSync('../data/scene.json', 'utf8').replace(/</g, '\\u003c');
+const interior = fs.readFileSync('../data/interior.json', 'utf8').replace(/</g, '\\u003c');
+const b64 = (f) => 'data:image/jpeg;base64,' + fs.readFileSync(f).toString('base64');
+const data = `window.__SCENE__=${scene};window.__INT__=${interior};window.__TEX__=${JSON.stringify({ door: b64('../tex/door_v5.jpg'), sign: b64('../tex/sign.jpg') })};`;
+let html = fs.readFileSync('src/template.html', 'utf8');
+html = html.replace('<script>/*DATA*/</script>', () => `<script>${data}</script>`).replace('<script>/*APP*/</script>', () => `<script>${app}</script>`);
+fs.writeFileSync('../ed_almendra_3d.html', html);
+console.log('ok', (html.length / 1024).toFixed(0) + ' KB');

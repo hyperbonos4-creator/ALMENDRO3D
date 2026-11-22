@@ -1,0 +1,8 @@
+node_modules/
+*.tgz
+*.pkl
+*.npy
+__pycache__/
+.env
+*.pem
+*.key

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Edificio Almendra · Modelo 3D · VISIONYX URBAN</title>
+<style>
+:root{--bg:#07090d;--pn:rgba(14,18,25,.78);--ln:rgba(255,255,255,.09);--tx:#e8edf3;--mu:#8b97a6;--ac:#35d3ff;--go:#c9a77c;--cab:#ffb547}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:radial-gradient(1200px 800px at 70% 20%,#1a2433 0%,#0c1118 45%,#05070a 100%);color:var(--tx);font:13px/1.4 Inter,"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.glass{background:var(--pn);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);border:1px solid var(--ln);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+header{position:fixed;left:16px;top:14px;padding:12px 16px;display:flex;gap:12px;align-items:center;z-index:5}
+.logo{width:34px;height:34px;border-radius:9px;background:conic-gradient(from 210deg,#35d3ff,#7cf7c5,#c9a77c,#35d3ff);display:grid;place-items:center;font-weight:800;color:#061018;font-size:15px;letter-spacing:-.5px}
+header .b{font-size:10px;letter-spacing:.22em;color:var(--ac);font-weight:700}
+header h1{font-size:16px;font-weight:650;letter-spacing:.01em}
+header .s{color:var(--mu);font-size:11px}
+#side{position:fixed;left:16px;top:86px;bottom:92px;width:262px;padding:14px;overflow:auto;z-index:4;scrollbar-width:thin}
+#side h3{font-size:10px;letter-spacing:.18em;color:var(--mu);font-weight:700;margin:14px 0 8px}
+#side h3:first-child{margin-top:0}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.btn{appearance:none;border:1px solid var(--ln);background:rgba(255,255,255,.04);color:var(--tx);padding:8px 9px;border-radius:9px;font:inherit;font-size:12px;cursor:pointer;text-align:left;transition:.15s}
+.btn:hover{background:rgba(53,211,255,.1);border-color:rgba(53,211,255,.35)}
+.btn.on{background:linear-gradient(135deg,rgba(53,211,255,.25),rgba(124,247,197,.12));border-color:rgba(53,211,255,.6)}
+.btn.w{grid-column:1/-1}
+.sw{display:flex;align-items:center;justify-content:space-between;padding:6px 0;cursor:pointer;gap:8px}
+.sw input{appearance:none;width:34px;height:19px;border-radius:20px;background:#2a323d;position:relative;cursor:pointer;transition:.2s;flex:none}
+.sw input:after{content:"";position:absolute;width:15px;height:15px;border-radius:50%;background:#cfd6df;top:2px;left:2px;transition:.2s}
+.sw input:checked{background:var(--ac)}.sw input:checked:after{left:17px;background:#fff}
+.sw b{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ac);box-shadow:0 0 10px var(--ac);margin-right:6px}
+input[type=range]{width:100%;accent-color:var(--ac)}
+select{width:100%;background:#141a22;color:var(--tx);border:1px solid var(--ln);border-radius:9px;padding:7px;font:inherit;font-size:12px}
+#floors{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;margin-top:8px}
+.chk{display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer;padding:2px 0}
+.chk input{accent-color:var(--ac)}.chk small{color:var(--go);font-size:9px}
+.tag{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:6px;white-space:nowrap;margin:-12px 0 0 10px;padding:4px 9px 4px 7px;border-radius:20px;border:1px solid color-mix(in srgb,var(--c,#35d3ff) 55%,transparent);background:rgba(8,12,18,.78);color:#eaf6ff;font:600 11px/1.2 inherit;font-family:inherit;cursor:pointer;backdrop-filter:blur(6px);transition:background .15s,box-shadow .15s}
+.tag i{width:7px;height:7px;border-radius:50%;background:var(--c,#35d3ff);box-shadow:0 0 8px var(--c,#35d3ff)}
+.tag em{font-style:normal;color:var(--go);font-weight:800}
+.tag:hover,.tag.sel{background:color-mix(in srgb,var(--c,#35d3ff) 30%,#0a0f16)}
+.tag.hl{box-shadow:0 0 0 2px #fff,0 0 22px var(--c);background:color-mix(in srgb,var(--c) 40%,#0a0f16)}
+.tag.min{padding:4px;margin:-8px 0 0 -8px;gap:0}.tag.min span,.tag.min em{display:none}.tag.min:hover span{display:inline;margin-left:5px}
+.tag.cab{--c:var(--cab);color:#ffe2b0}
+.apt{position:absolute;left:0;top:0;margin:-11px 0 0 -36px;padding:5px 9px;border-radius:7px;background:rgba(8,12,18,.72);border:1px solid rgba(53,211,255,.45);font:700 11px/1 inherit;letter-spacing:.14em;color:#dff6ff;white-space:nowrap}
+.note{position:absolute;left:0;top:0;padding:5px 9px;border-radius:7px;background:rgba(201,167,124,.16);border:1px dashed rgba(201,167,124,.7);color:#f1dcc0;font-size:11px;font-weight:600;white-space:nowrap;transform-origin:0 0}
+.note.sm{font-size:10px;padding:3px 7px}
+#panel{position:fixed;right:16px;top:14px;bottom:92px;width:340px;padding:18px;overflow:auto;z-index:6;transform:translateX(120%);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+#panel.show{transform:none}
+#panel .x{position:absolute;right:12px;top:10px;background:none;border:0;color:var(--mu);font-size:22px;cursor:pointer}
+.ph{display:flex;gap:10px;align-items:center;font-size:16px;font-weight:650;padding-right:24px}
+.ph i{width:11px;height:11px;border-radius:50%;background:var(--c);box-shadow:0 0 14px var(--c);flex:none}
+.chips{margin:10px 0 4px;display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:20px;text-transform:uppercase}
+.chip.ok{background:rgba(124,247,197,.15);color:#7cf7c5;border:1px solid rgba(124,247,197,.4)}
+.chip.pr{background:rgba(53,211,255,.13);color:#7fe3ff;border:1px solid rgba(53,211,255,.4)}
+.chip.ap{background:rgba(201,167,124,.15);color:#e9cba4;border:1px solid rgba(201,167,124,.5)}
+#panel h4{font-size:10px;letter-spacing:.16em;color:var(--mu);margin:14px 0 5px;text-transform:uppercase}
+#panel p{color:#cdd6e0}
+.bom{border:1px solid var(--ln);border-radius:10px;padding:8px 10px;margin-bottom:6px;background:rgba(255,255,255,.025)}
+.bt{font-weight:600;display:flex;justify-content:space-between;gap:8px}.bt span{color:var(--mu)}
+.bm{color:#9fb0c2;font-size:12px;margin-top:2px}.bp{margin-top:3px;color:#7cf7c5;font-weight:600;font-size:12px}.bp small{color:var(--mu);font-weight:400}
+.fine{font-size:11px;color:var(--mu)!important;margin-top:12px}
+footer{position:fixed;left:16px;right:16px;bottom:14px;padding:10px 14px;display:flex;gap:18px;align-items:center;z-index:4;font-size:11px}
+.lg{display:flex;gap:14px;flex-wrap:wrap;align-items:center;flex:1}
+.lg span{display:flex;gap:6px;align-items:center;color:#c5cfda;white-space:nowrap}
+.lg b{width:10px;height:10px;border-radius:50%}
+.lg .ln{width:18px;height:0;border-top:2px dashed var(--cab);border-radius:0}
+.disc{color:var(--mu);max-width:520px;font-size:10.5px;line-height:1.35}
+#infoBtn{flex:none}
+#tip{position:fixed;z-index:9;pointer-events:none;padding:8px 11px;border-radius:10px;opacity:0;transition:opacity .12s;display:flex;flex-direction:column;gap:1px}
+#tip.show{opacity:1}#tip b{font-size:13px}#tip span{color:#7fe3ff}#tip small{color:var(--mu);font-size:10px}
+#caption{position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);opacity:0;pointer-events:none;width:min(560px,92vw);padding:12px 16px;z-index:7;transition:.3s}
+#caption.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#caption b{color:var(--ac)}#caption .stp{float:right;color:var(--mu);font-size:11px}#caption p{margin:4px 0 2px;font-size:13.5px}#caption small{color:var(--mu)}
+#caption button{position:absolute;right:12px;bottom:10px;background:rgba(255,255,255,.08);border:1px solid var(--ln);color:var(--tx);border-radius:8px;padding:3px 9px;font:inherit;font-size:11px;cursor:pointer}
+#capClose{display:none}
+#approx{position:fixed;inset:0;display:none;place-items:center;z-index:20;background:rgba(0,0,0,.5)}
+#approx.show{display:grid}
+#approx .glass{width:min(560px,92vw);max-height:80vh;overflow:auto;padding:20px 22px}
+#approx h2{font-size:16px;margin-bottom:10px}#approx li{margin:0 0 6px 18px;color:#cdd6e0}#approx h4{font-size:10px;letter-spacing:.16em;color:var(--mu);margin:12px 0 6px}
+#menuBtn{display:none}
+.fpb{background:linear-gradient(135deg,rgba(201,167,124,.28),rgba(53,211,255,.14));border-color:rgba(201,167,124,.6);font-weight:600;text-align:center;margin-bottom:4px}
+#fp{display:none}
+body.fp #fp{display:block}
+body.fp #side,body.fp #panel{display:none}
+#fpTop{position:fixed;left:50%;top:14px;transform:translateX(-50%);padding:8px 10px 8px 14px;display:flex;gap:12px;align-items:center;z-index:9;max-width:calc(100vw - 300px)}
+#fpTop b{color:var(--ac);white-space:nowrap}#fpTop span{color:var(--mu);font-size:11px}#fpTop .fm{display:none}
+#fpFloors{position:fixed;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:5px;padding:8px;z-index:9}
+#fpFloors small{color:var(--mu);font-size:9px;letter-spacing:.15em;text-align:center}
+#fpFloors .btn{width:38px;text-align:center;padding:7px 0}
+#fpPrompt{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);z-index:9;color:#fff;font-size:13px;text-shadow:0 1px 6px #000;background:rgba(8,12,18,.55);border-radius:10px;padding:0 12px}
+#fpPrompt:not(:empty){padding:7px 12px}
+#fpPrompt b{color:var(--ac);border:1px solid var(--ac);border-radius:5px;padding:0 5px;margin-right:4px}
+#fpAct{display:none!important}body.neargate #fpAct{display:flex!important}
+#fpAct{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);display:flex;gap:8px;z-index:9}
+#mini{position:fixed;left:16px;bottom:92px;width:180px;height:180px;border-radius:12px;border:1px solid var(--ln);z-index:9}
+#joy{display:none;position:fixed;left:24px;bottom:84px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);z-index:10;touch-action:none}
+#joy i{position:absolute;left:38px;top:38px;width:44px;height:44px;border-radius:50%;background:rgba(53,211,255,.55);box-shadow:0 0 14px rgba(53,211,255,.6)}
+#cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(255,255,255,.7);z-index:9;pointer-events:none}
+@media (pointer:coarse),(max-width:760px){#joy{display:block}#mini{left:auto;right:8px;top:84px;bottom:auto;width:120px;height:120px}#fpFloors{right:8px;top:auto;bottom:70px;transform:none;flex-direction:row;flex-wrap:wrap;width:auto;max-width:200px;justify-content:flex-end}#fpFloors .btn{width:30px;padding:6px 0}#fpFloors small{display:none}#fpTop{top:8px;max-width:calc(100vw - 16px)}#fpTop .fh{display:none}#fpTop .fm{display:inline}#fpAct{bottom:210px;left:auto;right:8px;transform:none;flex-direction:column}#fpPrompt{bottom:250px;font-size:11px;max-width:80vw}body.fp header{display:none}body.fp footer{display:none}body.fp #menuBtn{display:none}}
+
+#fpTop .loc{display:flex;flex-direction:column;min-width:150px}#fpTop .loc b{font-size:13px}#fpTop #fpSub{color:#e8e2d6;font-size:11px}
+#fpTop .fh b{color:var(--ac)}
+#snd.on{border-color:var(--ac);color:var(--ac)}
+#elev{position:fixed;right:76px;top:50%;transform:translateY(-50%) translateX(20px);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:11;padding:12px;width:178px}
+#elev.show{opacity:1;pointer-events:auto;transform:translateY(-50%)}
+#elev .eh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;color:var(--mu);letter-spacing:.06em}
+#elevInd{background:#07090c;border-radius:6px;padding:2px 8px;font:700 20px "Segoe UI",Arial;color:#ff5a36;min-width:44px;text-align:center}#elevInd i{font-style:normal;font-size:13px;margin-left:4px}
+#elevKeys{display:grid;grid-template-columns:1fr 1fr;gap:8px;justify-items:center;margin:4px 0 10px}
+.ek{width:54px;height:54px;border-radius:50%;border:3px solid #5b6168;background:radial-gradient(circle at 40% 35%,#3a3f45,#202328);color:#eef1f4;font:700 19px "Segoe UI",Arial;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 2px 6px rgba(0,0,0,.4)}
+.ek:hover{border-color:#8a929a}.ek.on{border-color:#ffb547;color:#ffd27a;box-shadow:0 0 12px rgba(255,181,71,.6)}.ek.cur{border-color:#35d3ff}
+#elev .er{display:flex;gap:6px;flex-wrap:wrap}#elev .er .btn{flex:1;padding:6px 4px;font-size:11px}
+#elev .en{color:var(--mu);font-size:10px;margin-top:8px;line-height:1.35}
+#fpActBtn{display:none;position:fixed;right:22px;bottom:140px;width:78px;height:78px;border-radius:50%;border:2px solid var(--ac);background:rgba(8,12,18,.6);color:#fff;font:700 13px "Segoe UI",Arial;z-index:11;touch-action:manipulation}
+#fpActBtn.dim{opacity:.35;border-color:#5b6168}
+#fade{position:fixed;inset:0;background:#05070a;opacity:0;pointer-events:none;transition:opacity .3s;z-index:20}#fade.on{opacity:1}
+#fpPrompt .auto{color:#ffd27a}
+#fpPrompt .kp{color:#dff6ff}#fpPrompt .kp.ok{color:#7dffb4}
+#fpToast{position:fixed;left:50%;top:84px;transform:translate(-50%,-12px);opacity:0;transition:opacity .45s,transform .45s;z-index:12;pointer-events:none;background:rgba(10,30,22,.78);border:1px solid #34d17a;border-radius:14px;padding:10px 18px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+#fpToast b{color:#7dffb4;font-size:16px}#fpToast span{color:#bfe9d2;font-size:11.5px}
+#fpToast.show{opacity:1;transform:translate(-50%,0)}body:not(.fp) #fpToast{display:none}
+
+#cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,255,255,.85);box-shadow:0 0 0 1.5px rgba(0,0,0,.35);z-index:9;pointer-events:none}
+@media (pointer:coarse),(max-width:760px){body.elevshow #fpFloors{display:none}#fpTop .fm{display:none!important}#fpActBtn{display:block}#elev{right:8px;top:auto;bottom:230px;transform:none;width:156px;padding:9px}#elev.show{transform:none}.ek{width:44px;height:44px;font-size:16px}#elev .en{display:none}#snd{padding:5px 7px;font-size:11px}#fpTop .loc{min-width:0}}
+
+.hint{color:var(--mu);font-size:10.5px;margin-top:10px}
+@media (max-width:760px){
+ header{left:8px;top:8px;right:8px;padding:9px 12px}header h1{font-size:14px}.logo{width:28px;height:28px}
+ #menuBtn{display:block;position:fixed;right:8px;top:84px;z-index:8;background:rgba(14,18,25,.85)}
+ .note.sm{display:none}
+ #side{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:58vh;transform:translateY(115%);transition:transform .3s;z-index:8}
+ body.menu-open #side{transform:none}
+ #panel{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:62vh;transform:translateY(120%)}
+ footer{left:8px;right:8px;bottom:8px;padding:7px 10px;gap:8px}.lg{display:none}.disc{font-size:9.5px}
+ #caption{bottom:70px}
+ .tag{font-size:10px;padding:3px 7px}.tag span{max-width:120px;overflow:hidden;text-overflow:ellipsis}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="labels"></div>
+<header class="glass"><div class="logo">V</div><div><div class="b">VISIONYX · URBAN</div><h1>Edificio Almendra — Modelo 3D</h1><div class="s">PLANEX · Cocorná, Antioquia · 7 pisos + sótano</div></div></header>
+<button id="menuBtn" class="btn">☰ Controles</button>
+<aside id="side" class="glass">
+ <button id="bFP" class="btn w fpb">Recorrer por dentro</button>
+ <h3>VISTAS</h3>
+ <div class="btns">
+  <button class="btn on" data-view="general">Vista general</button>
+  <button class="btn" data-view="fachada">Fachada principal</button>
+  <button class="btn" data-view="ingreso">Ingreso</button>
+  <button class="btn" data-view="sotano">Sótano</button>
+  <button class="btn" data-view="rampa">Rampa</button>
+  <button class="btn" data-view="tipo">Planta tipo (piso 6)</button>
+ </div>
+ <h3>CAPAS</h3>
+ <label class="sw"><span><b></b>Sistema URBAN</span><input id="tUrban" type="checkbox" checked></label>
+ <label class="sw"><span>Fachada transparente</span><input id="tXray" type="checkbox"></label>
+ <div class="sw" style="cursor:default"><span>Explosión de pisos</span></div>
+ <input id="explode" type="range" min="0" max="1.6" step="0.01" value="0">
+ <h3>PORTÓN</h3>
+ <div class="btns"><button id="bVeh" class="btn w">Abrir portón vehicular (2 hojas · peatonal cerrada)</button></div>
+ <label class="sw" style="margin-top:6px"><span>Alto</span></label>
+ <select id="gateH"><option value="render">Proporción del render (≈4.5 m)</option><option value="std">Alto típico 2.6 m (diseño estirado)</option></select>
+ <h3>CORTE Y PISOS</h3>
+ <select id="cut"><option value="">Sin corte (edificio completo)</option></select>
+ <div id="floors"></div>
+ <h3>FLUJO DE ACCESO</h3>
+ <div class="btns">
+  <button class="btn" data-flow="rostro">Con internet · rostro</button>
+  <button class="btn" data-flow="app">App</button>
+  <button class="btn" data-flow="pin">Sin internet · PIN</button>
+  <button class="btn" data-flow="luz">Sin luz</button>
+ </div>
+ <p class="hint">Arrastra para girar · rueda/pellizco para zoom · clic derecho/2 dedos para desplazar. Toca un marcador para ver el detalle.</p>
+</aside>
+<aside id="panel" class="glass"></aside>
+<div id="tip" class="glass"></div>
+<div id="fp">
+ <div id="fpTop" class="glass"><div class="loc"><b id="fpWhere">Andén</b><span id="fpSub"></span></div><span class="fh">WASD mover · clic = mirar con ratón · Shift correr · <b>E</b>/clic interactuar · 0–7 pisos en el ascensor · M sonido · Esc salir</span><span class="fm">Joystick mover · arrastra para mirar · botón ● interactuar</span><button id="snd" class="btn">🔇 Sonido</button><button id="fpExit" class="btn">Salir</button></div>
+ <div id="fpFloors" class="glass"><small>IR A</small><button class="btn" data-tp="p7">7</button><button class="btn" data-tp="p6">6</button><button class="btn" data-tp="p5">5</button><button class="btn" data-tp="p4">4</button><button class="btn" data-tp="p3">3</button><button class="btn" data-tp="p2">2</button><button class="btn" data-tp="acceso">1</button><button class="btn" data-tp="sot">S</button><button class="btn" data-tp="inicio" title="Andén">⌂</button></div>
+ <div id="fpPrompt"></div>
+ <div id="fpToast"></div>
+ <div id="elev" class="glass"><div class="eh"><span id="elevTitle">Ascensor</span><div id="elevInd"></div></div>
+  <div id="elevKeys"><button class="ek" data-f="p7">7</button><button class="ek" data-f="p6">6</button><button class="ek" data-f="p5">5</button><button class="ek" data-f="p4">4</button><button class="ek" data-f="p3">3</button><button class="ek" data-f="p2">2</button><button class="ek" data-f="p1">1</button><button class="ek" data-f="sot">S</button></div>
+  <div class="er"><button id="elevCall" class="btn">Llamar</button><button id="elevOpen" class="btn">◀▶ Abrir</button><button id="elevClose" class="btn">▶◀ Cerrar</button></div>
+  <div class="en">Toca un piso: entras, se cierran las puertas, viajas y sales — en primera persona.</div></div>
+ <div id="fpAct"><button id="fpOpen" class="btn">Abrir peatonal (app / salida)</button><button id="fpVeh" class="btn">Portón vehicular (V)</button></div>
+ <button id="fpActBtn" class="dim">·</button>
+ <canvas id="mini" width="360" height="360"></canvas>
+ <div id="joy"><i></i></div>
+ <div id="cross"></div>
+</div>
+<div id="fade"></div>
+<div id="caption" class="glass"><button id="capClose"></button></div>
+<footer class="glass">
+ <div class="lg">
+  <span><b style="background:#35d3ff;box-shadow:0 0 8px #35d3ff"></b>Equipo URBAN (propuesta)</span>
+  <span><b style="background:#7cf7c5;box-shadow:0 0 8px #7cf7c5"></b>Cámara + campo de visión</span>
+  <span><b class="ln"></b>Ruta de cable propuesta</span>
+  <span><b style="background:#c9a77c"></b>≈ Aproximado</span>
+  <span><b style="background:#9aa3ad"></b>Piso 1 esquemático</span>
+ </div>
+ <div class="disc">Modelo informativo basado en planos PL_A002, PL_A004, PL_A006 (Arq. Andrea Ramírez Arango, 09/09/2022). No apto para construcción. Elementos URBAN en ubicación propuesta.</div>
+ <button id="infoBtn" class="btn">≈ Qué es aproximado</button>
+</footer>
+<div id="approx"><div class="glass">
+ <h2>Qué viene del plano y qué es aproximado</h2>
+ <h4>DEL PLANO (PL_A002 / A004 / A006)</h4>
+ <ul><li>Muros, columnas y huella de la planta tipo (pisos 2–7) y del sótano, extraídos del vector del PDF (±0,1 m).</li>
+ <li>Niveles (PL_A006): N-2.96 sótano, N+0.00 calle, <b>piso 1 en N+1.00</b> (v4: antes se modelaba en N+0.00), pisos 2–7 en N+3.70 … N+17.20, cubierta N+20.30, antepecho 0,60 m. Altura libre del sótano bajo la losa del piso 1: 3,76 m (cota de PL_A006).</li>
+ <li>Ventanas V-1…V-7 con antepecho/dintel del cuadro de ventanas; 9 parqueaderos + 4 motos con sus rectángulos de plaza, bordillos amarillos (0,14 × 4,49 m), flechas de circulación y rótulos «pend. 10.9 %» / «pend. 13.6 %» en su posición del vector; medidores de agua junto al ascensor.</li>
+ <li><b>Cuartos de servicio bajo la rampa (v4, vector de PL_A004):</b> C. Útil 1 (3,29 m²), C. Útil 2 (3,26 m²), C. Eléctrico/Telecom (3,67 m²) y C. Basuras/Aseo (9,77 m²) — muros, divisiones, muro posterior inclinado, columnas, puertas con su giro hacia adentro (0,81 m; el de basuras tiene 2 puertas), buitrón gris con bajantes, poceta y 3 contenedores en su posición dibujada. Áreas según el cuadro de áreas del plano.</li></ul>
+ <h4>RECORRIDO INTERIOR v3 — QUÉ SALE DEL PLANO</h4>
+ <ul><li><b>Pisos 2–7 (PL_A002):</b> muros, columnas, vanos de puertas con su sentido de giro (arcos del plano), ventanas (marcos del plano + cuadro de ventanas), recintos y sus áreas (rótulos del plano), mobiliario a partir de los bloques dibujados. Tipos: 201/202 Tipo 1, 203 Tipo 2, 204 Tipo 3 con balcón.</li>
+ <li><b>Punto fijo:</b> pozo de ascensor 2,45 × 1,70 m (4,16 m²) con puerta de 1,00 m hacia el descanso; escalera en U de 2 tramos × 7 huellas de 0,30 m + descanso de 1,00 m; mismo núcleo en el sótano (PL_A004).</li>
+ <li>Altura libre 2,50 m = 2,70 m de piso a piso − 0,20 m de losa (de los niveles del plano).</li></ul>
+ <h4>APROXIMADO / INFERIDO</h4>
+ <ul><li><b>Acabados y colores interiores</b> (laminado en alcobas y circulación, porcelanato en sala y hall, cerámica en cocina/ropas/baños, enchape de baño, guardaescobas, cielos rasos, luminarias): ilustrativos — las planchas no especifican acabados interiores.</li>
+ <li><b>Amoblado ilustrativo:</b> camas, closets, sofás, comedores, mesones, lavaderos y lavamanos siguen los bloques del plano; alturas, colores, electrodomésticos, mesas redondas (inferidas del grupo de sillas) y espejos son supuestos. Sanitarios y platos de ducha se ubican con los símbolos del plano; la división de vidrio y la grifería son ilustrativas.</li>
+ <li><b>Puertas:</b> alto 2,10 m, hojas de madera y manijas supuestas; se abren al acercarse o con E. En cocinas/salas abiertas el límite entre acabados es aproximado.</li>
+ <li><b>Ascensor:</b> cabina, puertas de 2 hojas centrales, botonera, indicador, capacidad y velocidad NO están en los planos (ilustrativo; el viaje está acelerado para la demo).</li>
+ <li><b>Escaleras:</b> 16 contrahuellas por piso (2,70/16 ≈ 0,17 m), también 1→2. El tramo sótano→1 (3,96 m) se escala con la misma planta (≈0,25 m por contrahuella, más empinado que lo real): esa escalera no está en las planchas. Barandas de vidrio de escalera y vacíos: supuestas.</li>
+ <li><b>Acceso al piso 1:</b> como el piso 1 está en N+1.00 y el paso peatonal en N+0.00, se agregan 6 escalones de 0,167 m con baranda antes de la puerta del lobby: <b>supuesto</b> (la plancha 1/6 falta; podría ser rampa o estar en otro sitio).</li>
+ <li><b>Lobby del piso 1:</b> corredor desde el paso peatonal hasta el hall del punto fijo, con puerta automática de vidrio y buzones: <b>supuesto</b> (falta la plancha 1/6). El resto del piso 1 sigue esquemático.</li>
+ <li><b>Entorno del recorrido</b> (cielo, montañas, edificios vecinos y árboles): ilustrativo. Colisión con muros ±0,1 m.</li></ul>
+ <h4>OTROS SUPUESTOS DEL MODELO</h4>
+ <ul><li><b>Piso 1:</b> volumen esquemático (falta la plancha 1/6); la distribución interior del piso 1 no se conoce. Se deja <b>abierta la franja de la rampa</b> (sin losa encima), como en PL_A004.</li>
+ <li><b>Portón completo en borde de calle</b> (indicación de Luisa: un solo portón para carros y peatones). Ancho ≈6,10 m = del muro norte de la rampa (z≈0,64) al lindero (z≈6,74), medido sobre el plano; reparto de hojas según el render: 2 hojas vehiculares ≈1,86 m c/u (≈3,72 m, cubren la rampa de 3,33 m), hoja peatonal ≈1,83 m, jamba fija con kiosko ≈0,55 m. <b>Alto ≈4,49 m + franja de letrero ≈0,77 m</b>, sacado de la proporción del render sobre el ancho real: es una estimación. Con esa escala la manija queda a ≈2,1 m (poco realista), por eso hay la opción «Alto típico 2,6 m». El portón no aparece en las planchas: medir en sitio.</li><li><b>Hojas vehiculares:</b> fase 2 (motor/control por definir; ítems 43–44 del presupuesto). <b>Hoja peatonal:</b> se abre solo con URBAN (rostro en el kiosko, app o PIN); el kiosko va en la jamba fija, mirando a la calle.</li><li>Paso peatonal interior (baranda, muro de lindero) y <b>entrada al edificio</b> al final del paso: supuestos, sin datos en planos. <b>Letrero ED. ALMENDRA</b>: en la franja superior del portón, como en el render; tamaño aproximado.</li>
+ <li><b>Perfil de rampa:</b> 10,9 % en 21,79 m (PL_A004) y luego 13,6 % hasta N-2.96. Ojo: 10,9 % × 21,79 m da una plataforma en ≈N-2.37, pero el plano indica N-2.00; se modela ≈N-2.37 y queda <b>por verificar</b>.</li><li><b>Recorrido por dentro:</b> escaleras caminables y ascensor operable (botonera S, 1–7); los botones «IR A» teletransportan con fundido.</li>
+ <li><b>Volumen de punto fijo en cubierta</b> (≈N+24.2) y cubierta termoacústica: aproximados.</li>
+ <li><b>Asignación de materiales a cada cara</b> de fachada (listones, gris, blanco, marcos): interpretación del cuadro de materiales, no del alzado exacto.</li>
+ <li>Algunas ventanas sin etiqueta clara (p. ej. V-8, una V-2 alta) se modelan como vano genérico o no se modelan; el borde del vacío lateral se muestra con baranda de vidrio.</li>
+ <li><b>Carros y motos (v4):</b> modelos procedurales ilustrativos (sedán, hatchback, SUV y crossover; motos tipo calle con pata lateral) en las plazas exactas del plano; marcas, colores y modelos son supuestos. Carro animado del portón: sedán ilustrativo. Placas numeradas colgantes, números pintados y franjas de seguridad en columnas: ilustrativos.</li>
+ <li><b>Nivel de los cuartos de servicio:</b> el plano no da su nivel de piso. Se modela cada cuarto al nivel de la rampa frente a su puerta (las puertas abren directo a la rampa, sin escalones dibujados): C. Útil 1 ≈N-0.96, C. Útil 2 ≈N-1.07, Eléctrico ≈N-1.26, Basuras ≈N-1.59, bajo la losa del piso 1 (N+0.80). Así la <b>altura libre resulta ≈1,76 m (Útil 1), ≈1,87 m (Útil 2), ≈2,06 m (Eléctrico) y ≈2,39 m (Basuras)</b>: verificar con la arquitecta (puede haber escalones o un nivel distinto).</li>
+ <li><b>Frente de los cuartos:</b> la doble línea del plano se interpreta como muro con rejilla de ventilación; el cuarto eléctrico muestra 2 hojas de 0,75 m sin arco de giro dibujado (se modelan abriendo hacia adentro). Hojas metálicas, letreros, luminarias, estanterías, tableros eléctricos, caja del operador y bandeja portacables: ilustrativos. Contenedores con código de colores de la Res. 2184 de 2019 (blanco, negro, verde).</li>
+ <li><b>Todo el sistema URBAN</b> (kiosko, ESP32, cerradura, botón, sensor, cámaras C1–C3, equipos del rack y ruta de cable) está en <b>ubicación propuesta</b>, sujeta a visita técnica. Ruta de cable: kiosko en la jamba del portón → ESP32 → ducto bajo el paso peatonal → pasamuro a C. Útil 1 → cielo raso de C. Útil 1 y 2 → rack del cuarto eléctrico/telecom, ≈16 m de recorrido (≈18–20 m de cable con holguras), estimado sobre el modelo: medir en sitio.</li></ul>
+ <button id="approxClose" class="btn" style="margin-top:12px">Cerrar</button>
+</div></div>
+<script>/*DATA*/</script>
+<script>/*APP*/</script>
+</body>
+</html>

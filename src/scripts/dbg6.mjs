@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const file = process.argv[2] || 'ed_almendra_3d.html', out = process.argv[3] || 'dbg';
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+p.on('pageerror', (e) => console.log('ERR', e.message));
+await p.goto('file:///workspace/almendra/3d/' + file);
+await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
+await p.evaluate(() => { __app.setQuality('alta'); }); await p.evaluate(() => { __app.fpEnter(); __app.fpPose(12.6, 2.4, Math.PI / 2 - 0.05, 0.12, -1.37); __app.sim(0.3); });
+await p.waitForTimeout(2500);
+await p.screenshot({ path: `../shots6/${out}_rampa_desde_sotano.png` });
+console.log(JSON.stringify(await p.evaluate(() => [__app.FP.lvl, __app.FP.y, __app.info()])));
+await p.evaluate(() => { __app.fpPose(22.5, 6.5, Math.PI / 2, 0, 'sot'); __app.sim(0.2); });
+await p.waitForTimeout(2000);
+await p.screenshot({ path: `../shots6/${out}_pasillo.png` });
+await b.close();

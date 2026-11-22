@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const p = await b.newPage({ viewport: { width: 900, height: 560 } });
+p.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log(m.type(), m.text()); });
+await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
+const r = await p.evaluate(process.argv[2]); console.log(r);
+await p.waitForTimeout(2500);
+await p.screenshot({ path: process.argv[3] || '/tmp/d.png' });
+await b.close();

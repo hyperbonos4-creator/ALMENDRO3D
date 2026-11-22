@@ -1,0 +1,23 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const p = await b.newPage({ viewport: { width: 640, height: 400 } });
+p.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log(m.type(), m.text()); });
+await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
+const r = await p.evaluate(() => {
+  const A = __app, F = A.FP, out = {};
+  const walk = (x, z, yaw, y, sec, key = 'KeyW') => { A.fpPose(x, z, yaw, 0, y); F.keys = { [key]: true }; for (let t = 0; t < sec; t += 0.05) A.sim(0.05); F.keys = {}; return [+F.x.toFixed(2), +F.y.toFixed(3), +F.z.toFixed(2), F.lvl]; };
+  A.fpEnter();
+  out.paso_lobby = walk(3.5, 5.25, -Math.PI / 2, 0, 5);
+  out.rampa_util1 = walk(8.8, 2.9, Math.PI, -0.95, 3);
+  out.rampa_util2 = walk(9.8, 2.9, Math.PI, -1.06, 3);
+  out.rampa_elec = walk(11.5, 2.9, Math.PI, -1.25, 3);
+  out.rampa_bas = walk(14.1, 2.9, Math.PI, -1.54, 3);
+  out.rampa_muro = walk(13.0, 2.9, Math.PI, -1.42, 3);
+  out.bajar_rampa = walk(2.0, 2.3, -Math.PI / 2, 0, 9);
+  out.lobby_core = walk(9.0, 5.25, -Math.PI / 2, 1.0, 6);
+  return out;
+});
+console.log(JSON.stringify(r));
+await b.close();

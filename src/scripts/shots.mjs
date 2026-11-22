@@ -1,0 +1,34 @@
+import { chromium } from 'playwright';
+const only = process.argv[2];
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const logs = [];
+async function shot(name, fn, vp = { width: 1600, height: 1000 }) {
+  if (only && !name.includes(only)) return;
+  const p = await b.newPage({ viewport: vp, deviceScaleFactor: 1 });
+  p.on('console', (m) => logs.push(`[${name}] ${m.type()}: ${m.text()}`));
+  p.on('pageerror', (e) => logs.push(`[${name}] PAGEERROR: ${e.message}`));
+  await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+  await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 60000 });
+  await p.waitForTimeout(800);
+  await fn(p);
+  await p.waitForTimeout(1800);
+  await p.screenshot({ path: `../shots/${name}.png` });
+  await p.close();
+}
+await shot('01_vista_general', async (p) => {});
+await shot('02_fachada_principal', async (p) => { await p.evaluate(() => __app.goView('fachada', true)); });
+await shot('03_porton_calle', async (p) => { await p.evaluate(() => { __app.goView('ingreso', true); }); });
+await shot('03b_porton_abierto_carro', async (p) => { await p.evaluate(() => { __app.goView('ingreso', true); __app.openPed(true); __app.carAt(0.33); }); await p.waitForTimeout(2500); });
+await shot('03c_kiosko_panel', async (p) => { await p.evaluate(() => { __app.goView('ingreso', true); __app.openPanel('kiosk'); }); });
+await shot('04_rampa', async (p) => { await p.evaluate(() => { __app.goView('rampa', true); }); });
+await shot('05_fp_apartamento', async (p) => { await p.evaluate(() => { __app.fpEnter(); __app.fpPose(23.4, 18.6, 0.15, -0.05, 'floor', 'p4'); }); });
+await shot('06_fp_sotano', async (p) => { await p.evaluate(() => { __app.fpEnter(); __app.fpPose(21.2, 20.0, 0.1, -0.08, 'sot'); }); });
+await shot('06b_fp_rampa_desde_sotano', async (p) => { await p.evaluate(() => { __app.fpEnter(); __app.fpPose(24.2, 2.4, Math.PI / 2, 0.05, 'sot'); }); });
+await shot('06c_fp_anden_porton', async (p) => { await p.evaluate(() => { __app.fpEnter(); }); });
+await shot('07_sotano_cuarto_tecnico', async (p) => { await p.evaluate(() => { __app.goView('sotano', true); __app.openPanel('rack'); }); });
+await shot('08_planta_tipo', async (p) => { await p.evaluate(() => { __app.goView('tipo', true); }); });
+await shot('09_movil', async (p) => {}, { width: 390, height: 844 });
+await shot('10_movil_recorrido', async (p) => { await p.evaluate(() => { __app.fpEnter(); __app.fpPose(23.4, 18.6, 0.15, -0.05, 'floor', 'p4'); }); }, { width: 390, height: 844 });
+await b.close();
+console.log(logs.join('\n'));
+console.log('all logs', logs.length);

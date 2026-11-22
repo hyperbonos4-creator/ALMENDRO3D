@@ -42,10 +42,15 @@ export function makeTextures() {
   T.cer = mk(512, 512, (g, w, h) => { tiles(g, w, h, 4, 4, '#d9cfbf', '#b5aa98', 3, 0.05); noise(g, w, h, 0.05, 5000); });
   T.cer.userData = { sx: 1.2, sz: 1.2 };
   // cerámica baño 20x20 gris claro
-  T.bath = mk(512, 512, (g, w, h) => { tiles(g, w, h, 4, 4, '#c9cdd0', '#9ea4a8', 3, 0.04); noise(g, w, h, 0.04, 4000); });
+  // v7: piso de baño en porcelanato gris grafito 60x60 (contrasta con el enchape claro de muros)
+  T.bath = mk(512, 512, (g, w, h) => { tiles(g, w, h, 2, 2, '#77797a', '#4c4f51', 4, 0.03); noise(g, w, h, 0.06, 6000, ['#3a3c3e', '#a3a5a6']); });
   T.bath.userData = { sx: 0.8, sz: 0.8 };
   // enchape de muro de baño 30x60 blanco
-  T.wtile = mk(512, 512, (g, w, h) => { tiles(g, w, h, 4, 2, '#f1f1ee', '#cfd2d2', 3, 0.02); });
+  // v7: enchape de muro 30x60 con junta visible (antes blanco sobre blanco)
+  T.wtile = mk(512, 512, (g, w, h) => { tiles(g, w, h, 2, 4, '#efede8', '#a9a49b', 5, 0.025); noise(g, w, h, 0.03, 3000); });
+  // v7: enchape de acento para la zona de ducha (gris piedra, formato 30x60 vertical)
+  T.tileAcc = mk(512, 512, (g, w, h) => { tiles(g, w, h, 4, 2, '#9b968e', '#6d6962', 5, 0.05); noise(g, w, h, 0.08, 7000, ['#5f5b55', '#c4beb4']); });
+  T.tileAcc.userData = { sx: 1.2, sz: 1.2 };
   T.wtile.userData = { sx: 1.2, sz: 1.2 };
   // balcón: gres 30x30
   T.terr = mk(512, 512, (g, w, h) => { tiles(g, w, h, 4, 4, '#a7684a', '#6f4836', 4, 0.06); noise(g, w, h, 0.07, 5000); });

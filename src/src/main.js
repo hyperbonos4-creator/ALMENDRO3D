@@ -1017,7 +1017,7 @@ const { EV, CI, ED, SH, ST: STR, PAIRS, stairY, LEV } = W;
 // v6: fusión de mallas estáticas del interior (hijos directos de cada int_*) por material → menos draw calls
 function batchStatic(g) {
   const by = new Map();
-  for (const c of g.children) { if (!c.isMesh || c.children.length || Array.isArray(c.material) || !c.visible || c.morphTargetInfluences) continue; const geo = c.geometry; if (!geo || !geo.attributes.position) continue;
+  for (const c of g.children) { if (!c.isMesh || c.children.length || Array.isArray(c.material) || !c.visible || c.morphTargetInfluences || c.userData.dyn) continue; const geo = c.geometry; if (!geo || !geo.attributes.position) continue;
     const k = c.material.uuid + '|' + c.castShadow + c.receiveShadow + '|' + Object.keys(geo.attributes).sort().join(','); if (!by.has(k)) by.set(k, []); by.get(k).push(c); }
   let saved = 0;
   for (const list of by.values()) { if (list.length < 2) continue;
@@ -1100,8 +1100,8 @@ function findFocus() {
 }
 function interact(f = FP.focus) {
   if (FP.auto) return;
-  if (FP.inCab) { if (EV.state === 'open' || EV.state === 'opening') evClose(); else evOpen(); return; }
-  if (nearElev()) { evCall(FP.lvl); return; }
+  if (FP.inCab) { const k = panelKeyAtCenter(); if (k) { pressKey(k); return; } if (EV.state === 'open' || EV.state === 'opening') evClose(); else evOpen(); return; }
+  if (nearElev()) { evRequest(FP.lvl, 'land'); return; }
   if (!f) return;
   if (f.kind === 'door') { f.o.tgt = f.o.tgt ? 0 : 1; f.o.manual = performance.now(); sfx('door'); }
   else if (f.kind === 'bal') { f.o.tgt = f.o.tgt ? 0 : 1; sfx('slide'); }
@@ -1109,32 +1109,54 @@ function interact(f = FP.focus) {
   else if (f.kind === 'rex') { if (KS.st === 'idle' || KS.st === 'done') pedCycle('rex'); }
   else if (f.kind === 'veh') openVeh(!GT.v1.tgt);
 }
-// ---------- ascensor ----------
-function evCall(f) {
-  if (EV.state === 'moving') { if (!EV.target) EV.target = f; return; }
-  if (FLOORS[EV.fi] === f) { if (EV.state === 'idle' || EV.state === 'closing') { EV.state = 'opening'; sfx('slide'); } else if (EV.state === 'open') EV.timer = 6; return; }
-  EV.target = f; EV.drawPanel(null);
-  if (EV.state === 'idle') evStart(); else if (EV.state === 'open' || EV.state === 'opening') { EV.state = 'closing'; sfx('slide'); }
-}
-function evOpen() { if (EV.state === 'moving') return; if (EV.state !== 'open') { EV.state = 'opening'; sfx('slide'); } else EV.timer = 6; }
+// ---------- ascensor (v7: máquina de estados física; el jugador viaja dentro de la cabina, nunca se teletransporta) ----------
+// Estados: idle (puertas cerradas, quieto) · opening · open · closing · moving. Cola de destinos EV.q.
+const EVV = { vmax: 1.0, acc: 0.7, open: 1.2, hold: 6 }; // m/s, m/s², s
+function evHere(f) { return EV.state !== 'moving' && FLOORS[EV.fi] === f; }
+function evOpen() { if (EV.state === 'moving') return; if (EV.state === 'open') { EV.timer = EVV.hold; return; } if (EV.state !== 'opening') { EV.state = 'opening'; sfx('slide'); } }
 function evClose() { if (EV.state === 'open' || EV.state === 'opening') { EV.state = 'closing'; EV.timer = 0; sfx('slide'); } }
-function evStart() { EV.state = 'moving'; EV.t = 0; EV.y0 = EV.y; EV.y1 = LEVY[EV.target]; const n = Math.abs(FLOORS.indexOf(EV.target) - EV.fi); EV.dur = 2.2 + 1.1 * n; EV.dir = Math.sign(EV.y1 - EV.y0); hum(true); }
+function evRequest(f, src) { // src: 'cab' (botonera interior) | 'land' (llamada desde el piso)
+  if (!f) return;
+  if (evHere(f)) { evOpen(); return; }
+  if (EV.target !== f && !EV.q.includes(f)) EV.q.push(f);
+  if (src === 'land') EV.setCallLamp(f, true);
+  EV.drawPanel(null); lastHud = '';
+  if (EV.state === 'idle') evNext();
+  else if (EV.state === 'open' || EV.state === 'opening') EV.timer = Math.min(EV.timer, src === 'cab' ? 0.8 : 2.0); // al elegir piso las puertas se cierran enseguida
+}
+function evCall(f) { evRequest(f, FP.inCab ? 'cab' : 'land'); }
+function evNext() {
+  if (!EV.q.length) { EV.state = 'idle'; EV.target = null; return; }
+  // siguiente parada: la más cercana en la dirección actual (o la más cercana si no hay dirección)
+  const yi = EV.y; let best = null, bd = 1e9; for (const f of EV.q) { const d = LEVY[f] - yi; const pen = EV.lastDir && Math.sign(d) !== EV.lastDir ? 100 : 0; if (Math.abs(d) + pen < bd) { bd = Math.abs(d) + pen; best = f; } }
+  EV.q = EV.q.filter((f) => f !== best); EV.target = best;
+  if (Math.abs(LEVY[best] - EV.y) < 1e-3) { EV.fi = FLOORS.indexOf(best); EV.target = null; EV.setCallLamp(best, false); evOpen(); return; }
+  EV.state = 'moving'; EV.t = 0; EV.y0 = EV.y; EV.y1 = LEVY[best]; EV.dir = Math.sign(EV.y1 - EV.y0); EV.lastDir = EV.dir;
+  const D = Math.abs(EV.y1 - EV.y0), ta = EVV.vmax / EVV.acc;
+  if (D < EVV.vmax * ta) { EV.ta = Math.sqrt(D / EVV.acc); EV.vp = EVV.acc * EV.ta; EV.tc = 0; } else { EV.ta = ta; EV.vp = EVV.vmax; EV.tc = (D - EVV.vmax * ta) / EVV.vmax; }
+  EV.dur = 2 * EV.ta + EV.tc; EV.D = D; hum(true); EV.drawPanel(null); lastHud = '';
+}
+function evDist(t) { // perfil trapezoidal de velocidad (arranque y frenado suaves)
+  const a = EVV.acc, ta = EV.ta, tc = EV.tc, vp = EV.vp;
+  if (t <= ta) return 0.5 * a * t * t;
+  if (t <= ta + tc) return 0.5 * a * ta * ta + vp * (t - ta);
+  const u = Math.min(t, EV.dur) - ta - tc; return 0.5 * a * ta * ta + vp * tc + vp * u - 0.5 * a * u * u;
+}
 let lastInd = '';
 function evUpdate(dt) {
-  const inDoorway = FP.on && FP.x > CI.x1 - 0.05 && FP.x < ED[1] + 0.05 && FP.z > ED[2] && FP.z < ED[3] && Math.abs(FP.y - EV.y) < 0.5;
-  if (EV.state === 'opening') { EV.door = Math.min(1, EV.door + dt / 1.1); if (EV.door >= 1) { EV.state = 'open'; EV.timer = 6; } }
-  else if (EV.state === 'open') { EV.timer -= dt; if (EV.timer <= 0 && !inDoorway) { EV.state = 'closing'; sfx('slide'); } }
-  else if (EV.state === 'closing') { if (inDoorway) EV.state = 'opening'; else { EV.door = Math.max(0, EV.door - dt / 1.1); if (EV.door <= 0) { if (EV.target && EV.target !== FLOORS[EV.fi]) evStart(); else { EV.state = 'idle'; EV.target = null; } } } }
+  const inDoorway = FP.on && FP.x > CI.x1 - 0.3 && FP.x < ED[1] + 0.12 && FP.z > ED[2] && FP.z < ED[3] && Math.abs(FP.y - EV.y) < 0.5;
+  if (EV.state === 'opening') { EV.door = Math.min(1, EV.door + dt / EVV.open); if (EV.door >= 1) { EV.state = 'open'; EV.timer = EVV.hold; } }
+  else if (EV.state === 'open') { EV.timer -= dt; if (EV.timer <= 0) { if (inDoorway) EV.timer = 1.0; else { EV.state = 'closing'; sfx('slide'); } } }
+  else if (EV.state === 'closing') { if (inDoorway) { EV.state = 'opening'; } else { EV.door = Math.max(0, EV.door - dt / EVV.open); if (EV.door <= 0) { EV.state = 'idle'; if (EV.q.length) evNext(); else EV.target = null; } } }
   else if (EV.state === 'moving') {
-    EV.t += dt; const u = Math.min(1, EV.t / EV.dur); const k = u * u * u * (u * (u * 6 - 15) + 10);
-    EV.y = EV.y0 + (EV.y1 - EV.y0) * k;
-    if (u >= 1) { EV.fi = FLOORS.indexOf(EV.target); EV.target = null; EV.state = 'opening'; EV.dir = 0; hum(false); sfx('ding'); setTimeout(() => sfx('slide'), 250); EV.drawPanel(null); }
+    EV.t += dt; const s = evDist(EV.t); EV.y = EV.y0 + EV.dir * s; EV.v = EV.dir * (EV.t < EV.ta ? EVV.acc * EV.t : EV.t < EV.ta + EV.tc ? EV.vp : Math.max(0, EV.vp - EVV.acc * (EV.t - EV.ta - EV.tc)));
+    if (EV.t >= EV.dur) { EV.y = EV.y1; EV.v = 0; EV.fi = FLOORS.indexOf(EV.target); EV.setCallLamp(EV.target, false); EV.target = null; EV.dir = 0; hum(false); sfx('ding'); EV.state = 'opening'; setTimeout(() => sfx('slide'), 250); lastHud = ''; }
   }
   if (EV.state !== 'idle' && EV.state !== 'open') MOV.t = performance.now();
   W.cab.position.y = EV.y; EV.setDoorsVisual();
+  // indicador: piso más cercano a la posición REAL de la cabina (se actualiza al pasar cada piso; antes la botonera mostraba el piso de salida todo el viaje)
   let near = FLOORS[0]; for (const f of FLOORS) if (Math.abs(LEVY[f] - EV.y) < Math.abs(LEVY[near] - EV.y)) near = f;
-  const lab = FLABEL[near] + '|' + EV.dir; if (lab !== lastInd) { lastInd = lab; EV.drawInd(FLABEL[near], EV.dir); EV.curLabel = FLABEL[near]; if (EV.state === 'moving') EV.drawPanel(null); }
-  W.EV.light.intensity = FP.on && Math.abs(FP.y - EV.y) < 3 ? 1.3 : 0;
+  const lab = FLABEL[near] + '|' + EV.dir + '|' + EV.target + '|' + EV.q.join(','); if (lab !== lastInd) { lastInd = lab; EV.curLabel = FLABEL[near]; EV.drawInd(FLABEL[near], EV.dir); EV.drawPanel(null); lastHud = ''; }
 }
 // ---------- puertas ----------
 function doorsUpdate(dt) {
@@ -1169,7 +1191,7 @@ function hum(on) {
 }
 $('#snd').onclick = () => { AU.on = !AU.on; $('#snd').textContent = AU.on ? '🔊 Sonido' : '🔇 Sonido'; $('#snd').classList.toggle('on', AU.on); if (AU.on) { const c = actx(); c && c.resume(); if (EV.state === 'moving') hum(true); } else hum(false); };
 // ---------- luces del recorrido ----------
-const FPL = { hemi: new THREE.HemisphereLight(0xfff4e6, 0x8a7f72, 0), pts: [0, 1, 2].map(() => new THREE.PointLight(0xffefd8, 0, 6.5, 1.4)), t: 0 };
+const FPL = { hemi: new THREE.HemisphereLight(0xfff4e6, 0x8a7f72, 0), pts: [0, 1].map(() => new THREE.PointLight(0xffefd8, 0, 6.5, 1.4)), t: 0 };
 scene.add(FPL.hemi); FPL.pts.forEach((p) => scene.add(p));
 function fpLights(dt) {
   FPL.t -= dt; if (FPL.t > 0) return; FPL.t = 0.4;
@@ -1180,6 +1202,7 @@ function fpLights(dt) {
   if (/^p[2-7]$/.test(FP.lvl)) pts = W.TIP.lampPts.map((p) => ({ ...p, d: Math.hypot(p.x - FP.x, p.z - FP.z) })).sort((a, b) => a.d - b.d).slice(0, 3).map((p) => [p.x, y + 2.25, p.z]);
   else if (FP.lvl === 'p1') pts = [[9.8, LEVY.p1 + 2.2, 5.24], [14.2, LEVY.p1 + 2.2, 5.24], [20.4, LEVY.p1 + 2.2, 10.7]].sort((a, b) => Math.hypot(a[0] - FP.x, a[2] - FP.z) - Math.hypot(b[0] - FP.x, b[2] - FP.z));
   else { const sr = SV.at(FP.x, FP.z); pts = [[20.4, 0.3, 10.7], [21.5, 0.3, 15.5], [20.6, 0.3, 6.2], [21.5, 0.3, 21.5], [12.5, 0.2, 2.3], ...SV.rooms.map((r) => [r.cx, SV.ceil - 0.35, r.cz])].sort((a, b) => Math.hypot(a[0] - FP.x, a[2] - FP.z) - Math.hypot(b[0] - FP.x, b[2] - FP.z)); if (sr) pts = [[sr.cx, SV.ceil - 0.35, sr.cz], ...pts.filter((p) => p[1] > 0.25)]; }
+  if (FP.inCab) pts = [[(CI.x0 + CI.x1) / 2 + 0.25, EV.y + 2.15, (CI.z0 + CI.z1) / 2], ...pts];
   FPL.pts.forEach((p, i) => { const q = pts[i]; if (FP.on && q && indoor) { p.position.set(...q); p.intensity = i === 0 ? 1.7 : 1.1; } else p.intensity = 0; });
 }
 // ---------- cielo y entorno ilustrativo (solo en el recorrido) ----------
@@ -1228,12 +1251,12 @@ function fpVis(force) {
   const key = lvl + nearCore + (FP.inCab ? 'c' : ''); if (!force && key === lastVis) return; lastVis = key;
   LV.forEach((l) => { l.g.visible = l.on; }); shadowDirty();
   FLOORS.forEach((id, k) => { const E = LEV[id]; const on = k === i || k === i + 1 || (nearCore && k === i - 1) || (FP.inCab && Math.abs(k - i) <= 1);
-    E.int.visible = on; if (E.ceil) E.ceil.visible = on; });
+    E.int.visible = on; if (E.ceil) E.ceil.visible = on; const fu = E.int.getObjectByName('fur'); if (fu) fu.visible = k === i; }); // v7: amoblado solo del piso actual (rendimiento)
   FPC.sot.visible = lvl === 'sot';
-  if (GT.blk) GT.blk.forEach((m) => { m.visible = !(lvl === 'sot' || (FP.x > 0 && lvl === 'p1')); });
+  if (GT.blk) GT.blk.forEach((m) => { m.visible = !(lvl === 'sot' || (FP.x > 0 && lvl === 'p1') || LEV.p1.int.visible); }); // v7: el volumen esquemático del piso 1 tapaba el hueco de escalera visto desde p2
   st.cut = null; cutSel.value = '';
 }
-function intVisOrbit() { FLOORS.forEach((id) => { const E = LEV[id]; E.int.visible = !!(st.xray || st.explode > 0 || st.cut === id); if (E.ceil) E.ceil.visible = false; }); if (GT.blk) GT.blk.forEach((m) => { m.visible = true; }); }
+function intVisOrbit() { FLOORS.forEach((id) => { const E = LEV[id]; { const fu = E.int.getObjectByName('fur'); if (fu) fu.visible = true; } E.int.visible = !!(st.xray || st.explode > 0 || st.cut === id); if (E.ceil) E.ceil.visible = false; }); if (GT.blk) GT.blk.forEach((m) => { m.visible = true; }); }
 // ---------- HUD ----------
 const hud = { where: $('#fpWhere'), sub: $('#fpSub'), prompt: $('#fpPrompt'), elev: $('#elev'), act: $('#fpActBtn') };
 function placeName() {
@@ -1254,11 +1277,11 @@ function fpHud() {
   let pr = '', act = '', ek = '';
   const f = FP.focus;
   if (FP.auto) pr = '<span class="auto">Recorrido automático…</span>';
-  else if (FP.inCab) { pr = 'Elige el piso en la botonera  <b>1–7</b> · <b>0</b> = Sótano · <b>E</b> abrir/cerrar'; act = EV.state === 'open' ? 'Cerrar' : 'Abrir'; ek = 'cab'; }
-  else if (nearElev()) { const here = FLOORS[EV.fi] === FP.lvl && EV.state !== 'moving'; pr = here && EV.door > 0.5 ? 'Entra al ascensor · o elige piso para ir automáticamente' : '<b>E</b> Llamar ascensor · o elige piso <b>0–7</b>'; act = here && EV.door > 0.5 ? 'Cerrar' : 'Llamar'; ek = 'land'; }
+  else if (FP.inCab) { pr = EV.state === 'moving' ? (EV.dir > 0 ? '▲ Subiendo' : '▼ Bajando') + ' · piso ' + EV.curLabel + (EV.target ? ' → ' + FLABEL[EV.target] : '') : 'Elige el piso: mira la botonera y <b>E</b>/clic, o teclas <b>1–7</b> · <b>0</b> = Sótano · <b>O</b> abrir · <b>C</b> cerrar'; act = EV.state === 'open' || EV.state === 'opening' ? 'Cerrar' : 'Abrir'; ek = 'cab'; }
+  else if (nearElev()) { const here = evHere(FP.lvl); pr = here && EV.door > 0.6 ? 'Puertas abiertas · <b>camina</b> hacia la cabina y elige el piso adentro' : EV.target === FP.lvl || EV.q.includes(FP.lvl) ? 'Llamada registrada · la cabina viene (piso ' + EV.curLabel + ')' + (FP.hint ? ' · entra y elige ' + FLABEL[FP.hint] : '') : '<b>E</b> Llamar ascensor'; act = here && EV.door > 0.6 ? 'Mantener' : 'Llamar'; ek = 'land'; }
   else if (f) { if (f.kind === 'door') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta · ${doorLabel(f.o, FP.lvl)}`; } else if (f.kind === 'bal') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta‑ventana del balcón`; } else if (f.kind === 'ped') { act = 'App'; pr = 'Acércate al kiosko para reconocimiento facial · <b>E</b> abrir con la app URBAN (simulado) · <b>V</b> portón vehicular'; } else if (f.kind === 'rex') { act = 'Salir'; pr = '<b>E</b> Botón de salida · abrir puerta peatonal'; } else if (f.kind === 'veh') { act = 'Portón'; pr = '<b>V</b> Abrir portón vehicular · abre en 2 hojas, la peatonal queda cerrada (motor: fase 2)'; } }
   const kp = kioskPrompt(); if (kp && !FP.inCab) pr = kp;
-  const key = a + b + pr + act + ek + EV.state + EV.curLabel + EV.target + FP.lvl;
+  const key = a + b + pr + act + ek + EV.state + EV.curLabel + EV.target + EV.q.join() + FP.lvl;
   if (key === lastHud) return; lastHud = key;
   hud.where.textContent = a; hud.sub.textContent = b; hud.prompt.innerHTML = pr;
   hud.act.textContent = act || '·'; hud.act.classList.toggle('dim', !act);
@@ -1268,16 +1291,18 @@ function fpHud() {
     $('#elevTitle').textContent = ek === 'cab' ? 'Ascensor · cabina' : 'Ascensor · ' + (FP.lvl === 'sot' ? 'Sótano' : 'Piso ' + FLABEL[FP.lvl]);
     $('#elevInd').innerHTML = `<span>${EV.curLabel || ''}</span><i>${EV.dir > 0 ? '▲' : EV.dir < 0 ? '▼' : ''}</i>`;
     $('#elevCall').style.display = ek === 'land' ? '' : 'none';
-    document.querySelectorAll('#elevKeys [data-f]').forEach((b) => { b.classList.toggle('on', EV.target === b.dataset.f); b.classList.toggle('cur', FLOORS[EV.fi] === b.dataset.f && EV.state !== 'moving'); });
+    document.querySelectorAll('#elevKeys [data-f]').forEach((b) => { b.classList.toggle('on', EV.target === b.dataset.f || EV.q.includes(b.dataset.f)); b.classList.toggle('cur', FLOORS[EV.fi] === b.dataset.f && EV.state !== 'moving'); });
+    const ST = { idle: 'Puertas cerradas', opening: 'Abriendo puertas…', open: 'Puertas abiertas', closing: 'Cerrando puertas…', moving: EV.dir > 0 ? 'Subiendo ▲' : 'Bajando ▼' }; const se = $('#elevSt'); if (se) se.textContent = ST[EV.state] + (EV.target ? ' · destino ' + FLABEL[EV.target] : '');
+    const kh = $('#elevKeysH'); if (kh) kh.textContent = ek === 'cab' ? 'Botonera de cabina' : 'Desde el hall: cualquier botón llama la cabina a este piso';
   }
 }
 // ---------- secuencia automática (montarse en el ascensor en primera persona) ----------
-function goFloor(f) {
-  if (FP.inCab) { evCall(f); return; }
-  if (!nearElev() && !FP.inCab) return;
-  if (f === FP.lvl) { evCall(f); return; }
-  FP.auto = { phase: 'call', f, t: 0 }; evCall(FP.lvl);
+function goFloor(f) { // v7: dentro de la cabina = destino; en el hall = llamar la cabina a ESTE piso (el jugador entra caminando)
+  if (FP.inCab) { evRequest(f, 'cab'); return; }
+  if (nearElev()) { evRequest(FP.lvl, 'land'); FP.hint = f !== FP.lvl ? f : null; lastHud = ''; }
 }
+function pressKey(k) { if (k === 'open') evOpen(); else if (k === 'close') evClose(); else if (k) evRequest(k, 'cab'); }
+function panelKeyAtCenter() { rayC.setFromCamera(new THREE.Vector2(0, 0), camera); rayC.far = 2.2; const h = rayC.intersectObject(EV.panelMesh)[0]; return h && h.uv ? EV.keyAt(h.uv) : null; }
 const lerpA = (a, b, t) => { let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * t; };
 function autoUpdate(dt) {
   const A = FP.auto; if (!A) return; A.t += dt;
@@ -1340,8 +1365,8 @@ function fpUpdate(dt) {
   const shake = EV.state === 'moving' && FP.inCab ? Math.sin(performance.now() * 0.05) * 0.0015 : 0;
   const rx = Math.cos(FP.yaw), rz = -Math.sin(FP.yaw);
   camera.position.set(FP.x + rx * bobX, FP.y + EYE + bobY + shake, FP.z + rz * bobX); camera.rotation.order = 'YXZ'; camera.rotation.set(FP.pitch, FP.yaw, 0);
-  FP.focus = findFocus(); fpLights(dt); fpHud();
-  const showU = st.urban && FP.mode !== 'floor' && !FP.inCab && kioskNear().d > 2.2 && !['scan', 'ok'].includes(KS.st); if (urban.visible !== showU) { urban.visible = showU; MK.forEach((m) => { m.g.visible = showU; }); }
+  FP.focus = findFocus(); if (FP.inCab !== FPL.wasCab) { FPL.wasCab = FP.inCab; FPL.t = 0; } fpLights(dt); if (FP.inCab) FPL.pts[0].position.y = EV.y + 2.15; fpHud();
+  const showU = st.urban && FP.mode !== 'floor' && !FP.inCab && !nearElev() && kioskNear().d > 2.2 && !['scan', 'ok'].includes(KS.st); if (urban.visible !== showU) { urban.visible = showU; MK.forEach((m) => { m.g.visible = showU; }); }
   document.body.classList.toggle('neargate', FP.lvl === 'p1' && FP.x < 4 && Math.abs(FP.y) < 0.5);
 }
 // ---------- entradas ----------
@@ -1350,7 +1375,7 @@ addEventListener('keydown', (e) => { if (!FP.on) return; FP.keys[e.code] = true;
   if (e.code === 'KeyE' && !e.repeat) interact();
   if (e.code === 'KeyV') openVeh(!GT.v1.tgt);
   if (KEYF[e.code] && (FP.inCab || nearElev())) goFloor(KEYF[e.code]);
-  if (e.code === 'KeyO' && FP.inCab) evOpen(); if (e.code === 'KeyC' && FP.inCab) evClose();
+  if (e.code === 'KeyO' && (FP.inCab || evHere(FP.lvl))) evOpen(); if (e.code === 'KeyC' && (FP.inCab || evHere(FP.lvl))) evClose();
   if (e.code === 'KeyM') $('#snd').click();
   if (e.code === 'Escape') { if (FP.auto) FP.auto = null; else if (!document.pointerLockElement) fpExit(); }
   if (/Arrow|Space/.test(e.code)) e.preventDefault(); });
@@ -1359,7 +1384,7 @@ let look = null;
 const rayC = new THREE.Raycaster();
 function clickCenter() { // con puntero bloqueado: tecla de la botonera o interacción
   rayC.setFromCamera(new THREE.Vector2(0, 0), camera); rayC.far = 2.2;
-  if (FP.inCab) { const h = rayC.intersectObject(EV.panelMesh)[0]; if (h && h.uv) { const k = EV.keyAt(h.uv); if (k === 'open') evOpen(); else if (k === 'close') evClose(); else if (k) goFloor(k); return; } }
+  if (FP.inCab) { const h = rayC.intersectObject(EV.panelMesh)[0]; if (h && h.uv) { const k = EV.keyAt(h.uv); if (k) { pressKey(k); return; } } }
   interact();
 }
 canvas.addEventListener('pointerdown', (e) => { if (!FP.on) return; if (document.pointerLockElement === canvas) { clickCenter(); return; } look = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: 0, t: performance.now() }; });
@@ -1372,7 +1397,7 @@ addEventListener('pointermove', (e) => {
 addEventListener('pointerup', (e) => { if (!FP.on || !look || e.pointerId !== look.id) return;
   if (look.moved < 6) { if (e.pointerType === 'mouse' && canvas.requestPointerLock) { try { canvas.requestPointerLock(); } catch (_) {} } else { // toque: botonera de cabina o interacción
     const r = canvas.getBoundingClientRect(); rayC.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera); rayC.far = 2.4;
-    const h = FP.inCab ? rayC.intersectObject(EV.panelMesh)[0] : null; if (h && h.uv) { const k = EV.keyAt(h.uv); if (k === 'open') evOpen(); else if (k === 'close') evClose(); else if (k) goFloor(k); } } }
+    const h = FP.inCab ? rayC.intersectObject(EV.panelMesh)[0] : null; if (h && h.uv) { const k = EV.keyAt(h.uv); if (k) pressKey(k); } } }
   look = null; });
 {
   const joy = $('#joy'), knob = $('#joy i'); let jid = null, c0 = null;
@@ -1391,9 +1416,9 @@ $('#bCar') && ($('#bCar').onclick = () => carStart(CAR.state === 'parked' ? 'out
 $('#gateH').onchange = (e) => setGateH(e.target.value);
 $('#fpActBtn').onclick = () => interact();
 document.querySelectorAll('#elevKeys [data-f]').forEach((b) => (b.onclick = () => goFloor(b.dataset.f)));
-$('#elevOpen').onclick = () => (FP.inCab ? evOpen() : evCall(FP.lvl));
-$('#elevClose').onclick = () => evClose();
-$('#elevCall').onclick = () => evCall(FP.lvl);
+$('#elevOpen').onclick = () => { if (FP.inCab || evHere(FP.lvl)) evOpen(); else evRequest(FP.lvl, 'land'); };
+$('#elevClose').onclick = () => { if (FP.inCab || evHere(FP.lvl)) evClose(); };
+$('#elevCall').onclick = () => evRequest(FP.lvl, 'land');
 // ---------- minimapa (planta del nivel actual, centrada en el jugador) ----------
 const mini = $('#mini'), mctx = mini.getContext('2d');
 const MMS = 14, MX0 = -8, MZ0 = -3, MW = 40, MH = 32; // px/m y ventana del plano
@@ -1452,12 +1477,13 @@ function applyQuality(lv) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, q.dpr));
   const want = q.sh > 0; if (sun.castShadow !== want) sun.castShadow = want;
   if (want && sun.shadow.mapSize.x !== q.sh) { sun.shadow.mapSize.set(q.sh, q.sh); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  if (W.FUR && W.FUR.setQuality) W.FUR.setQuality(lv); // v7: vidrio de ducha con transmisión solo en Alta; herrajes/detalles ocultos en Baja
   resize(); shadowDirty(); const el = $('#qLvl'); if (el) el.textContent = q.n;
 }
-function setQuality(m) { QUAL.mode = m; try { localStorage.setItem('almendraQ', m); } catch (_) {} if (m !== 'auto') applyQuality({ baja: 0, media: 1, alta: 2 }[m]); else applyQuality(isMobile ? 1 : 2); QUAL.acc = QUAL.n = 0; QUAL.good = 0; const s2 = $('#qSel'); if (s2) s2.value = m; }
+function setQuality(m) { QUAL.mode = m; try { localStorage.setItem('almendraQ', m); } catch (_) {} if (m !== 'auto') applyQuality({ baja: 0, media: 1, alta: 2 }[m]); else applyQuality(GL_SOFT ? 0 : 1); QUAL.acc = QUAL.n = 0; QUAL.good = 0; const s2 = $('#qSel'); if (s2) s2.value = m; }
 function qualTick(dt, now) {
   if (!(dt > 0) || dt > 0.5) return; QUAL.acc += dt; QUAL.n++;
-  if (now - QUAL.tUI > 500) { QUAL.ms = QUAL.acc / QUAL.n * 1000; QUAL.fps = 1000 / QUAL.ms; const el = $('#fps'); if (el) el.textContent = Math.round(QUAL.fps) + ' fps'; QUAL.tUI = now;
+  if (now - QUAL.tUI > 500) { QUAL.ms = QUAL.acc / QUAL.n * 1000; QUAL.fps = 1000 / QUAL.ms; const el = $('#fps'); if (el) el.textContent = Math.round(QUAL.fps) + ' fps'; showGLR(); QUAL.tUI = now;
     if (QUAL.mode === 'auto' && document.visibilityState === 'visible') {
       if (QUAL.ms > 26 && QUAL.lv > 0) { QUAL.good = 0; applyQuality(QUAL.lv - 1); }
       else if (QUAL.ms < 13 && QUAL.lv < 2) { if (++QUAL.good >= 10) { QUAL.good = 0; applyQuality(QUAL.lv + 1); } } else QUAL.good = 0;
@@ -1480,6 +1506,10 @@ function resize() {
   const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; const r = canvas.getBoundingClientRect(); CR.w = r.width; CR.h = r.height; shadowDirty();
   camera.fov = w < h ? 55 : 40; camera.updateProjectionMatrix();
 }
+// v7: GPU real usada por Chrome (para detectar iGPU / SwiftShader) — se muestra junto a los fps
+const GLR = (() => { try { const gl = renderer.getContext(); const ext = gl.getExtension('WEBGL_debug_renderer_info'); return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)); } catch (_) { return '?'; } })();
+const GL_SOFT = /swiftshader|llvmpipe|software|basic render/i.test(GLR);
+function showGLR() { const el = $('#glR'); if (el && !el._ok) { el._ok = 1; el.textContent = (GL_SOFT ? '⚠ render por software · ' : '') + GLR.replace(/^ANGLE \((.*)\)$/, '$1'); el.title = GLR + (GL_SOFT ? ' — Chrome no está usando la GPU: activa “Usar aceleración por hardware” y actualiza el driver' : ''); if (GL_SOFT) el.style.color = '#ffb547'; } } showGLR();
 addEventListener('resize', resize); resize(); setQuality(QUAL.mode);
 $('#qSel') && ($('#qSel').onchange = (e) => setQuality(e.target.value));
 goView('general', true); applyVis();
@@ -1490,8 +1520,9 @@ function loop(now) {
   if (tween) { const u = Math.min(1, (now - tween.s) / tween.d), k = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
     camera.position.lerpVectors(tween.p0, tween.p1, k); controls.target.lerpVectors(tween.t0, tween.t1, k); if (u >= 1) tween = null; }
   const rawDt = (now - (loop.last || now)) / 1000; const dt = Math.min(0.1, rawDt); loop.last = now; qualTick(rawDt, now);
+  evUpdate(dt); // v7: primero la cabina, luego el jugador (que viaja dentro) → sin desfase de un cuadro
   if (FP.on) fpUpdate(dt); else controls.update();
-  evUpdate(dt); doorsUpdate(dt);
+  doorsUpdate(dt);
   gateUpdate(dt); kioskUpdate(dt); carUpdate(dt);
   if (now - MOV.t < 350 && (loop.n = (loop.n || 0) + 1) % 3 === 0) shadowDirty(); // sombras: solo mientras algo se mueve, 1 de cada 3 cuadros
   cableMat.uniforms.t.value = t;
@@ -1504,9 +1535,9 @@ function loop(now) {
   place(cableLabel, CAB_MK.mid, !FP.on && st.urban && lv('sot').g.visible && lv('p1').g.visible);
   const cl = !FP.on && st.cut && /^p[2-7]$/.test(st.cut) ? lv(st.cut) : null;
   aptLbl.forEach(({ a, el }) => { if (!cl) return hideEl(el); const tx = 'APTO ' + (+cl.id.slice(1) * 100 + a.n); if (el._t !== tx) { el._t = tx; el.textContent = tx; } wp.set((a.x0 + a.x1) / 2, cl.y + cl.g.position.y + 1.2, (a.z0 + a.z1) / 2); place(el, wp, true); });
-  floatLbl.forEach((f) => { wp.set(...f.p); wp.y += lv(f.l).g.position.y; place(f.el, wp, lv(f.l).g.visible && (!f.only || st.cut === f.only) && (f.only || !f.cls.includes('sm') || camera.position.distanceTo(wp) < 20) && (!FP.on || (FP.mode !== 'floor' && camera.position.distanceTo(wp) < 14 && kd > 2.2))); });
+  floatLbl.forEach((f) => { wp.set(...f.p); wp.y += lv(f.l).g.position.y; place(f.el, wp, lv(f.l).g.visible && (!f.only || st.cut === f.only) && (f.only || !f.cls.includes('sm') || camera.position.distanceTo(wp) < 20) && (!FP.on || (FP.mode !== 'floor' && !FP.inCab && camera.position.distanceTo(wp) < 14 && kd > 2.2))); });
 }
 requestAnimationFrame(loop);
-function sim(sec, step = 1 / 30) { for (let t = 0; t < sec; t += step) { if (FP.on) fpUpdate(step); evUpdate(step); doorsUpdate(step); gateUpdate(step); kioskUpdate(step); carUpdate(step); } }
-window.__app = { SV, VEH, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); } };
+function sim(sec, step = 1 / 30) { for (let t = 0; t < sec; t += step) { evUpdate(step); if (FP.on) fpUpdate(step); doorsUpdate(step); gateUpdate(step); kioskUpdate(step); carUpdate(step); } }
+window.__app = { THREE, SV, VEH, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); } };
 document.body.classList.add('ready');

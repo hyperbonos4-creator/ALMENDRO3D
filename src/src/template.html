@@ -185,9 +185,9 @@ body.fp #side,body.fp #panel{display:none}
  <div id="fpPrompt"></div>
  <div id="fpToast"></div>
  <div id="elev" class="glass"><div class="eh"><span id="elevTitle">Ascensor</span><div id="elevInd"></div></div>
-  <div id="elevKeys"><button class="ek" data-f="p7">7</button><button class="ek" data-f="p6">6</button><button class="ek" data-f="p5">5</button><button class="ek" data-f="p4">4</button><button class="ek" data-f="p3">3</button><button class="ek" data-f="p2">2</button><button class="ek" data-f="p1">1</button><button class="ek" data-f="sot">S</button></div>
+  <div id="elevSt" style="font:600 12px Segoe UI,Arial;color:#ffd59a;margin:2px 0 6px">Puertas cerradas</div><div id="elevKeysH" style="font:500 10.5px Segoe UI,Arial;opacity:.7;margin-bottom:4px"></div><div id="elevKeys"><button class="ek" data-f="p7">7</button><button class="ek" data-f="p6">6</button><button class="ek" data-f="p5">5</button><button class="ek" data-f="p4">4</button><button class="ek" data-f="p3">3</button><button class="ek" data-f="p2">2</button><button class="ek" data-f="p1">1</button><button class="ek" data-f="sot">S</button></div>
   <div class="er"><button id="elevCall" class="btn">Llamar</button><button id="elevOpen" class="btn">◀▶ Abrir</button><button id="elevClose" class="btn">▶◀ Cerrar</button></div>
-  <div class="en">Toca un piso: entras, se cierran las puertas, viajas y sales — en primera persona.</div></div>
+  <div class="en">Llama la cabina, camina adentro y elige el piso: las puertas se cierran y viajas dentro de la cabina hasta el piso elegido. Sin selección, la cabina queda quieta con puertas cerradas.</div></div>
  <div id="fpAct"><button id="fpOpen" class="btn">Abrir peatonal (app / salida)</button><button id="fpVeh" class="btn">Portón vehicular (V)</button></div>
  <button id="fpActBtn" class="dim">·</button>
  <canvas id="mini" width="360" height="360"></canvas>
@@ -242,6 +242,6 @@ body.fp #side,body.fp #panel{display:none}
 </div></div>
 <script>/*DATA*/</script>
 <script>/*APP*/</script>
-<div id="perfBox"><span id="fps">— fps</span><select id="qSel" title="Calidad gráfica"><option value="auto">Calidad: Auto</option><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select><span id="qLvl"></span></div>
+<div id="perfBox"><span id="fps">— fps</span><select id="qSel" title="Calidad gráfica" autocomplete="off"><option value="auto">Calidad: Auto</option><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select><span id="qLvl"></span><span id="glR" title="GPU usada por el navegador (WebGL)" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75;font-weight:500"></span></div>
 </body>
 </html>

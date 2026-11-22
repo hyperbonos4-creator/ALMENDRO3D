@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
+const r = await p.evaluate(() => { __app.fpEnter(); __app.fpPose(-5.4, 5.3, -Math.PI / 2, 0, 0); __app.sim(0.5);
+  const S = __app.scene, cnt = {}; let tot = 0;
+  S.traverseVisible((o) => { if (!(o.isMesh || o.isLine || o.isPoints || o.isSprite)) return; let k = o.parent ? (o.parent.name || o.parent.type) : '-'; let q = o.parent; while (q && !q.name && q.parent) q = q.parent; k = (q && q.name) || k; const n = Array.isArray(o.material) ? o.material.length : 1; cnt[k] = (cnt[k] || 0) + n; tot += n; });
+  return { tot, top: Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 25) }; });
+console.log(JSON.stringify(r)); await b.close();

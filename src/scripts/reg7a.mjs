@@ -1,0 +1,33 @@
+import { chromium } from 'playwright';
+const only = process.argv[2];
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const logs = [];
+async function shot(name, fn, vp = { width: 1600, height: 1000 }, wait = 2500) {
+  if (only && !only.split(',').some((o) => name.includes(o))) return;
+  const p = await b.newPage({ viewport: vp, deviceScaleFactor: 1 });
+  p.on('console', (m) => { if (m.type() !== 'log' || /error|warn/i.test(m.text())) logs.push(`[${name}] ${m.type()}: ${m.text()}`); });
+  p.on('pageerror', (e) => logs.push(`[${name}] PAGEERROR: ${e.message}`));
+  await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html');
+  await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
+  await p.evaluate(() => __app.setQuality('alta'));
+  await p.waitForTimeout(300);
+  const info = await p.evaluate(fn);
+  await p.waitForTimeout(wait);
+  await p.screenshot({ path: `../shots7/reg_${name}.png` });
+  if (info) logs.push(`[${name}] info: ${JSON.stringify(info)}`);
+  await p.close();
+}
+const openG = () => { __app.openVeh(true); __app.GT.v1.cur = __app.GT.v2.cur = 1; __app.sim(0.05); };
+await shot('01_rampa_desde_calle', () => { __app.openVeh(true); __app.GT.v1.cur = __app.GT.v2.cur = 1; __app.fpEnter(); __app.fpPose(-1.6, 2.3, -Math.PI / 2, -0.2, 0); __app.sim(0.1); });
+await shot('02_rampa_desde_sotano_mirando_arriba', () => { __app.fpEnter(); __app.fpPose(12.6, 2.4, Math.PI / 2 - 0.05, 0.12, -1.37); __app.sim(0.3); return { y: __app.FP.y }; });
+await shot('03_rampa_desde_plataforma', () => { __app.fpEnter(); __app.fpPose(25.6, 2.2, Math.PI / 2 + 0.02, 0.1, -2.375); __app.sim(0.3); return { y: __app.FP.y, l: __app.FP.lvl }; });
+await shot('04_rampa_orbita_corte_sotano', () => { __app.setCut('sot'); __app.st.urban = false; __app.applyVis(); __app.cam([-6, 9, -7], [12, -1.5, 3]); });
+await shot('05_pasillo_libre_misma_vista_que_luisa', () => { __app.fpEnter(); __app.fpPose(15.2, 2.5, -Math.PI / 2, -0.05, 'sot'); __app.fpPose(15.2, 2.5, -Math.PI / 2, -0.05, -1.62); __app.sim(0.3); return { y: __app.FP.y }; });
+await shot('06_carro_saliendo_rampa', () => { __app.carStart('out'); __app.sim(5.2); const C = __app.CAR; __app.setCut('sot'); __app.st.urban = false; __app.applyVis(); __app.cam([6.5, 5.0, 2.2], [12.5, -1.4, 2.3]); return { st: C.state, x: C.m.position.x.toFixed(2), y: C.m.position.y.toFixed(2) }; });
+await shot('07_carro_entrando_por_porton', () => { __app.carStart('out'); __app.sim(30); const a = __app.CAR.state; __app.carStart('in'); __app.sim(6.5); const C = __app.CAR; __app.cam([-7.5, 2.6, -2.5], [1, 0.6, 2.3]); return { a, st: C.state, x: C.m.position.x.toFixed(2) }; });
+await shot('08_carro_en_reversa_a_celda', () => { __app.carStart('out'); __app.sim(30); __app.carStart('in'); let t = 0; while (__app.CAR.k < 1 && t < 40) { __app.sim(0.5); t += 0.5; } __app.sim(2.6); const C = __app.CAR; __app.setCut('sot'); __app.st.urban = false; __app.applyVis(); __app.cam([29, 3.6, -1.5], [23, -2.2, 4.5]); return { st: C.state, k: C.k, x: C.m.position.x.toFixed(2), z: C.m.position.z.toFixed(2) }; });
+await shot('09_carro_estacionado_celda3', () => { __app.carStart('out'); __app.sim(30); __app.carStart('in'); __app.sim(40); const C = __app.CAR, p = C.spot; __app.setCut('sot'); __app.st.urban = false; __app.applyVis(); __app.cam([28.5, 3.0, -0.8], [22.5, -2.2, 5.5]); return { st: C.state, x: C.m.position.x.toFixed(3), z: C.m.position.z.toFixed(3), cell: [p.cx.toFixed(3), p.cz.toFixed(3)], visible: C.m.visible, gate: __app.GT.v1.tgt }; });
+await shot('10_celdas_planta_todas_ocupadas', () => { __app.setCut('sot'); __app.st.urban = false; __app.applyVis(); __app.cam([22.0, 22, 14.5], [21.9, -3, 14.4]); });
+await shot('11_porton_frente_v6', () => { __app.st.urban = false; __app.applyVis(); __app.cam([-9.5, 2.7, 3.7], [0, 2.7, 3.7]); });
+console.log(logs.join('\n')); console.log('all logs', logs.length);
+await b.close();

@@ -6,6 +6,7 @@ import { makeTextures } from './tex.js';
 import { buildWorld, LEVY, FLOORS, FLABEL, pipH } from './interior.js';
 import { carParts, motoParts, vehicleMaterials, mergeVehicles, CAR_TYPES } from './vehicles.js';
 import { textTex } from './tex.js';
+import { makeTex8, gateTexture, signTexture, facadeModel, buildFacadeFloor, segBox, plantMats, tropicalGeo, ivyGeo, worldUV } from './style8.js';
 
 const S = window.__SCENE__, TEX = window.__TEX__;
 const $ = (q) => document.querySelector(q);
@@ -95,7 +96,32 @@ const M = {
   yellow: new THREE.MeshStandardMaterial({ color: 0xe0b828, roughness: 0.6, emissive: 0x2a2000 }),
 };
 texRoof.repeat.set(2, 1);
-const FACADE = [M.grey, M.white, M.liston, M.brown, M.glass, M.alu, M.drip, M.f1];
+// ---------- v8: materiales del estilo real (renders promocionales) ----------
+const T8 = makeTex8();
+const st8 = (c, map, r = 0.9, o = {}) => new THREE.MeshStandardMaterial({ color: c, map, roughness: r, ...o });
+const F8 = {
+  render: st8(0xa9845c, T8.stucco, 0.88),   // revoque café/caramelo (marcos, pilastras, antepecho)
+  grey: st8(0xb5b1aa, T8.rough, 0.95),      // gris texturizado (graniplast)
+  wood: st8(0xffdfa6, T8.slats, 0.72, { normalMap: T8.slatsN, normalScale: new THREE.Vector2(1.1, 1.1) }),      // listones de madera clara (pino)
+  woodD: st8(0xffdfa6, T8.slats, 0.72, { normalMap: T8.slatsN, normalScale: new THREE.Vector2(1.1, 1.1) }),      // listones más oscuros del costado azul (ref_01)
+  char: st8(0x3b3a39, T8.stucco, 0.85),     // marcos grafito del costado azul
+  tan: st8(0x977652, T8.stucco, 0.85),      // paños café medio (franjas verticales)
+  dark: st8(0x4a525d, T8.stucco, 0.8),      // azul grafito empotrado
+  band: st8(0xe2ded6, null, 0.7),           // franjas claras en línea de losa
+  spandrel: st8(0x2c2e31, null, 0.32, { metalness: 0.35 }), // antepecho de vidrio oscuro en franjas de ventana
+  white: st8(0xeceae5, T8.stucco, 0.9),     // revoque blanco (ala posterior / ranura del punto fijo)
+  recess: st8(0xdcd9d3, T8.stucco, 0.9),    // interior del balcón empotrado
+  stuccoVC: st8(0xffffff, T8.stucco, 0.87, { vertexColors: true }), // v8: revoques fundidos con color por vértice
+  slatVC: st8(0xffffff, T8.slats, 0.71, { vertexColors: true, normalMap: T8.slatsN, normalScale: new THREE.Vector2(1.1, 1.1) }),    // v8: listones claros + oscuros fundidos
+};
+M.alu.color.set(0x1b1c1e); M.alu.metalness = 0.55; M.alu.roughness = 0.4; // v8: perfilería negra
+M.glass.color.set(0x2d3236); M.glass.metalness = 0.9; M.glass.roughness = 0.06; M.glass.opacity = 0.74;
+M.rglass = new THREE.MeshStandardMaterial({ color: 0xdfe9ec, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide });
+M.slab.color.set(0xd2d0ca);
+M.conc.map = T8.concFloor; M.conc.color.set(0xffffff); M.conc.roughness = 0.82;
+M.drip.color.set(0xd9d5cc);
+const PM8 = plantMats(T8);
+const FACADE = [M.grey, M.white, M.liston, M.brown, M.glass, M.alu, M.drip, M.f1, M.rglass, ...Object.values(F8)];
 FACADE.forEach((m) => { m.userData.op = m.opacity; m.userData.tr = m.transparent; });
 
 // ---------- geometry helpers ----------
@@ -134,7 +160,7 @@ const root = new THREE.Group(); scene.add(root);
 LV.forEach((l) => { l.g = new THREE.Group(); l.g.name = l.id; root.add(l.g); l.on = true; });
 const lv = (id) => LV.find((l) => l.id === id);
 const I = window.__INT__;
-const W = buildWorld({ I, S, lv, T: makeTextures(), M, isMobile });
+const W = buildWorld({ I, S, lv, T: makeTextures(), M, isMobile, T8 });
 scene.add(W.cab);
 const CORE_HOLES = [[[21.36, 9.69], [24.46, 9.69], [24.46, 11.69], [21.36, 11.69]], [[16.755, 9.841], [19.207, 9.841], [19.207, 11.541], [16.755, 11.541]]];
 const withHoles = (polys) => polys.map((p) => ({ o: p.o, h: [...(p.h || []), ...CORE_HOLES] }));
@@ -142,26 +168,26 @@ const withHoles = (polys) => polys.map((p) => ({ o: p.o, h: [...(p.h || []), ...
 // ---------- typical floor (shared geometry, 2–7) ----------
 function typicalFloor() {
   const G = new THREE.Group();
-  const g = { wall: [], grey: [], white: [], liston: [], brown: [], glass: [], alu: [], drip: [] }; const solids = [];
+  const g = { wall: [], grey: [], white: [], liston: [], brown: [], glass: [], alu: [], drip: [], rglass: [] }; const solids = [];
   g.slab = [W.TIP.slab];
   for (const p of S.skin) {
     const [nx, nz, L] = normOf(p);
-    const fm = nx < -0.7 ? 'liston' : nz > 0.7 ? 'white' : 'grey';
-    g.brown.push(seg(p.a, p.b, -0.22, 0.04, 0.07, 0.035, 0.07)); // marco/borde de losa café
+    // v8: la piel opaca (paños, pilastras, listones, franjas) se arma por piso en style8.js → aquí solo vidrio, perfilería y barandas
+    void nx; void nz;
     if (p.k === 'solid') { solids.push(p); continue; }
-    if (p.code === 'V-7') { g[fm].push(seg(p.a, p.b, p.head, 2.5, 0.04, 0.02)); continue; } // puerta-ventana del balcón: se modela en interior.js
-    if (p.k === 'open') { g.glass.push(seg(p.a, p.b, 0.04, 1.0, 0.02, 0.0)); g.alu.push(seg(p.a, p.b, 0.98, 1.04, 0.05, 0.0)); continue; }
+    if (p.code === 'V-7') continue; // puerta-ventana del balcón: se modela en interior.js
+    if (p.k === 'open') { g.rglass.push(seg(p.a, p.b, 0.06, 0.98, 0.012, 0.0)); g.alu.push(seg(p.a, p.b, 0.98, 1.03, 0.05, 0.0), seg(p.a, p.b, 0.02, 0.06, 0.04, 0.0));
+      for (let t = 0.04; t < L; t += Math.max(0.6, L / Math.max(1, Math.round(L / 1.2)))) { const c = [p.a[0] + (p.b[0] - p.a[0]) * t / L, p.a[1] + (p.b[1] - p.a[1]) * t / L], e = [(p.b[0] - p.a[0]) / L * 0.02, (p.b[1] - p.a[1]) / L * 0.02]; g.alu.push(seg([c[0] - e[0], c[1] - e[1]], [c[0] + e[0], c[1] + e[1]], 0.02, 0.98, 0.04, 0.0)); }
+      continue; }
     const sill = p.sill, head = p.head;
-    if (sill > 0.04) g[fm].push(seg(p.a, p.b, 0.04, sill, 0.04, 0.02));
-    g[fm].push(seg(p.a, p.b, head, 2.5, 0.04, 0.02));
     g.glass.push(seg(p.a, p.b, sill, head, 0.02, -0.05));
     g.alu.push(seg(p.a, p.b, head - 0.04, head, 0.07, -0.05), seg(p.a, p.b, Math.max(sill, 0.04), Math.max(sill, 0.04) + 0.04, 0.07, -0.05));
     const dx = p.b[0] - p.a[0], dz = p.b[1] - p.a[1];
     for (const f of [0, 0.5, 1]) { if (f === 0.5 && L < 1.4) continue; const c = [p.a[0] + dx * f, p.a[1] + dz * f]; const u = [dx / L * 0.025, dz / L * 0.025];
       g.alu.push(seg([c[0] - u[0], c[1] - u[1]], [c[0] + u[0], c[1] + u[1]], sill, head, 0.07, -0.05)); }
-    if (sill > 0.04) g.drip.push(seg(p.a, p.b, sill - 0.05, sill, 0.1, 0.06, 0.1));
+    if (sill > 0.04) g.drip.push(seg(p.a, p.b, sill - 0.03, sill, 0.07, 0.075, 0.0)); // alfajía delgada
   }
-  for (const [k, list] of Object.entries(g)) if (list.length) { const m = meshOf(list, M[k], k !== 'glass'); m.userData.kind = k; G.add(m); }
+  for (const [k, list] of Object.entries(g)) if (list.length) { const m = meshOf(list, M[k], k !== 'glass' && k !== 'rglass'); m.userData.kind = k; G.add(m); }
   G.userData.solids = solids;
   return G;
 }
@@ -179,8 +205,18 @@ function solidSkin(solids, f) {
   }
   const G = new THREE.Group(); for (const [k, l] of Object.entries(g)) if (l.length) G.add(meshOf(l, M[k])); return G;
 }
-const TF = typicalFloor();
-LV.filter((l) => /^p[2-7]$/.test(l.id)).forEach((l) => { const c = TF.clone(); c.position.y = l.y; c.add(solidSkin(TF.userData.solids, +l.id.slice(1))); l.g.add(c); });
+const TF = typicalFloor(); void solidSkin;
+const FMOD = facadeModel(S);
+LV.filter((l) => /^p[2-7]$/.test(l.id)).forEach((l) => { const c = TF.clone(); c.position.y = l.y; c.add(buildFacadeFloor(FMOD, l.y, F8)); l.g.add(c);
+  // borde de losa del balcón empotrado (frente abierto, x = 6.864) en gris claro
+  c.add(meshOf([segBox([6.864, 3.969], [0, -1], [-1, 0], 0, 3.251, -0.2, 0.0, -0.036, 0.04)], F8.recess)); // hasta el borde de la losa del balcón (x = 6.90)
+  // jardineras colgantes en el borde del corredor hacia la ranura del punto fijo (ref_05/ref_10)
+  if (!TF.userData.plantG) { const pots = [], ivy = []; for (const p of S.skin) { if (p.k !== 'open') continue; const [nx, nz, L] = normOf(p); const u = [(p.b[0] - p.a[0]) / L, (p.b[1] - p.a[1]) / L];
+      for (let t = 0.35; t + 1.05 < L; t += 1.6) { const a = [p.a[0] + u[0] * t, p.a[1] + u[1] * t], b = [p.a[0] + u[0] * (t + 1.0), p.a[1] + u[1] * (t + 1.0)];
+        pots.push(segBox(p.a, u, [nx, nz], t, t + 1.0, 0.62, 0.86, 0.05, 0.27)); ivy.push(ivyGeo(a, b, 0.92, 1.05, 0.285), ivyGeo(a, b, 0.92, 0.8, 0.16)); } }
+    const pgm = mergeGeometries(pots); { const c = new THREE.Color(0xa9845c), n = pgm.attributes.position.count, ca = new Float32Array(n * 3); for (let i = 0; i < n; i++) ca.set([c.r, c.g, c.b], i * 3); pgm.setAttribute('color', new THREE.BufferAttribute(ca, 3)); }
+    TF.userData.plantG = [pgm, mergeGeometries(ivy)]; }
+  const [pg, ig] = TF.userData.plantG; const pm = new THREE.Mesh(pg, F8.stuccoVC); pm.castShadow = true; c.add(pm); const im = new THREE.Mesh(ig, PM8.ivy); im.castShadow = true; c.add(im); });
 
 // ---------- Piso 1 (esquemático) ----------
 // escalones paso peatonal (N+0.00) → lobby (N+1.00, PL_A006): 6 contrahuellas de 0.167 m (supuesto: falta plancha 1/6)
@@ -248,15 +284,27 @@ const GT = { leaves: [] };
   // jamba fija (lado lindero)
   g.add(panelAt(U.jb, 1.0, GT.Z0 + U.jb * W, 1));
   // franja de letrero en concreto + pilares extremos (se reubican según el alto elegido)
-  const conc = new THREE.MeshStandardMaterial({ color: 0xc9c6bf, roughness: 0.9 });
+  const conc = new THREE.MeshStandardMaterial({ color: 0xc9c6bf, roughness: 0.9 }); const bandMat = conc.clone();
   const sH = W * 114 / 904;
   const signM = new THREE.Mesh(new THREE.PlaneGeometry(W + 0.3, sH), new THREE.MeshStandardMaterial({ map: texSign, roughness: 0.6, emissive: 0x332a20, emissiveIntensity: 0.25 }));
   signM.rotation.y = -Math.PI / 2; L1.add(signM);
   const unit = new THREE.BoxGeometry(1, 1, 1);
-  const band = new THREE.Mesh(unit, conc), postA = new THREE.Mesh(unit, conc), postB = new THREE.Mesh(unit, conc);
+  const band = new THREE.Mesh(unit, bandMat), postA = new THREE.Mesh(unit, bandMat), postB = new THREE.Mesh(unit, bandMat);
   [band, postA, postB].forEach((m) => { m.castShadow = true; m.receiveShadow = true; L1.add(m); });
+  // v8: estilo del video/renders → hojas grafito con riostras en X, franja oscura con letras blancas y plantas colgantes
+  const gtex8 = gateTexture(U), stex8 = signTexture('ED. ALMENDRA');
+  const ivyS = new THREE.Mesh(mergeGeometries([ivyGeo([-0.272, GT.Z0 + 0.05], [-0.272, GT.Z1 - 0.05], 0.13, 0.42), ivyGeo([-0.235, GT.Z0 + 0.3], [-0.235, GT.Z1 - 0.3], 0.15, 0.3)]), PM8.ivy); L1.add(ivyS);
+  const pot = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), bandMat); L1.add(pot); pot.castShadow = true;
+  GT.style = 'render';
+  GT.setStyle = (k) => { GT.style = k; const r = k === 'render';
+    gmat.map = r ? gtex8 : texDoor; gmat.metalness = r ? 0.45 : 0.55; gmat.roughness = r ? 0.5 : 0.42; gmat.needsUpdate = true;
+    fmat.color.set(r ? 0x2a2b2e : 0x5a3f27); hmat.color.set(r ? 0x1c1d1f : 0x3a2818);
+    signM.material.map = r ? stex8 : texSign; signM.material.emissive.set(r ? 0x000000 : 0x332a20); signM.material.needsUpdate = true;
+    bandMat.color.set(r ? 0x3b332d : 0xc9c6bf); ivyS.visible = pot.visible = r;
+    if (GT.kBronze) GT.kBronze.color.set(r ? 0x2e3034 : 0x6b4a2c); };
   GT.layout = (hs) => {
     g.scale.y = hs; const top = H * hs + 0.04;
+    ivyS.position.y = top - 0.02; pot.scale.set(0.14, 0.16, W + 0.2); pot.position.set(-0.19, top + 0.06, (GT.Z0 + GT.Z1) / 2);
     signM.position.set(-0.13, top + sH / 2, (GT.Z0 + GT.Z1) / 2);
     band.scale.set(0.24, sH, W + 0.3); band.position.set(0, top + sH / 2, (GT.Z0 + GT.Z1) / 2);
     postA.scale.set(0.24, top + sH, 0.15); postA.position.set(0, (top + sH) / 2, GT.Z0 - 0.075);
@@ -268,7 +316,7 @@ const GT = { leaves: [] };
   const kz = GT.Z0 + 0.957 * W, ky = 1.50; GT.kz = kz; GT.ky = ky;
   { const K = new THREE.Group(); L1.add(K); GT.kiosk = K;
     const steel = new THREE.MeshStandardMaterial({ color: 0x24282d, metalness: 0.7, roughness: 0.38 });
-    const bronze = new THREE.MeshStandardMaterial({ color: 0x6b4a2c, metalness: 0.75, roughness: 0.3 });
+    const bronze = new THREE.MeshStandardMaterial({ color: 0x6b4a2c, metalness: 0.75, roughness: 0.3 }); GT.kBronze = bronze;
     const rub = new THREE.MeshStandardMaterial({ color: 0x15171a, metalness: 0.1, roughness: 0.75 });
     const tw = 0.1268, th = 0.2138, td = 0.0101; // tablet
     const ew = 0.185, eh = 0.29, ex0 = -0.068, ex1 = -0.118; // carcasa (x hacia la calle es negativo)
@@ -301,6 +349,7 @@ const GT = { leaves: [] };
     const cd = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, ky - eh / 2 - 0.35, 10), steel); cd.position.set(-0.05, (ky - eh / 2 + 0.35) / 2, kz + 0.06); K.add(cd);
     K.add(meshOf([boxG(-0.062, -0.036, 0.31, 0.37, kz + 0.04, kz + 0.08)], steel));
   }
+  GT.setStyle('render');
   // paso peatonal (adentro), baranda sobre la rampa, bordillo/antepecho de la rampa a cielo abierto
   L1.add(meshOf([boxG(0.05, 7.84, 0, 0.03, 4.0, 6.74)], new THREE.MeshStandardMaterial({ color: 0x7b7f86, roughness: 0.9 })));
   { const st = []; for (let k = 1; k <= STEPS.n; k++) { const xa = STEPS.x0 + (k - 1) * 0.3; st.push(boxG(xa, STEPS.x1, 0, (k / STEPS.n) * LEVY.p1, STEPS.z0, STEPS.z1)); }
@@ -333,13 +382,13 @@ function skirt(pts, fy, yb) { // pared vertical bajo un borde de rampa
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals(); return g;
 }
 // ---------- v4: vehículos procedurales en las plazas medidas de PL_A004 ----------
-const VMAT = vehicleMaterials(); VMAT.trim.side = THREE.DoubleSide;
+const VMAT = vehicleMaterials(); VMAT.trim.side = THREE.DoubleSide; VMAT.rim.side = THREE.DoubleSide; VMAT.tyre.side = THREE.DoubleSide;
 function carMesh(color, type = 'sedan', lit = false) { const G = mergeVehicles([{ parts: carParts(type, color), m: new THREE.Matrix4() }], VMAT); if (lit) G.children.forEach((m) => { if (m.material === VMAT.lightF) { m.material = VMAT.lightF.clone(); m.material.emissiveIntensity = 1.4; } }); return G; }
 // plazas (rectángulo de la plaza en el vector): x0,x1,z0,z1 · cabecera (frente del carro) en z0 (f=-1) o z1 (f=+1)
 const SPOTS = [
-  { n: 1, r: [16.86, 19.35, 3.87, 8.37], f: -1, t: 'hatch', c: 0xe4e4e1 }, { n: 2, r: [19.35, 21.85, 3.87, 8.37], f: -1, t: 'cuv', c: 0x2d3135 }, { n: 3, r: [21.85, 24.35, 3.87, 8.37], f: -1, t: 'hatch', c: 0x7a1219 },
-  { n: 4, r: [19.29, 21.79, 12.69, 17.19], f: -1, t: 'suv', c: 0xa5a9af }, { n: 5, r: [21.85, 24.35, 12.69, 17.19], f: -1, t: 'sedan', c: 0x1b2c4e },
-  { n: 6, r: [17.02, 19.52, 20.95, 25.44], f: 1, t: 'hatch', c: 0xc8cbcf }, { n: 7, r: [19.52, 22.02, 20.95, 25.44], f: 1, t: 'sedan', c: 0x111214 }, { n: 8, r: [22.02, 24.52, 20.95, 25.44], f: 1, t: 'suv', c: 0x2a3a30 }, { n: 9, r: [24.52, 27.02, 20.95, 25.44], f: 1, t: 'sedan', c: 0xb3a586 },
+  { n: 1, r: [16.86, 19.35, 3.87, 8.37], f: -1, t: 'hatch', c: 0xe4e4e1 }, { n: 2, r: [19.35, 21.85, 3.87, 8.37], f: -1, t: 'cuv', c: 0x2d3135 }, { n: 3, r: [21.85, 24.35, 3.87, 8.37], f: -1, t: 'hatch', c: 0x6a1020 },
+  { n: 4, r: [19.29, 21.79, 12.69, 17.19], f: -1, t: 'sedan', c: 0x8d9196 }, { n: 5, r: [21.85, 24.35, 12.69, 17.19], f: -1, t: 'sedan', c: 0x5e0d12 },
+  { n: 6, r: [17.02, 19.52, 20.95, 25.44], f: 1, t: 'hatch', c: 0xc8cbcf }, { n: 7, r: [19.52, 22.02, 20.95, 25.44], f: 1, t: 'sedan', c: 0x111214 }, { n: 8, r: [22.02, 24.52, 20.95, 25.44], f: 1, t: 'suv', c: 0x16171a }, { n: 9, r: [24.52, 27.02, 20.95, 25.44], f: 1, t: 'sedan', c: 0xeceae6 },
 ];
 const MOTO_Z = [[12.69, 13.81], [13.81, 14.93], [14.93, 16.05], [16.05, 17.19]]; // 1.12 / 1.12 / 1.12 / 1.14 (PL_A004)
 const MOTO_C = [0x141414, 0x9b1c1c, 0x1c3e88, 0xe6e6e6];
@@ -386,6 +435,7 @@ function buildRamp(B) {
 const RAMPG = {};
 
 const DEMO_SPOT = 3;
+const SOT8 = { rail: [], planters: [] };
 const floorAt = (x, z) => (pip(S.deck, x, z) ? RAMP.deck : pip(S.lane2, x, z) ? laneY(z) : RAMP.low);
 const VEH = { cars: [], motos: [] };
 SPOTS.forEach((p) => { const L = CAR_TYPES[p.t].L, Wd = CAR_TYPES[p.t].W; const cx = (p.r[0] + p.r[1]) / 2; const cz = p.f < 0 ? p.r[2] + 0.06 + L / 2 : p.r[3] - 0.22 - L / 2; p.y = floorAt(cx, (p.r[2] + p.r[3]) / 2); p.cx = cx; p.cz = cz; p.L = L; p.Wd = Wd; VEH.cars.push(p); });
@@ -395,11 +445,11 @@ function decalGeo(pts, fy, dy = 0.014) { const sh = new THREE.Shape(pts.map(([x,
 const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.7, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
 {
   const B = lv('sot').g, y0 = RAMP.low, yd = RAMP.deck, CEIL = LEVY.p1 - 0.2;
-  const sotWall = new THREE.MeshStandardMaterial({ color: 0xd3d1ca, roughness: 0.92 }); M.sotWall = sotWall;
+  const sotWall = new THREE.MeshStandardMaterial({ color: 0xf2f1ee, map: T8.concTie, roughness: 0.9 }); M.sotWall = sotWall; // v8: concreto a la vista con pasatubos (ref_04/ref_10)
   B.add(meshOf([extrude(S.lower, y0 - 0.25, 0.25)], M.conc));
   B.add(meshOf([extrude(S.deck, y0 - 0.25, yd - y0 + 0.25)], M.conc));
   B.add(meshOf([extrude(I.sotx.walls_in, y0, CEIL - y0)], sotWall)); B.add(meshOf([extrude(I.sotx.walls_out, y0, -0.2 - y0)], M.side));
-  B.add(meshOf([extrude(I.sotx.cols_in, y0, CEIL - y0)], new THREE.MeshStandardMaterial({ color: 0xbdbab3, roughness: 0.9 })));
+  B.add(meshOf([extrude(I.sotx.cols_in, y0, CEIL - y0)], new THREE.MeshStandardMaterial({ color: 0xe6e5e1, map: T8.concTie, roughness: 0.9 })));
   buildRamp(B);
   const r2 = new THREE.Mesh(surfaceGeo(S.lane2, (x, z) => laneY(z) + 0.01), M.asph); r2.receiveShadow = true; B.add(r2);
   B.add(new THREE.Mesh(skirt([[24.55, 8.3], [24.55, 12.6]], (x, z) => laneY(z), y0), M.side));
@@ -441,8 +491,35 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
   B.add(meshOf([[17.103, 17.789], [17.809, 18.483], [18.503, 19.177]].map(([a, b]) => boxG(a, b, y0 + 0.75, y0 + 1.35, 11.74, 11.94)), new THREE.MeshStandardMaterial({ color: 0xd9dcdf, metalness: 0.3, roughness: 0.5 })));
   { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.16), new THREE.MeshBasicMaterial({ map: textTex([{ t: 'MEDIDORES DE AGUA', s: 40, w: 700, c: '#1d1f23' }], { w: 512, h: 72, y0: 6, bg: '#eef0f2', r: 8 }) })); m.position.set(18.14, y0 + 1.5, 11.70); B.add(m); }
   // luminarias LED del parqueadero (ilustrativas) en el cielo raso
-  const tubes = []; for (const [x, z] of [[18.1, 6.1], [23.1, 6.1], [20.6, 10.0], [26.0, 8.0], [26.0, 14.0], [18.0, 15.0], [22.6, 15.0], [20.0, 19.2], [24.0, 19.2], [19.5, 23.2], [24.5, 23.2], [14.5, 2.3], [9.5, 2.3]]) tubes.push(boxG(x - 0.6, x + 0.6, CEIL - 0.05, CEIL - 0.01, z - 0.06, z + 0.06));
-  const tm = meshOf(tubes, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.1 }), false); B.add(tm);
+  // v8: plafones LED redondos de sobreponer (ref_04/ref_10) en lugar de regletas
+  const tubes = [], rims = []; for (const [x, z] of [[18.1, 6.1], [23.1, 6.1], [20.6, 5.0], [20.6, 10.0], [26.0, 8.0], [26.0, 11.0], [26.0, 14.0], [18.0, 15.0], [22.6, 15.0], [20.0, 19.2], [24.0, 19.2], [19.5, 23.2], [24.5, 23.2], [22.0, 23.2], [14.5, 2.3], [9.5, 2.3]]) {
+    const d = new THREE.CylinderGeometry(0.15, 0.15, 0.012, 28); d.translate(x, CEIL - 0.036, z); tubes.push(d.toNonIndexed());
+    const r = new THREE.CylinderGeometry(0.175, 0.17, 0.03, 28); r.translate(x, CEIL - 0.015, z); rims.push(r.toNonIndexed()); }
+  const tm = meshOf(tubes, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.25 }), false); B.add(tm);
+  B.add(meshOf(rims, new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.5 }), false));
+  // v8: topellantas amarillos (dos bloques por celda), detrás de la llanta que queda contra el final de la celda
+  { const ws = []; for (const p of VEH.cars) { const ct = CAR_TYPES[p.t]; const e = Math.sqrt(ct.r * ct.r - (ct.r - 0.1) * (ct.r - 0.1)) + 0.015;
+      let za, zb; if (p.n <= 3) { const ra = p.cz - p.L / 2 + ct.fo + ct.wb; za = ra + e; zb = za + 0.15; } else if (p.f < 0) { const fa = p.cz - p.L / 2 + ct.fo; zb = fa - e; za = zb - 0.15; } else { const fa = p.cz + p.L / 2 - ct.fo; za = fa + e; zb = za + 0.15; }
+      const fy = floorAt(p.cx, (za + zb) / 2); for (const sx of [-1, 1]) { const g = new THREE.BoxGeometry(0.6, 0.1, 0.15, 1, 1, 1); const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) if (pp.getY(i) > 0) pp.setZ(i, pp.getZ(i) * 0.6); g.translate(p.cx + sx * 0.62, fy + 0.05, (za + zb) / 2); g.computeVertexNormals(); ws.push(g.toNonIndexed()); } }
+    B.add(meshOf(ws, M.yellow)); }
+  // v8: baranda de vidrio en el borde del desnivel de las plazas 1–3 (ref_04) — postes negros y pasamanos oscuro
+  { const zr = 8.255, segs = [[16.62, 21.8], [22.24, 24.5]], fr = [], gl = [];
+    for (const [a, b] of segs) { const n = Math.max(1, Math.round((b - a) / 1.25)); for (let i = 0; i <= n; i++) { const x = a + (b - a) * i / n; fr.push(boxG(x - 0.025, x + 0.025, yd, yd + 1.0, zr - 0.025, zr + 0.025)); }
+      fr.push(boxG(a, b, yd + 0.98, yd + 1.03, zr - 0.03, zr + 0.03)); gl.push(boxG(a + 0.03, b - 0.03, yd + 0.06, yd + 0.96, zr - 0.006, zr + 0.006)); }
+    B.add(meshOf(fr, M.alu)); B.add(meshOf(gl, M.rglass, false)); SOT8.rail = segs.map(([a, b]) => [a, zr, b, zr]); }
+  // v8: jardineras-banca con listones y plantas tropicales sobre empedrado de canto rodado (ref_04/ref_10)
+  { const pb = new THREE.PlaneGeometry(24.42 - 19.45, 9.64 - 8.33); pb.rotateX(-Math.PI / 2); pb.translate((19.45 + 24.42) / 2, y0 + 0.008, (8.33 + 9.64) / 2); const uv = pb.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 4.97 / 0.9, uv.getY(i) * 1.31 / 0.9);
+    B.add(meshOf([pb], new THREE.MeshStandardMaterial({ map: T8.pebble, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1 }), false));
+    const box = [], seat = [], soil = []; let pl = []; T8.concFine.repeat.set(1 / 1.2, 1 / 1.2);
+    for (const [a, b] of [[19.55, 21.15], [22.4, 24.3]]) { const z0 = 8.42, z1 = 8.97, h = 0.46;
+      box.push(worldUV(boxG(a, b, y0, y0 + h, z0, z1)));
+      for (let x = a + 0.03; x + 0.07 <= b - 0.02; x += 0.095) seat.push(boxG(x, x + 0.075, y0 + h, y0 + h + 0.035, z0 - 0.04, z0 + 0.3));
+      soil.push(boxG(a + 0.05, b - 0.05, y0 + h, y0 + h + 0.01, z0 + 0.32, z1 - 0.05));
+      for (let k = 0; k < 4; k++) pl.push(tropicalGeo(a + 0.22 + k * (b - a - 0.44) / 3, y0 + h, z0 + 0.42 + (k % 2) * 0.06, 0.75 + (k % 3) * 0.18, 0.8, k * 0.7)); SOT8.planters.push([a, z0 - 0.04, b, z1]); }
+    B.add(meshOf(box, new THREE.MeshStandardMaterial({ map: T8.concFine, color: 0xffffff, roughness: 0.85 })));
+    B.add(meshOf(seat, new THREE.MeshStandardMaterial({ map: T8.lwood, color: 0xffffff, roughness: 0.6 })));
+    B.add(meshOf(soil, new THREE.MeshStandardMaterial({ color: 0x3a2c20, roughness: 1 }), false));
+    const pm = new THREE.Mesh(mergeGeometries(pl), PM8.trop); pm.castShadow = true; B.add(pm); }
   // carros y motos: geometría fusionada por material (≈9 llamadas de dibujo para todos)
   const list = []; const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
   for (const p of VEH.cars) { if (p.n === DEMO_SPOT) continue; q.setFromAxisAngle(up, p.f < 0 ? Math.PI / 2 : -Math.PI / 2); list.push({ parts: carParts(p.t, p.c), m: new THREE.Matrix4().compose(new THREE.Vector3(p.cx, p.y, p.cz), q.clone(), new THREE.Vector3(1, 1, 1)) }); }
@@ -624,11 +701,24 @@ carPark();
 {
   const R = lv('cub').g, y = 20.3;
   R.add(meshOf([extrude(S.foot2, y - 0.2, 0.2)], M.slab));
-  const par = [], br = [];
-  for (const p of S.skin) { par.push(seg(p.a, p.b, y, y + 0.6, 0.12, -0.04, 0.12)); br.push(seg(p.a, p.b, y - 0.22, y + 0.04, 0.07, 0.035, 0.07)); }
-  R.add(meshOf(par, M.white)); R.add(meshOf(br, M.brown));
-  // volumen punto fijo sobre cubierta (aproximado, ≈N+24.4)
-  R.add(meshOf([boxG(16.75, 23.8, y, 24.2, 9.4, 12.6)], M.grey));
+  // v8: antepecho grueso en revoque café (remate superior de los renders), cerrando también el frente del balcón empotrado
+  const par = [], parIn = [];
+  const PT = LEVY.p7 + 2.5, PY = y + 0.75; // desde el cielo del piso 7 hasta el remate (antepecho 0,60 m + losa)
+  const parC = [];
+  for (const sg of FMOD.segs) { if (sg.cls === 'recess') continue; (sg.cls === 'blue' ? parC : par).push(segBox(sg.a, sg.u, sg.n, 0, sg.L, PT, PY, 0.0, 0.14)); parIn.push(segBox(sg.a, sg.u, sg.n, 0, sg.L, y, PY, -0.12, 0.0)); }
+  for (const c of FMOD.corners) { const d = 0.14, x0 = Math.min(c.p[0], c.p[0] + (c.n1[0] + c.n2[0]) * d), x1 = Math.max(c.p[0], c.p[0] + (c.n1[0] + c.n2[0]) * d), z0 = Math.min(c.p[1], c.p[1] + (c.n1[1] + c.n2[1]) * d), z1 = Math.max(c.p[1], c.p[1] + (c.n1[1] + c.n2[1]) * d); if (x1 - x0 > 0.01 && z1 - z0 > 0.01) par.push(worldUV(boxG(x0, x1, PT, PY, z0, z1))); }
+  par.push(segBox([6.864, 4.069], [0, -1], [-1, 0], 0, 3.45, PT, PY, 0.0, 0.14)); // frente del balcón
+  R.add(meshOf(par, F8.render)); R.add(meshOf(parC, F8.char)); R.add(meshOf(parIn, F8.render));
+  R.add(meshOf([worldUV(boxG(6.864, 7.835, PT, y, 0.718, 3.969))], F8.recess)); // losa/cielo sobre el balcón del piso 7
+  // volumen punto fijo sobre cubierta (aproximado, ≈N+24.4) en revoque café como en el video
+  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 24.2, 9.4, 12.6))], F8.render));
+  // v8: lucernario de vidrio oscuro sobre la ranura del punto fijo (ref_05) — ilustrativo, no está en planos
+  { const x0 = 24.46, x1 = 27.3, z0 = 8.69, z1 = 12.64, yb = PY + 0.02; const fr = [];
+    fr.push(boxG(x0, x1, yb, yb + 0.08, z0, z0 + 0.06), boxG(x0, x1, yb, yb + 0.08, z1 - 0.06, z1), boxG(x0, x0 + 0.06, yb, yb + 0.08, z0 + 0.06, z1 - 0.06), boxG(x1 - 0.06, x1, yb, yb + 0.08, z0 + 0.06, z1 - 0.06));
+    for (const z of [z0 + (z1 - z0) / 3, z0 + 2 * (z1 - z0) / 3]) fr.push(boxG(x0 + 0.06, x1 - 0.06, yb, yb + 0.07, z - 0.025, z + 0.025));
+    R.add(meshOf(fr, M.alu));
+    const gl = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.1, z1 - z0 - 0.1), new THREE.MeshStandardMaterial({ color: 0x1d2328, metalness: 0.6, roughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+    gl.rotation.x = -Math.PI / 2; gl.position.set((x0 + x1) / 2, yb + 0.045, (z0 + z1) / 2); R.add(gl); gl.material.userData.op = 0.55; gl.material.userData.tr = true; FACADE.push(gl.material); }
   const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 24.3, 11.0);
   R.add(meshOf([rf], M.roof));
 }
@@ -1036,6 +1126,7 @@ function grid(segs) { const G = new Map(); for (const s of segs) { const x0 = Ma
   for (let i = x0; i <= x1; i++) for (let j = z0; j <= z1; j++) { const k = i * 1000 + j; if (!G.has(k)) G.set(k, []); G.get(k).push(s); } } return G; }
 const SEGS_SOT = [...segsOf([...I.sotx.walls_in, ...I.sotx.walls_out]).filter((g) => !(Math.max(g[0], g[2]) < 7.7 && Math.min(g[1], g[3]) > 3.75 && Math.max(g[1], g[3]) < 4.25)), ...segsOf(I.sotx.cols_in), ...SV.segs,
   [1.2, 3.97, 7.8, 3.97], [16.4, 8.3, 24.55, 8.3], [16.5, 3.97, 21.79, 3.97], [24.55, 8.3, 24.55, 12.6],
+  ...SOT8.planters.flatMap(([a, z0, b, z1]) => segsOf([{ o: [[a, z0], [b, z0], [b, z1], [a, z1]] }])),
   ...VEH.cars.filter((p) => p.n !== DEMO_SPOT).flatMap((p) => { const hw = p.Wd / 2 + 0.05, hl = p.L / 2 + 0.03; return segsOf([{ o: [[p.cx - hw, p.cz - hl], [p.cx + hw, p.cz - hl], [p.cx + hw, p.cz + hl], [p.cx - hw, p.cz + hl]] }]); }),
   ...VEH.motos.flatMap((m) => segsOf([{ o: [[m.x - 1.05, m.z - 0.3], [m.x + 1.05, m.z - 0.3], [m.x + 1.05, m.z + 0.3], [m.x - 1.05, m.z + 0.3]] }])), [STR.x0, STR.zm, STR.x0, STR.z1]];
 const SEGS_GROUND = [[1.2, 3.97, 7.884, 3.97], [0, 0.49, 0, 0.64], [0, 6.74, 0, 6.89], [-0.12, 0.49, 0.12, 0.49], [-0.12, 6.89, 0.12, 6.89], [0.1, 6.74, 7.884, 6.74], [7.884, 6.4, 7.884, 6.74], [7.884, 3.9, 7.884, 4.1]];
@@ -1414,6 +1505,7 @@ $('#fpVeh').onclick = () => openVeh(!GT.v1.tgt);
 $('#bVeh').onclick = () => openVeh(!GT.v1.tgt);
 $('#bCar') && ($('#bCar').onclick = () => carStart(CAR.state === 'parked' ? 'out' : 'in')); carBtn();
 $('#gateH').onchange = (e) => setGateH(e.target.value);
+$('#gateS').onchange = (e) => { GT.setStyle(e.target.value); if (typeof markDirty === 'function') markDirty(); };
 $('#fpActBtn').onclick = () => interact();
 document.querySelectorAll('#elevKeys [data-f]').forEach((b) => (b.onclick = () => goFloor(b.dataset.f)));
 $('#elevOpen').onclick = () => { if (FP.inCab || evHere(FP.lvl)) evOpen(); else evRequest(FP.lvl, 'land'); };
@@ -1528,6 +1620,7 @@ function loop(now) {
   cableMat.uniforms.t.value = t;
   MK.forEach((m, i) => { const s = 0.75 + 0.25 * Math.sin(t * 3 + i); m.halo.scale.setScalar((m.el.classList.contains('hl') || m.el.classList.contains('sel') ? 0.09 : 0.05) * s); });
   tickFlow(now);
+  for (const id in W.EXT.v7) W.EXT.v7[id].visible = !LEV[id].int.visible; // v8: vano V-7 exterior solo si el interior está oculto
   renderer.render(scene, camera);
   if (FP.on && now - (loop.mini || 0) > 80) { loop.mini = now; drawMini(); }
   const wp = WP0; const kd = FP.on ? kioskNear().d : 99; loop.lab = !loop.lab; if (loop.lab && !tween && FP.on) return; // etiquetas a ~30 Hz en el recorrido

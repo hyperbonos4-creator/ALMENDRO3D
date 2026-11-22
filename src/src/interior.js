@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { textTex } from './tex.js';
 import { buildFur7 } from './fur7.js';
+import { tropicalGeo, plantMats } from './style8.js';
 
 export const H = 2.5, DOORH = 2.1, H1 = 2.5; // v4: piso 1 en N+1.00 (PL_A006) → altura libre 2.50
 export const LEVY = { sot: -2.96, p1: 1.0, p2: 3.7, p3: 6.4, p4: 9.1, p5: 11.8, p6: 14.5, p7: 17.2 };
@@ -66,10 +67,11 @@ const rect = (x0, z0, x1, z1) => ({ o: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]],
 function segsOfPolys(polys) { const out = []; for (const p of polys) for (const ring of [p.o, ...(p.h || [])]) for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length]; out.push([a[0], a[1], b[0], b[1]]); } return out; }
 
 // colores de muro por recinto (variación sutil para distinguir espacios)
-const WALLC = { alcoba: ['#e6dac8', '#d9e2db', '#e6d8c6'], sala: ['#ece5d9'], circ: ['#e6e0d6'], cocina: ['#f0eee8'], ropas: ['#dfe4e3'], bano: ['#f1f1ee'], hall: ['#c9c0b2'], balcon: ['#d8d5ce'], cabina: ['#555a60'], none: ['#cfcac2'] };
+// v8: muros blancos como en los renders interiores (ref_06/07/08/09); hall gris muy claro (ref_04/ref_10)
+const WALLC = { alcoba: ['#f1efeb', '#eeeeeb', '#f0ede8'], sala: ['#f3f2ef'], circ: ['#f2f1ee'], cocina: ['#f4f3f1'], ropas: ['#eceeee'], bano: ['#f1f1ee'], hall: ['#e7e6e2'], balcon: ['#e3e1dc'], cabina: ['#555a60'], none: ['#cfcac2'] };
 
 export function buildWorld(ctx) {
-  const { I, S, lv, T, M, isMobile } = ctx;
+  const { I, S, lv, T, M, isMobile, T8 } = ctx;
   const R = new Map(I.rooms.map((r) => [r.id, r]));
   const rtype = (id) => (id >= 0 && R.get(id) ? R.get(id).type : 'none');
   const wallCol = (id) => { const t = rtype(id); const arr = WALLC[t] || WALLC.none; const r = R.get(id); const k = r && t === 'alcoba' ? (r.name === 'Alcoba principal' ? 0 : r.name === 'Alcoba 2' ? 1 : 2) : 0; return C(arr[k % arr.length]); };
@@ -107,9 +109,29 @@ export function buildWorld(ctx) {
     rail: std({ color: 0x8e959c, metalness: 0.9, roughness: 0.3 }),
     stair: std({ map: T.porc, vertexColors: true, roughness: 0.3 }),
     conc: std({ map: T.conc, roughness: 0.95 }),
+    // v8: acabados de los renders
+    marble: std({ map: T8.marble, roughness: 0.16, metalness: 0.02, aoMap: aoTex, aoMapIntensity: 1 }),
+    tileG: std({ map: T8.tileG, roughness: 0.3, aoMap: aoTex, aoMapIntensity: 1 }),
+    tileL: std({ map: T8.tileL, roughness: 0.22, aoMap: aoTex, aoMapIntensity: 1 }),
+    tileB: std({ map: T8.tileB, roughness: 0.55, aoMap: aoTex, aoMapIntensity: 1 }),
+    stairD: std({ color: 0x2b2c2e, roughness: 0.55, metalness: 0.3 }),
+    cove: new THREE.MeshBasicMaterial({ color: 0xfff1d8 }),
+    art: T8.art.map((t) => std({ map: t, roughness: 0.6 })),
+    artF: std({ color: 0x1c1c1d, roughness: 0.45, metalness: 0.2 }),
+    cable: std({ color: 0xc9ced3, metalness: 0.9, roughness: 0.25 }),
+    yrail: std({ color: 0xe0a526, roughness: 0.45, metalness: 0.2 }),
+    railVC: std({ vertexColors: true, metalness: 0.45, roughness: 0.35 }),
+    wpost: std({ color: 0xf2f1ee, roughness: 0.5, metalness: 0.1 }),
+    v7ext: std({ color: 0x2d3236, metalness: 0.9, roughness: 0.06 }),
   };
-  for (const k of ['lam', 'porc', 'porcD', 'cer', 'bath', 'terr']) MI[k].userData.floor = true;
-  const FLOORMAT = { alcoba: 'lam', circ: 'lam', sala: 'porc', cocina: 'cer', ropas: 'cer', bano: 'bath', balcon: 'terr' };
+  const PL8 = plantMats(T8);
+  MI.stair.map = T8.concFine; MI.stair.roughness = 0.75;
+  MI.rail.color.set(0x1d1e20); MI.rail.metalness = 0.5; MI.rail.roughness = 0.4; // barandas negras (ref_04/ref_10)
+  MI.alu.color.set(0x1b1c1e); MI.alu.metalness = 0.55; MI.alu.roughness = 0.4;    // perfilería negra
+  MI.glass.color.set(0xdbe6ea); MI.glass.opacity = 0.22;
+  MI.woodE.map = T8.oak; MI.woodI.map = T8.oak; MI.frame.map = T8.oak; MI.frame.color.set(0xf4ece0); // puertas y marcos de roble
+  for (const k of ['lam', 'porc', 'porcD', 'cer', 'bath', 'terr', 'marble', 'tileG', 'tileL', 'tileB']) MI[k].userData.floor = true;
+  const FLOORMAT = { alcoba: 'tileG', circ: 'marble', sala: 'marble', cocina: 'marble', ropas: 'cer', bano: 'bath', balcon: 'tileB' };
   const mesh = (g, m, cast = true, recv = true) => { const o = new THREE.Mesh(g, m); o.castShadow = cast; o.receiveShadow = recv; return o; };
 
   // ====================== PLANTA TÍPICA (2–7): geometría compartida ======================
@@ -166,7 +188,7 @@ export function buildWorld(ctx) {
     // pisos por tipo de recinto + hall
     const byMat = {};
     for (const r of I.rooms) { const k = FLOORMAT[r.type]; if (!k) continue; (byMat[k] = byMat[k] || []).push({ o: r.o, h: r.h || [] }); }
-    byMat.porcD = I.hallFloor;
+    byMat.tileL = I.hallFloor;
     { const g = floorGeo(I.slab, 0.003, MI.porc.map, ao); TIP.meshes.push(mesh(g, MI.porc, false)); } // umbrales / zonas bajo vanos
     for (const [k, polys] of Object.entries(byMat)) { const tex = MI[k].map; const g = floorGeo(polys, 0.006, tex, ao); if (g) TIP.meshes.push(mesh(g, MI[k], false)); }
     // losa típica con huecos (pozo, escalera, vacíos)
@@ -177,11 +199,38 @@ export function buildWorld(ctx) {
     for (const r of I.rooms) { if (['cabina'].includes(r.type)) continue; const pts = r.type === 'hall' ? [[20.4, 10.7], [17.3, 7.6], [22.3, 12.2], [20.5, 9.2]] : [r.lp]; for (const [x, z] of pts) { const c = new THREE.CircleGeometry(r.type === 'bano' ? 0.09 : 0.13, 20); c.rotateX(Math.PI / 2); c.translate(x, H - 0.012, z); lampG.push(c.index ? c.toNonIndexed() : c); } }
     TIP.lamps = mergeGeometries(lampG);
     TIP.lampPts = I.rooms.filter((r) => r.type !== 'cabina').map((r) => ({ x: r.lp[0], z: r.lp[1], id: r.id, t: r.type }));
+    // v8: tira LED perimetral en el cielo raso de sala/comedor, cocina y circulación (ref_06/07/09) — solo visible en el recorrido
+    { const cv = []; const IN = 0.16;
+      for (const r of I.rooms) { if (!['sala', 'circ', 'cocina'].includes(r.type)) continue; const ring = r.o;
+        for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length]; const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz); if (L < 0.9) continue;
+          const ux = dx / L, uz = dz / L; let nx = -uz, nz = ux; const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2; if (!pipRing(ring, mx + nx * 0.3, mz + nz * 0.3)) { nx = -nx; nz = -nz; }
+          if (!pipRing(ring, mx + nx * 0.3, mz + nz * 0.3)) continue;
+          const s0 = IN + 0.05, s1 = L - IN - 0.05; if (s1 - s0 < 0.5) continue;
+          const g = new THREE.BoxGeometry(s1 - s0, 0.008, 0.035); g.rotateY(Math.atan2(-uz, ux)); g.translate(a[0] + ux * (s0 + s1) / 2 + nx * IN, H - 0.0105, a[1] + uz * (s0 + s1) / 2 + nz * IN); cv.push(g.toNonIndexed()); } }
+      TIP.cove = cv.length ? mergeGeometries(cv) : null; }
+    // v8: cuadros abstractos enmarcados en muros libres de la circulación y el hall (ref_06)
+    { const A = [[], [], []], F = new GB(); let n = 0; const fcol = C('#ffffff');
+      const blocked = (x0, z0, x1, z1, s0, s1) => { const L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L; const proj = (x, z) => [(x - x0) * ux + (z - z0) * uz, Math.abs(-(x - x0) * uz + (z - z0) * ux)];
+        for (const d of I.doors) for (const q of [d.h, d.c]) { const [t, o] = proj(q[0], q[1]); if (o < 0.3 && t > s0 - 0.25 && t < s1 + 0.25) return true; }
+        for (const w of I.wins) { const [t, o] = proj((w.x0 + w.x1) / 2, (w.z0 + w.z1) / 2); const hw = Math.max(w.x1 - w.x0, w.z1 - w.z0) / 2; if (o < 0.3 && t + hw > s0 - 0.1 && t - hw < s1 + 0.1) return true; }
+        { const [t, o] = proj((I.edoor[0] + I.edoor[1]) / 2, (I.edoor[2] + I.edoor[3]) / 2); if (o < 0.4 && t + 1.0 > s0 && t - 1.0 < s1) return true; }
+        for (const f of I.fur) { const cx = (f.b[0] + f.b[2]) / 2, cz = (f.b[1] + f.b[3]) / 2; const [t, o] = proj(cx, cz); const hw = Math.max(f.b[2] - f.b[0], f.b[3] - f.b[1]) / 2; if (o < 0.7 && t + hw > s0 && t - hw < s1) return true; }
+        return false; };
+      for (const [x0, z0, x1, z1, nx, nz, rid] of I.faces) { const t = rtype(rid); if (!['circ', 'hall'].includes(t)) continue; const L = Math.hypot(x1 - x0, z1 - z0); if (L < 1.3) continue;
+        const w = L > 2.2 ? 0.9 : 0.6, h = L > 2.2 ? 0.65 : 0.8, s0 = L / 2 - w / 2, s1 = L / 2 + w / 2; if (blocked(x0, z0, x1, z1, s0, s1)) continue;
+        const ux = (x1 - x0) / L, uz = (z1 - z0) / L, cx = x0 + ux * L / 2 + nx * 0.014, cz = z0 + uz * L / 2 + nz * 0.014;
+        const pg = new THREE.PlaneGeometry(w - 0.06, h - 0.06); pg.rotateY(Math.atan2(nx, nz)); pg.translate(cx + nx * 0.006, 1.5, cz + nz * 0.006); A[n % 3].push(pg.toNonIndexed()); n++;
+        const P = (s, d) => [x0 + ux * s + nx * d, z0 + uz * s + nz * d]; const q0 = P(s0, 0.002), q1 = P(s1, 0.002), q2 = P(s1, 0.028), q3 = P(s0, 0.028);
+        F.prism([q0, q1, q2, q3], 1.5 - h / 2, 1.5 - h / 2 + 0.03, fcol); F.prism([q0, q1, q2, q3], 1.5 + h / 2 - 0.03, 1.5 + h / 2, fcol);
+        const e0 = [P(s0, 0.002), P(s0 + 0.03, 0.002), P(s0 + 0.03, 0.028), P(s0, 0.028)], e1 = [P(s1 - 0.03, 0.002), P(s1, 0.002), P(s1, 0.028), P(s1 - 0.03, 0.028)];
+        F.prism(e0, 1.5 - h / 2 + 0.03, 1.5 + h / 2 - 0.03, fcol); F.prism(e1, 1.5 - h / 2 + 0.03, 1.5 + h / 2 - 0.03, fcol);
+        const bk = [P(s0 + 0.03, 0.002), P(s1 - 0.03, 0.002), P(s1 - 0.03, 0.012), P(s0 + 0.03, 0.012)]; F.prism(bk, 1.5 - h / 2 + 0.03, 1.5 + h / 2 - 0.03, C('#f4f2ee')); }
+      A.forEach((gs, i) => { if (gs.length) TIP.meshes.push(mesh(mergeGeometries(gs), MI.art[i], false)); }); if (F.p.length) TIP.meshes.push(mesh(F.geo(), MI.artF)); TIP.artN = n; }
   }
 
   // ---------- mobiliario ilustrativo (a partir de los bloques de mobiliario del plano) ----------
   // v7: mobiliario y aparatos ilustrativos detallados (src/fur7.js)
-  const FUR = (() => { const r = buildFur7({ I, T, R, pipRing }); return { coll: r.coll, meshes: r.meshes, setQuality: r.setQuality, register: r.register, sinks: r.sinks }; })();
+  const FUR = (() => { const r = buildFur7({ I, T, R, pipRing, T8 }); return { coll: r.coll, meshes: r.meshes, setQuality: r.setQuality, register: r.register, sinks: r.sinks }; })();
 
   // ---------- letreros de recintos (adhesivo sutil en el piso, legible en planta y en el recorrido) ----------
   const roomSign = new Map();
@@ -199,9 +248,9 @@ export function buildWorld(ctx) {
   const leafCache = new Map();
   function leafGeo(w, entry) {
     const key = w.toFixed(3) + entry; if (leafCache.has(key)) return leafCache.get(key);
-    const B = new GB(0.5, 0.5), L = w - 0.03, t = 0.042, wc = C('#ffffff'), hc = C(entry ? '#2a2a2a' : '#8d9399');
+    const B = new GB(1.0, 2.1), L = w - 0.03, t = 0.042, wc = C(entry ? '#d9c3a6' : '#ffffff'), hc = C('#b9bec3');
     B.box(0.015, 0.015 + L, 0.01, DOORH - 0.01, -t / 2, t / 2, wc);
-    if (entry) { for (const z of [t / 2 + 0.002, -t / 2 - 0.004]) { B.box(0.12, L - 0.1, 0.25, 0.27, z, z + 0.002, C('#7a5638')); B.box(0.12, L - 0.1, 1.8, 1.82, z, z + 0.002, C('#7a5638')); } }
+    if (entry) { for (const z of [t / 2 + 0.002, -t / 2 - 0.004]) { B.box(0.12, L - 0.1, 0.25, 0.27, z, z + 0.002, C('#9a7a58')); B.box(0.12, L - 0.1, 1.8, 1.82, z, z + 0.002, C('#9a7a58')); } }
     // v7: bisagras (3) en el canto de giro y rosetas de la manija
     for (const y of [0.2, 1.05, 1.86]) B.box(0.002, 0.016, y, y + 0.1, -t / 2 - 0.003, t / 2 + 0.003, C('#9aa0a6'));
     for (const s of [1, -1]) B.box(L - 0.105, L - 0.055, 0.995, 1.045, s > 0 ? t / 2 : -t / 2 - 0.007, s > 0 ? t / 2 + 0.007 : -t / 2, hc);
@@ -253,6 +302,7 @@ export function buildWorld(ctx) {
   // ---------- balcón (apto x04): puerta-ventana corrediza V-7, fijo V-8, baranda ----------
   const V7 = I.wins.find((w) => w.code === 'V-7'), V8 = I.wins.find((w) => w.code === 'V-8');
   const BAL = I.rooms.find((r) => r.type === 'balcon');
+  const EXT = { v7: {} };
   function balcony(levelId, parent) {
     const B = new GB(), Gl = new GB(); const xm = (V7.x0 + V7.x1) / 2; const w = C('#ffffff');
     // marco fijo
@@ -270,14 +320,35 @@ export function buildWorld(ctx) {
     sl.add(mesh(SB.geo(), MI.alu), mesh(SG.geo(), MI.glass, false)); parent.add(sl);
     // baranda de vidrio en el borde del balcón
     const bx = Math.min(...BAL.o.map((p) => p[0])) + 0.03, bz0 = Math.min(...BAL.o.map((p) => p[1])), bz1 = Math.max(...BAL.o.map((p) => p[1]));
-    const RB = new GB(), RG = new GB(); RB.box(bx - 0.03, bx + 0.03, 1.0, 1.05, bz0, bz1, w); for (let z = bz0 + 0.05; z < bz1; z += 0.8) RB.box(bx - 0.02, bx + 0.02, 0, 1.0, z, z + 0.04, w); RG.box(bx - 0.006, bx + 0.006, 0.05, 0.98, bz0, bz1, w);
-    parent.add(mesh(RB.geo(), MI.rail), mesh(RG.geo(), MI.glass, false));
+    // v8 (ref_02/ref_03): parales redondos blancos, 5 cables de acero y pasamanos plano amarillo.
+    // Van en el grupo exterior del nivel (no en el interior) para que el balcón se vea también desde la vista orbital.
+    const ext = new THREE.Group(); ext.name = 'balExt'; ext.position.y = LEVY[levelId]; lv(levelId).g.add(ext); const parent0 = parent; parent = ext;
+    // vano V-7 visto desde afuera (solo cuando el interior está oculto): vidrio oscuro + marco negro
+    { const VG = new GB(), VF = new GB(); VG.box(xm - 0.006, xm + 0.006, 0.03, V7.head - 0.05, V7.z0, V7.z1, w); VG.box(xm - 0.006, xm + 0.006, 0.03, V8.head, V8.z0, V8.z1, w);
+      VF.box(xm - 0.05, xm + 0.05, 0, 0.03, V7.z0, V8.z1, w); VF.box(xm - 0.05, xm + 0.05, V7.head - 0.05, V7.head, V7.z0, V8.z1, w); VF.box(xm - 0.05, xm + 0.0, 0.03, V7.head - 0.05, zc - 0.025, zc + 0.025, w); VF.box(xm - 0.05, xm + 0.0, 0.03, V7.head - 0.05, V7.z1 - 0.02, V7.z1 + 0.02, w);
+      const vx = new THREE.Group(); vx.name = 'v7ext'; vx.add(mesh(VF.geo(), MI.alu), mesh(VG.geo(), MI.v7ext, false)); ext.add(vx); EXT.v7[levelId] = vx; }
+    { const n = Math.max(2, Math.round((bz1 - bz0) / 1.05)); const posts = [];
+      for (let i = 0; i <= n; i++) { const z = bz0 + 0.04 + (bz1 - bz0 - 0.08) * i / n; const c = new THREE.CylinderGeometry(0.021, 0.021, 0.985, 14); c.translate(bx, 0.4925, z); posts.push(c.toNonIndexed()); }
+      parent.add(mesh(mergeGeometries(posts), MI.wpost));
+      const CB = new GB(); for (const y of [0.16, 0.31, 0.46, 0.61, 0.76]) CB.box(bx - 0.003, bx + 0.003, y - 0.003, y + 0.003, bz0 + 0.02, bz1 - 0.02, C('#c9ced3'));
+      CB.box(bx - 0.035, bx + 0.035, 0.985, 1.015, bz0, bz1, C('#e0a526')); parent.add(mesh(CB.geo(), MI.railVC)); // cables + pasamanos amarillo en una sola malla
+      // matera con planta tropical y silla blanca (ilustrativas, como en los renders)
+      const px = bx + 0.3, pz = bz0 + 0.32, PB = new GB(1, 1), oct = (r) => [...Array(10)].map((_, i) => [px + r * Math.cos(i * Math.PI / 5), pz + r * Math.sin(i * Math.PI / 5)]);
+      PB.prism(oct(0.15), 0, 0.12, C('#d68f4f')); PB.prism(oct(0.152), 0.12, 0.2, C('#f1ece2')); PB.prism(oct(0.154), 0.2, 0.3, C('#2f6b5a')); PB.prism(oct(0.14), 0.3, 0.31, C('#3a2c20'));
+      const pl = mesh(tropicalGeo(px, 0.3, pz, 0.6, 0.62, 0.4), PL8.trop); parent.add(pl);
+      const cx = bx + 0.5, cz = bz1 - 0.5, CH = PB, wc = C('#f4f3f0'), lc = C('#222222');
+      CH.box(cx - 0.22, cx + 0.22, 0.42, 0.46, cz - 0.22, cz + 0.22, wc); CH.box(cx + 0.18, cx + 0.23, 0.46, 0.86, cz - 0.21, cz + 0.21, wc);
+      for (const [dx, dz] of [[-0.18, -0.18], [-0.18, 0.18], [0.18, -0.18], [0.18, 0.18]]) CH.box(cx + dx - 0.012, cx + dx + 0.012, 0, 0.42, cz + dz - 0.012, cz + dz + 0.012, lc);
+      parent.add(mesh(CH.geo(), MI.furn)); }
+    parent = parent0;
     const S2 = { lvl: levelId, g: sl, a: 0, tgt: 0, zc, x: xm, z0: V7.z0, z1: V7.z1, cx: xm, cz: (V7.z0 + V7.z1) / 2 };
     S2.set = (a) => { S2.a = a; sl.position.z = -(zc - V7.z0 - 0.04) * a; };
     S2.seg = () => [xm + 0.03, zc - (zc - V7.z0 - 0.04) * S2.a, xm + 0.03, V7.z1 - (zc - V7.z0 - 0.04) * S2.a];
     return S2;
   }
-  const balSegs = [[Math.min(...BAL.o.map((p) => p[0])) + 0.03, Math.min(...BAL.o.map((p) => p[1])), Math.min(...BAL.o.map((p) => p[0])) + 0.03, Math.max(...BAL.o.map((p) => p[1]))], [V7.x0, V7.z0, V7.x1, V7.z0], [V7.x0 + 0.02, (V7.z0 + V7.z1) / 2, V7.x1 - 0.02, (V7.z0 + V7.z1) / 2], [(V7.x0 + V7.x1) / 2 - 0.03, V7.z0, (V7.x0 + V7.x1) / 2 - 0.03, (V7.z0 + V7.z1) / 2]];
+  const BX0 = Math.min(...BAL.o.map((p) => p[0])) + 0.03, BZ0 = Math.min(...BAL.o.map((p) => p[1])), BZ1 = Math.max(...BAL.o.map((p) => p[1]));
+  const balProps = [[BX0 + 0.13, BZ0 + 0.15, BX0 + 0.47, BZ0 + 0.49], [BX0 + 0.26, BZ1 - 0.74, BX0 + 0.75, BZ1 - 0.26]].flatMap(([x0, z0, x1, z1]) => [[x0, z0, x1, z0], [x1, z0, x1, z1], [x1, z1, x0, z1], [x0, z1, x0, z0]]);
+  const balSegs = [...balProps, [Math.min(...BAL.o.map((p) => p[0])) + 0.03, Math.min(...BAL.o.map((p) => p[1])), Math.min(...BAL.o.map((p) => p[0])) + 0.03, Math.max(...BAL.o.map((p) => p[1]))], [V7.x0, V7.z0, V7.x1, V7.z0], [V7.x0 + 0.02, (V7.z0 + V7.z1) / 2, V7.x1 - 0.02, (V7.z0 + V7.z1) / 2], [(V7.x0 + V7.x1) / 2 - 0.03, V7.z0, (V7.x0 + V7.x1) / 2 - 0.03, (V7.z0 + V7.z1) / 2]];
 
   // ---------- señalización de hall/escalera por piso ----------
   function hallSigns(levelId, parent) {
@@ -314,14 +385,21 @@ export function buildWorld(ctx) {
     const kk = Math.min(NT, Math.floor((ST.x1 - x) / TW) + 1); return P.m + kk * P.hr;
   }
   function stairGeo(P) {
-    const B = new GB(1.2, 1.2), Rl = new GB(), tc = C('#ffffff'), rc = C('#ffffff');
-    for (let k = 1; k <= NT; k++) { const xa = ST.x0 + (k - 1) * TW, xb = xa + TW, y = P.a + k * P.hr; B.box(xa, xb, y - P.hr - 0.16, y, ST.z0, ST.zm - 0.03, tc); }
-    B.box(ST.x1, ST.xl, P.m - 0.16, P.m, ST.z0, ST.z1, tc);
-    for (let kk = 1; kk <= NT; kk++) { const xb = ST.x1 - (kk - 1) * TW, xa = xb - TW, y = P.m + kk * P.hr; B.box(xa, xb, y - P.hr - 0.16, y, ST.zm + 0.03, ST.z1, tc); }
+    let B = new GB(1.2, 1.2); const Rl = new GB(), tc = C('#ffffff'), rc = C('#ffffff'), D = new GB(), dc = C('#ffffff');
+    // v8: huella de concreto claro (5 cm, con nariz) sobre cuerpo grafito; la contrahuella queda retrasada 3 cm (ref_04/ref_10).
+    // El volumen total de cada escalón es el mismo de v7 (sin huecos): cuerpo desplazado 3 cm + relleno bajo la nariz siguiente.
+    const TT = 0.05, SB = 0.03;
+    D.box(ST.x0 + 0.002, ST.x0 + SB, P.a - 0.16, P.a - 0.002, ST.z0 + 0.002, ST.zm - 0.03, dc);
+    for (let k = 1; k <= NT; k++) { const xa = ST.x0 + (k - 1) * TW, xb = xa + TW, y = P.a + k * P.hr; B.box(xa, xb, y - TT, y, ST.z0, ST.zm - 0.03, tc);
+      D.box(xa + SB, xb + SB, y - P.hr - 0.16, y - TT, ST.z0 + 0.002, ST.zm - 0.03, dc); D.box(xb, xb + SB, y - TT, y, ST.z0 + 0.002, ST.zm - 0.03, dc); }
+    B.box(ST.x1, ST.xl, P.m - TT, P.m, ST.z0, ST.z1, tc); D.box(ST.x1 + SB, ST.xl, P.m - 0.16, P.m - TT, ST.z0 + 0.002, ST.zm - 0.03, dc); D.box(ST.x1, ST.xl, P.m - 0.16, P.m - TT, ST.zm - 0.03, ST.z1, dc);
+    D.box(ST.x1 - SB, ST.x1, P.m - 0.16, P.m, ST.zm + 0.03, ST.z1, dc);
+    for (let kk = 1; kk <= NT; kk++) { const xb = ST.x1 - (kk - 1) * TW, xa = xb - TW, y = P.m + kk * P.hr; B.box(xa, xb, y - TT, y, ST.zm + 0.03, ST.z1, tc);
+      D.box(xa - SB, xb - SB, y - P.hr - 0.16, y - TT, ST.zm + 0.03, ST.z1, dc); if (kk < NT) D.box(xa - SB, xa, y - TT, y, ST.zm + 0.03, ST.z1, dc); }
     // losa inclinada bajo cada tramo (intradós)
     const soffit = (xa, ya, xb, yb, z0, z1) => { const n = [-(yb - ya), (xb - xa), 0]; const L = Math.hypot(n[0], n[1]); n[0] /= L; n[1] /= L; B.quad([xa, ya, z0], [xb, yb, z0], [xb, yb, z1], [xa, ya, z1], [-n[0], -n[1], 0], tc);
-      B.quad([xa, ya, z0], [xb, yb, z0], [xb, yb + 0.18, z0], [xa, ya + 0.18, z0], [0, 0, -1], tc); B.quad([xa, ya, z1], [xb, yb, z1], [xb, yb + 0.18, z1], [xa, ya + 0.18, z1], [0, 0, 1], tc); };
-    soffit(ST.x0, P.a - 0.16, ST.x1, P.m - 0.16, ST.z0, ST.zm - 0.03); soffit(ST.x1, P.m - 0.16, ST.x0, P.b - 0.16 - P.hr, ST.zm + 0.03, ST.z1);
+      B.quad([xa, ya, z0], [xb, yb, z0], [xb, yb + 0.1, z0], [xa, ya + 0.1, z0], [0, 0, -1], tc); B.quad([xa, ya, z1], [xb, yb, z1], [xb, yb + 0.1, z1], [xa, ya + 0.1, z1], [0, 0, 1], tc); }; // v8: 0,10 (no invade la huella clara)
+    { const B0 = B; B = D; soffit(ST.x0, P.a - 0.16, ST.x1, P.m - 0.16, ST.z0, ST.zm - 0.03); soffit(ST.x1, P.m - 0.16, ST.x0, P.b - 0.16 - P.hr, ST.zm + 0.03, ST.z1); B = B0; }
     // pasamanos en el ojo de la escalera (eje z = zm) + balaustres anclados a cada huella
     const hy = 0.9; const p0 = [ST.x0, P.a + P.hr + hy, ST.zm - 0.05], p1 = [ST.x1, P.m + hy, ST.zm - 0.05], q0 = [ST.x1, P.m + hy, ST.zm + 0.05], q1 = [ST.x0, P.b - P.hr + hy, ST.zm + 0.05];
     Rl.bar(p0, p1, 0.022, rc); Rl.bar(q0, q1, 0.022, rc); Rl.bar(p1, q0, 0.022, rc);
@@ -345,7 +423,7 @@ export function buildWorld(ctx) {
       CW.quad([xs, P.a, z], [ST.x1, P.a, z], [ST.x1, ys(ST.x1), z], [xs, ys(xs), z], [0, 0, nz], pc);
       CW.quad([ST.x1, P.a, z], [ST.xl, P.a, z], [ST.xl, P.m - 0.16, z], [ST.x1, P.m - 0.16, z], [0, 0, nz], pc); }
     CW.quad([xs, ys(xs), ST.z0 - 0.025], [ST.x1, ys(ST.x1), ST.z0 - 0.025], [ST.x1, ys(ST.x1), ST.z0 + 0.005], [xs, ys(xs), ST.z0 + 0.005], (() => { const L = Math.hypot(P.m - P.a, ST.x1 - ST.x0); return [-(P.m - P.a) / L, (ST.x1 - ST.x0) / L, 0]; })(), pc);
-    return [mesh(B.geo(), MI.stair), mesh(Rl.geo(), MI.rail), mesh(Gl.geo(), MI.glass, false), mesh(CW.geo(), MI.plaster)];
+    return [mesh(B.geo(), MI.stair), mesh(D.geo(), MI.stairD), mesh(Rl.geo(), MI.rail), mesh(Gl.geo(), MI.glass, false), mesh(CW.geo(), MI.plaster)];
   }
   // barandas de vidrio del hall hacia los tramos (en cada nivel)
   // v7: cerramiento de la caja de escalera en sótano y piso 1 (allí no hay muros de apartamento al oriente; antes se veía el exterior)
@@ -472,12 +550,12 @@ export function buildWorld(ctx) {
 
   // ====================== PISO 1: lobby aproximado (plancha 1/6 faltante) ======================
   function lobby(parent) {
-    const B = new GB(1.5, 1.5); const col = C('#e4ded3');
+    const B = new GB(1.5, 1.5); const col = C('#eeece8');
     const wallsG = mergeGeometries(I.f1walls.map((p) => { const g = new THREE.ExtrudeGeometry(shapeOf(p), { depth: H1, bevelEnabled: false, curveSegments: 1 }); g.rotateX(-Math.PI / 2); g.clearGroups(); return g.index ? g.toNonIndexed() : g; }));
     const pc = wallsG.attributes.position.count; const cc = new Float32Array(pc * 3); for (let i = 0; i < pc; i++) { cc[i * 3] = col.r; cc[i * 3 + 1] = col.g; cc[i * 3 + 2] = col.b; } wallsG.setAttribute('color', new THREE.BufferAttribute(cc, 3));
     const uv = wallsG.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 1.5, uv.getY(i) / 1.5);
     parent.add(mesh(wallsG, MI.plaster));
-    const fg = floorGeo(I.lobby, 0.006, MI.porc.map, null); parent.add(mesh(fg, std({ map: T.porc, roughness: 0.22 }), false));
+    const fg = floorGeo(I.lobby, 0.006, T8.tileL, null); parent.add(mesh(fg, std({ map: T8.tileL, roughness: 0.22 }), false)); // v8: porcelanato claro como el hall de los renders
     // puerta automática de vidrio (acceso desde el paso peatonal)
     const x = 7.86; const F = new GB(), Gf = new GB(), w = C('#ffffff');
     F.box(x - 0.04, x + 0.04, 2.3, 2.42, 4.069, 6.413, w); for (const z of [4.069, 4.7, 6.1, 6.373]) F.box(x - 0.04, x + 0.04, 0, 2.3, z, z + 0.04, w); F.box(x - 0.04, x + 0.04, 2.42, H1, 4.069, 6.413, C('#d9d6cf'));
@@ -514,7 +592,7 @@ export function buildWorld(ctx) {
       signs.forEach((s) => int.add(s.clone()));
       const fr = mesh(DOORFRAME, MI.frame); int.add(fr);
       E.doors = makeDoors(id, int); plaques(id, int); E.bal = balcony(id, int); hallSigns(id, int); landing(id, int); stairGuards(int, 0, id === 'p7');
-      E.ceil = new THREE.Group(); E.ceil.add(mesh(TIP.ceil, MI.ceil, true, true), mesh(TIP.lamps, MI.lamp, false, false)); E.ceil.visible = false; int.add(E.ceil);
+      E.ceil = new THREE.Group(); E.ceil.add(mesh(TIP.ceil, MI.ceil, true, true), mesh(TIP.lamps, MI.lamp, false, false)); if (TIP.cove) E.ceil.add(mesh(TIP.cove, MI.cove, false, false)); E.ceil.visible = false; int.add(E.ceil);
     } else if (id === 'p1') { const r = lobby(int); E.ent = r.ent; E.ceil = r.ceil; E.ceil.visible = false; hallSigns(id, int); landing(id, int); stairGuards(int, 0); stairEncl(int, LEVY.p2 - LEVY.p1 - 0.2); }
     else if (id === 'sot') { hallSigns(id, int); landing(id, int); stairEncl(int, LEVY.p1 - LEVY.sot - 0.2); const g = new THREE.Group(); int.add(g); stairGuards(g, 0); g.children.forEach((c) => { c.visible = true; }); }
     // escalera hacia el nivel superior (pertenece a este nivel)
@@ -545,7 +623,7 @@ export function buildWorld(ctx) {
   if (vB.p.length) for (const id of ['p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p1']) { LEV[id].int.add(mesh(vB.geo(), MI.rail), mesh(vG.geo(), MI.glass, false)); }
   const elevSegs = [[SH[0], CI.z0, SH[2], CI.z0], [SH[0], CI.z1, SH[2], CI.z1], [SH[0], SH[1], SH[0], SH[3]], [CI.x0, SH[1], CI.x0, SH[3]]];
   return {
-    MI, LEV, EV, cab, PAIRS, stairY, ST, CI, ED, SH, CB, LAND, roomSign,
+    MI, LEV, EV, cab, EXT, PAIRS, stairY, ST, CI, ED, SH, CB, LAND, roomSign,
     seg: { tip: [...faceSegs, ...winSegs, ...skinSegs, ...furSegs, ...balSegs, ...voidSegs], stair: stairSegs, elev: elevSegs,
       p1: [...segsOfPolys(I.f1walls), ...voidSegs], sotExtra: [] },
     walk: { tip: [...I.slab, BAL], p1: I.lobby },

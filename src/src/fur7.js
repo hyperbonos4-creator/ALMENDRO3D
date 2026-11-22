@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
-export function buildFur7({ I, T, R, pipRing }) {
+export function buildFur7({ I, T, R, pipRing, T8 }) {
   const std = (o) => new THREE.MeshStandardMaterial(o), phy = (o) => new THREE.MeshPhysicalMaterial(o);
   const fabT = T.fabric;
   const M = {
@@ -34,7 +34,15 @@ export function buildFur7({ I, T, R, pipRing }) {
     tileAcc: std({ map: T.tileAcc, roughness: 0.3, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     leaf: std({ color: 0x5f7d4f, roughness: 0.8, side: THREE.DoubleSide }),
     pot: std({ color: 0xd8d2c8, roughness: 0.7 }),
+    // v8: paleta de los renders interiores (ref_06…ref_09)
+    lwood: std({ map: T8.lwood, color: 0xffffff, roughness: 0.5 }),
+    bedG: std({ map: fabT, color: 0xc4c3c0, roughness: 0.95 }),
+    cream: std({ map: fabT, color: 0xebe6dc, roughness: 0.92 }),
+    armG: std({ map: fabT, color: 0x9b9995, roughness: 0.95 }),
+    rose: std({ color: 0xc38c7c, roughness: 0.45 }),
   };
+  M.sofa.color.set(0x8e8d8a); M.accent.color.set(0xc3d4e2); M.throwB.color.set(0x9fb3c4); M.duvet.color.set(0xefeeeb); M.rug.color.set(0xd2cfc8);
+  M.quartz.map = T8.quartz; M.quartz.roughness = 0.2;
   // vidrio templado de la ducha: transmisión física en Alta; translúcido estándar en Media/Baja
   const GLASS_HI = phy({ color: 0xffffff, transmission: 1, roughness: 0.03, thickness: 0.008, ior: 1.5, metalness: 0, attenuationColor: new THREE.Color(0xd8ece6), attenuationDistance: 0.6, side: THREE.DoubleSide });
   const GLASS_LO = std({ color: 0xd6e7ec, metalness: 0.15, roughness: 0.04, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide });
@@ -220,9 +228,9 @@ export function buildFur7({ I, T, R, pipRing }) {
     const k = it.k; const b = it.b;
     if (k === 'cama') {
       const { f, w, d } = frameOf(b, it.wall); const W = w - 0.04, L = d - 0.03;
-      f.rb('beige', -W / 2 - 0.02, W / 2 + 0.02, 0.0, 1.12, 0.0, 0.09, 0.03); // cabecero tapizado
+      f.rb('bedG', -W / 2 - 0.02, W / 2 + 0.02, 0.0, 1.12, 0.0, 0.09, 0.03); // cabecero tapizado
       for (let i = 0; i < 4; i++) { const x = -W / 2 + 0.04 + i * (W - 0.08) / 3; f.bx('lacG', x - 0.003, x + 0.003, 0.3, 1.08, 0.09, 0.092, true); }
-      f.rb('beige', -W / 2, W / 2, 0.08, 0.32, 0.09, L, 0.025); // base
+      f.rb('bedG', -W / 2, W / 2, 0.08, 0.32, 0.09, L, 0.025); // base
       for (const [x, z] of [[-W / 2 + 0.06, 0.15], [W / 2 - 0.06, 0.15], [-W / 2 + 0.06, L - 0.06], [W / 2 - 0.06, L - 0.06]]) f.cy('walnut', 0.025, 0.02, 0.08, x, 0, z, 12, true);
       f.rb('linen', -W / 2 + 0.02, W / 2 - 0.02, 0.32, 0.54, 0.1, L - 0.01, 0.05); // colchón
       const dz0 = 0.1 + (L - 0.1) * 0.3; f.rb('duvet', -W / 2 - 0.015, W / 2 + 0.015, 0.4, 0.585, dz0, L + 0.015, 0.04); // edredón
@@ -233,7 +241,7 @@ export function buildFur7({ I, T, R, pipRing }) {
       const pa = f.w(-W / 2, 0), pb = f.w(W / 2, L); coll.push([Math.min(pa[0], pb[0]) + 0.03, Math.min(pa[1], pb[1]) + 0.03, Math.max(pa[0], pb[0]) - 0.03, Math.max(pa[1], pb[1]) - 0.03]);
     } else if (k === 'mesa_noche') {
       const { f, w, d } = frameOf(b, it.wall); const W = w - 0.02, D = d - 0.02;
-      f.bx('walnut', -W / 2, W / 2, 0.1, 0.52, 0.0, D, false);
+      f.bx('lacW', -W / 2, W / 2, 0.1, 0.52, 0.0, D, false); // v8: mesa de noche blanca
       for (const [x, z] of [[-W / 2 + 0.03, 0.03], [W / 2 - 0.03, 0.03], [-W / 2 + 0.03, D - 0.03], [W / 2 - 0.03, D - 0.03]]) f.cy('blackM', 0.012, 0.012, 0.1, x, 0, z, 10, true);
       f.bx('lacG', -W / 2 + 0.01, W / 2 - 0.01, 0.33, 0.336, D, D + 0.002, true);
       f.cy('chrome', 0.01, 0.01, 0.02, 0, 0.42, D + 0.01, 10, true, false);
@@ -266,7 +274,7 @@ export function buildFur7({ I, T, R, pipRing }) {
       if (r) { for (const [RW, RD] of [[Math.min(2.0, W + 0.3), 1.6], [Math.min(1.7, W), 1.3], [1.4, 1.0]]) { const za = D + 0.05, zb = za + RD; const c1 = f.w(-RW / 2, za), c2 = f.w(RW / 2, zb); const rb = [Math.min(c1[0], c2[0]), Math.min(c1[1], c2[1]), Math.max(c1[0], c2[0]), Math.max(c1[1], c2[1])];
           if (!rectIn(r, rb, 0.02) || occupied.some((o) => o !== b && ovl(rb, o, -0.05))) continue;
           f.rb('rug', -RW / 2, RW / 2, 0.006, 0.016, za - 0.25, zb, 0.004);
-          const tz = za + RD * 0.45, TW = Math.min(1.0, RW * 0.55), TD = 0.5; f.rb('walnut', -TW / 2, TW / 2, 0.36, 0.4, tz - TD / 2, tz + TD / 2, 0.012);
+          const tz = za + RD * 0.45, TW = Math.min(1.0, RW * 0.55), TD = 0.5; f.rb('lwood', -TW / 2, TW / 2, 0.36, 0.4, tz - TD / 2, tz + TD / 2, 0.012);
           f.bx('blackM', -TW / 2 + 0.05, TW / 2 - 0.05, 0.08, 0.09, tz - TD / 2 + 0.05, tz + TD / 2 - 0.05, false);
           for (const [x, z] of [[-TW / 2 + 0.05, tz - TD / 2 + 0.05], [TW / 2 - 0.05, tz - TD / 2 + 0.05], [-TW / 2 + 0.05, tz + TD / 2 - 0.05], [TW / 2 - 0.05, tz + TD / 2 - 0.05]]) f.bx('blackM', x - 0.012, x + 0.012, 0, 0.36, z - 0.012, z + 0.012, false);
           f.rb('pot', -0.1, 0.12, 0.4, 0.43, tz - 0.08, tz + 0.06, 0.01, true); // libro / bandeja
@@ -290,7 +298,7 @@ export function buildFur7({ I, T, R, pipRing }) {
       const pa = f.w(-W / 2, 0), pb = f.w(W / 2, D); coll.push([Math.min(pa[0], pb[0]) + 0.02, Math.min(pa[1], pb[1]) + 0.02, Math.max(pa[0], pb[0]) - 0.02, Math.max(pa[1], pb[1]) - 0.02]); }
   }
   function tvUnit(f, W, D, free = false) {
-    f.bx('walnut', -W / 2, W / 2, 0.12, 0.5, 0.0, D, false);
+    f.bx('rose', -W / 2, W / 2, 0.12, 0.5, 0.0, D, false); // v8: credenza laqueada rosa/terracota
     const n = W > 1.4 ? 3 : 2; for (let i = 1; i < n; i++) { const x = -W / 2 + W * i / n; f.bx('blackM', x - 0.002, x + 0.002, 0.13, 0.49, D, D + 0.002, true); }
     for (const [x, z] of [[-W / 2 + 0.05, 0.05], [W / 2 - 0.05, 0.05], [-W / 2 + 0.05, D - 0.05], [W / 2 - 0.05, D - 0.05]]) f.cy('blackM', 0.013, 0.011, 0.12, x, 0, z, 10, true);
     if (free) { // mueble exento: TV 43" sobre base, mirando al recinto (lado +z)
@@ -318,7 +326,7 @@ export function buildFur7({ I, T, R, pipRing }) {
     f.bx('lacG', x0 + 0.01, x1 - 0.01, 0, 0.1, 0, D - 0.07, false);
     f.bx('lacW', x0, x1, 0.1, 0.86, 0, D - 0.04, false);
     const nd = Math.max(1, Math.round((x1 - x0) / 0.5)); const dw = (x1 - x0) / nd;
-    for (let i = 0; i < nd; i++) { const xa = x0 + i * dw + 0.002, xb = xa + dw - 0.004; f.bx('lacW', xa, xb, 0.1, 0.705, D - 0.04, D - 0.022, false); f.bx('lacW', xa, xb, 0.71, 0.855, D - 0.04, D - 0.022, false); // puerta + cajón
+    for (let i = 0; i < nd; i++) { const xa = x0 + i * dw + 0.002, xb = xa + dw - 0.004; f.bx('lwood', xa, xb, 0.1, 0.705, D - 0.04, D - 0.022, false); f.bx('lacW', xa, xb, 0.71, 0.855, D - 0.04, D - 0.022, false); // puerta + cajón
       f.bx('blackM', (xa + xb) / 2 - 0.08, (xa + xb) / 2 + 0.08, 0.81, 0.82, D - 0.022, D - 0.004, true); }
     // mesón en cuarzo con hueco del lavaplatos
     const sinkC = isl ? null : x0 + Math.max(0.38, (x1 - x0) * 0.3), cookC = isl ? null : x1 - Math.max(0.42, (x1 - x0) * 0.24); const SW = 0.5, SD = 0.4, sz0 = (D - SD) / 2 + 0.02;
@@ -326,10 +334,10 @@ export function buildFur7({ I, T, R, pipRing }) {
       // poceta en acero
       f.bx('steel', sinkC - SW / 2, sinkC + SW / 2, 0.7, 0.71, sz0, sz0 + SD, false); for (const [a, c, e, g] of [[sinkC - SW / 2, sinkC - SW / 2 + 0.01, sz0, sz0 + SD], [sinkC + SW / 2 - 0.01, sinkC + SW / 2, sz0, sz0 + SD], [sinkC - SW / 2, sinkC + SW / 2, sz0, sz0 + 0.01], [sinkC - SW / 2, sinkC + SW / 2, sz0 + SD - 0.01, sz0 + SD]]) f.bx('steel', a, c, 0.7, 0.9, e, g, false);
       f.cy('chrome', 0.03, 0.03, 0.004, sinkC, 0.71, sz0 + SD / 2, 20, true);
-      // grifo cuello de cisne
-      const gz = sz0 - 0.06 < 0.04 ? 0.05 : sz0 - 0.05; f.cy('chrome', 0.025, 0.028, 0.03, sinkC, 0.9, gz, 24, true).tube('chrome', [sinkC, 0.9, gz], [sinkC, 1.2, gz], 0.013, true, 16);
-      f.geo('chrome', new THREE.TorusGeometry(0.09, 0.013, 10, 24, Math.PI), true, T4(sinkC, 1.2, gz + 0.09).multiply(RY(Math.PI / 2)));
-      f.tube('chrome', [sinkC, 1.2, gz + 0.18], [sinkC, 1.12, gz + 0.18], 0.012, true, 16); f.tube('chrome', [sinkC + 0.03, 1.0, gz], [sinkC + 0.09, 1.04, gz], 0.007, true);
+      // grifo cuello de cisne (v8: negro mate, ref_09)
+      const gz = sz0 - 0.06 < 0.04 ? 0.05 : sz0 - 0.05; f.cy('blackM', 0.025, 0.028, 0.03, sinkC, 0.9, gz, 24, true).tube('blackM', [sinkC, 0.9, gz], [sinkC, 1.2, gz], 0.013, true, 16);
+      f.geo('blackM', new THREE.TorusGeometry(0.09, 0.013, 10, 24, Math.PI), true, T4(sinkC, 1.2, gz + 0.09).multiply(RY(Math.PI / 2)));
+      f.tube('blackM', [sinkC, 1.2, gz + 0.18], [sinkC, 1.12, gz + 0.18], 0.012, true, 16); f.tube('blackM', [sinkC + 0.03, 1.0, gz], [sinkC + 0.09, 1.04, gz], 0.007, true);
     } else f.bx('quartz', x0 - 0.02, x1 + 0.02, 0.86, 0.9, -0.02, D + 0.25, false);
     if (cookC !== null) { f.bx('bglass', cookC - 0.29, cookC + 0.29, 0.9, 0.906, sz0 - 0.02, sz0 + 0.48, false);
       for (const [dx, dz, rr] of [[-0.14, 0.11, 0.075], [0.14, 0.11, 0.06], [-0.14, 0.34, 0.06], [0.14, 0.34, 0.085]]) f.geo('blackM', new THREE.TorusGeometry(rr, 0.004, 6, 32).rotateX(Math.PI / 2), true, T4(cookC + dx, 0.907, sz0 - 0.02 + dz));
@@ -339,7 +347,7 @@ export function buildFur7({ I, T, R, pipRing }) {
     // alacenas superiores (en roble) salvo campana y ventanas
     if (!isl) { const segs = [[x0, x1]]; const cut = (a, c) => { for (let i = segs.length - 1; i >= 0; i--) { const [s0, s1] = segs[i]; if (c <= s0 || a >= s1) continue; segs.splice(i, 1, ...[[s0, a], [c, s1]].filter(([u, v]) => v - u > 0.28)); } };
       if (cookC !== null) cut(cookC - 0.31, cookC + 0.31); winX.forEach(([a, c]) => cut(a - 0.02, c + 0.02));
-      for (const [s0, s1] of segs) { f.bx('oak', s0, s1, 1.5, 2.2, 0, 0.34, false); const n = Math.max(1, Math.round((s1 - s0) / 0.45)); const ww = (s1 - s0) / n;
+      for (const [s0, s1] of segs) { f.bx('lacW', s0, s1, 1.5, 2.2, 0, 0.34, false); const n = Math.max(1, Math.round((s1 - s0) / 0.45)); const ww = (s1 - s0) / n;
         for (let i = 1; i < n; i++) f.bx('blackM', s0 + i * ww - 0.002, s0 + i * ww + 0.002, 1.5, 2.2, 0.34, 0.342, true);
         for (let i = 0; i < n; i++) f.bx('blackM', s0 + i * ww + 0.06, s0 + (i + 1) * ww - 0.06, 1.525, 1.533, 0.342, 0.356, true);
         f.bx('led', s0 + 0.02, s1 - 0.02, 1.495, 1.5, 0.05, 0.08, true); } }
@@ -347,7 +355,7 @@ export function buildFur7({ I, T, R, pipRing }) {
       f.rb('steel', fx0, fx1, 0.02, 1.86, 0.02, FD, 0.02); f.bx('blackM', fx0 + 0.01, fx1 - 0.01, 1.2, 1.206, FD - 0.004, FD + 0.001, false);
       const hx = fridge === 'p' ? fx0 + 0.05 : fx1 - 0.05; f.tube('steel', [hx, 1.25, FD + 0.035], [hx, 1.7, FD + 0.035], 0.011, true).tube('steel', [hx, 0.6, FD + 0.035], [hx, 1.12, FD + 0.035], 0.011, true);
       for (const y of [1.25, 1.7, 0.6, 1.12]) f.tube('steel', [hx, y, FD], [hx, y, FD + 0.035], 0.008, true);
-      f.bx('oak', fx0, fx1, 1.9, 2.2, 0, 0.5, false); }
+      f.bx('lacW', fx0, fx1, 1.9, 2.2, 0, 0.5, false); }
     if (isl) { // isla/barra: mueble bajo + mesón con voladizo y dos bancos
       for (let i = 0; i < 2; i++) { const x = -L / 4 + i * L / 2; const z = D + 0.45; f.cy('blackM', 0.17, 0.17, 0.05, x, 0.0, z, 24, true).tube('blackM', [x, 0.05, z], [x, 0.62, z], 0.022, false).cy('beige', 0.19, 0.19, 0.06, x, 0.62, z, 28, false); } }
     const pa = f.w(-L / 2, 0), pb = f.w(L / 2, isl ? D + 0.25 : (fridge ? Math.max(D, 0.66) : D)); coll.push([Math.min(pa[0], pb[0]) + 0.02, Math.min(pa[1], pb[1]) + 0.02, Math.max(pa[0], pb[0]) - 0.02, Math.max(pa[1], pb[1]) - 0.02]);
@@ -357,22 +365,22 @@ export function buildFur7({ I, T, R, pipRing }) {
   for (const c of chairs) { const [x0, z0, x1, z1] = c.b; const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2; let t = null, dmin = 9; for (const q of tables) { const dd = Math.hypot(q.x - cx, q.z - cz); if (dd < dmin) { dmin = dd; t = q; } }
     let n = [0, 1]; if (t) { const dx = t.x - cx, dz = t.z - cz; n = Math.abs(dx) > Math.abs(dz) ? [Math.sign(dx), 0] : [0, Math.sign(dz)]; }
     const f = new F(cx, cz, n[0], n[1]); const s = 0.22;
-    for (const [a, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) f.bx('walnut', a * (s - 0.025) - 0.014, a * (s - 0.025) + 0.014, 0, 0.44, z * (s - 0.025) - 0.014, z * (s - 0.025) + 0.014, false);
-    f.rb('beige', -s, s, 0.43, 0.48, -s, s, 0.02);
-    for (const a of [-1, 1]) f.bx('walnut', a * (s - 0.025) - 0.013, a * (s - 0.025) + 0.013, 0.48, 0.9, -s + 0.012, -s + 0.04, false);
-    f.geo('beige', new RoundedBoxGeometry(2 * s - 0.03, 0.26, 0.04, 2, 0.015), false, T4(0, 0.74, -s + 0.04).multiply(RX(0.1)));
-    f.bx('walnut', -s + 0.02, s - 0.02, 0.36, 0.4, -s + 0.02, -s + 0.04, true).bx('walnut', -s + 0.02, s - 0.02, 0.36, 0.4, s - 0.04, s - 0.02, true);
+    for (const [a, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) f.bx('lwood', a * (s - 0.025) - 0.014, a * (s - 0.025) + 0.014, 0, 0.44, z * (s - 0.025) - 0.014, z * (s - 0.025) + 0.014, false);
+    f.rb('cream', -s, s, 0.43, 0.48, -s, s, 0.02);
+    for (const a of [-1, 1]) f.bx('lwood', a * (s - 0.025) - 0.013, a * (s - 0.025) + 0.013, 0.48, 0.9, -s + 0.012, -s + 0.04, false);
+    f.geo('cream', new RoundedBoxGeometry(2 * s - 0.03, 0.26, 0.04, 2, 0.015), false, T4(0, 0.74, -s + 0.04).multiply(RX(0.1)));
+    f.bx('lwood', -s + 0.02, s - 0.02, 0.36, 0.4, -s + 0.02, -s + 0.04, true).bx('lwood', -s + 0.02, s - 0.02, 0.36, 0.4, s - 0.04, s - 0.02, true);
     coll.push([cx - 0.18, cz - 0.18, cx + 0.18, cz + 0.18]); }
   for (const t of tables) { const f = new F(t.x, t.z, 0, 1);
-    if (t.round) { f.cy('walnut', 0.5, 0.5, 0.035, 0, 0.72, 0, 48, false).cy('blackM', 0.045, 0.045, 0.66, 0, 0.06, 0, 20, false).cy('blackM', 0.26, 0.28, 0.06, 0, 0, 0, 36, false);
+    if (t.round) { f.cy('lwood', 0.5, 0.5, 0.035, 0, 0.72, 0, 48, false).cy('blackM', 0.045, 0.045, 0.66, 0, 0.06, 0, 20, false).cy('blackM', 0.26, 0.28, 0.06, 0, 0, 0, 36, false);
       f.cy('pot', 0.07, 0.05, 0.16, 0.12, 0.755, -0.05, 24, true); coll.push([t.x - 0.35, t.z - 0.35, t.x + 0.35, t.z + 0.35]); }
-    else { const [x0, z0, x1, z1] = t.b; const W = x1 - x0, D = z1 - z0; f.rb('walnut', -W / 2, W / 2, 0.72, 0.76, -D / 2, D / 2, 0.012);
+    else { const [x0, z0, x1, z1] = t.b; const W = x1 - x0, D = z1 - z0; f.rb('lwood', -W / 2, W / 2, 0.72, 0.76, -D / 2, D / 2, 0.012);
       for (const [a, c] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) f.geo('blackM', new THREE.CylinderGeometry(0.02, 0.014, 0.72, 12), false, T4(a * (W / 2 - 0.08), 0.36, c * (D / 2 - 0.08)));
       f.bx('blackM', -W / 2 + 0.08, W / 2 - 0.08, 0.66, 0.72, -D / 2 + 0.07, -D / 2 + 0.09, false).bx('blackM', -W / 2 + 0.08, W / 2 - 0.08, 0.66, 0.72, D / 2 - 0.09, D / 2 - 0.07, false);
       f.cy('pot', 0.07, 0.05, 0.16, 0, 0.76, 0, 24, true); coll.push([x0 + 0.05, z0 + 0.05, x1 - 0.05, z1 - 0.05]); } }
   for (const a of armchairs) { const { f, w, d } = frameOf(a.b, a.wall); const W = Math.min(w, 0.85), D = Math.min(d, 0.85); const arm = 0.13;
-    f.rb('beige', -W / 2, W / 2, 0.1, 0.4, 0.02, D, 0.03); for (const s of [-1, 1]) f.rb('beige', s < 0 ? -W / 2 : W / 2 - arm, s < 0 ? -W / 2 + arm : W / 2, 0.1, 0.62, 0.02, D, 0.05);
-    f.rb('beige', -W / 2 + 0.02, W / 2 - 0.02, 0.38, 0.85, 0.02, 0.18, 0.05); f.rb('beige', -W / 2 + arm + 0.005, W / 2 - arm - 0.005, 0.4, 0.5, 0.18, D - 0.01, 0.04);
+    f.rb('armG', -W / 2, W / 2, 0.1, 0.4, 0.02, D, 0.03); for (const s of [-1, 1]) f.rb('armG', s < 0 ? -W / 2 : W / 2 - arm, s < 0 ? -W / 2 + arm : W / 2, 0.1, 0.62, 0.02, D, 0.05);
+    f.rb('armG', -W / 2 + 0.02, W / 2 - 0.02, 0.38, 0.85, 0.02, 0.18, 0.05); f.rb('armG', -W / 2 + arm + 0.005, W / 2 - arm - 0.005, 0.4, 0.5, 0.18, D - 0.01, 0.04);
     for (const [x, z] of [[-W / 2 + 0.05, 0.06], [W / 2 - 0.05, 0.06], [-W / 2 + 0.05, D - 0.05], [W / 2 - 0.05, D - 0.05]]) f.cy('walnut', 0.016, 0.012, 0.1, x, 0, z, 10, true);
     const pa = f.w(-W / 2, 0), pb = f.w(W / 2, D); coll.push([Math.min(pa[0], pb[0]) + 0.03, Math.min(pa[1], pb[1]) + 0.03, Math.max(pa[0], pb[0]) - 0.03, Math.max(pa[1], pb[1]) - 0.03]); }
 

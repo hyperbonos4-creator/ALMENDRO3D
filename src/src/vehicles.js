@@ -17,72 +17,11 @@ function extrudeProfile(pts, width, bevel) { const s = new THREE.Shape(pts.map((
   const g = new THREE.ExtrudeGeometry(s, { depth: width - 2 * bevel, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 4, curveSegments: 6 }); g.translate(0, 0, -(width - 2 * bevel) / 2); return g; }
 function arcPts(xc, yc, r, a0, a1, n) { const o = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; o.push([xc + r * Math.cos(a), yc + r * Math.sin(a)]); } return o; }
 
-// tipos (m): L largo, W ancho, H alto, wb distancia entre ejes, r radio de rueda, fo voladizo delantero, belt línea de cintura
-export const CAR_TYPES = {
-  sedan: { L: 4.55, W: 1.80, H: 1.45, wb: 2.70, r: 0.32, fo: 0.93, belt: 0.98, hood: 0.84, trunk: 0.99, ws: 0.72, rw: 0.55, roofL: 0.9, tail: 0.95 },
-  hatch: { L: 4.05, W: 1.76, H: 1.48, wb: 2.55, r: 0.31, fo: 0.85, belt: 0.98, hood: 0.86, trunk: 1.02, ws: 0.78, rw: 0.30, roofL: 1.35, tail: 0.22 },
-  cuv: { L: 4.22, W: 1.80, H: 1.62, wb: 2.60, r: 0.34, fo: 0.86, belt: 1.06, hood: 0.98, trunk: 1.08, ws: 0.72, rw: 0.22, roofL: 1.72, tail: 0.18 },
-  suv: { L: 4.50, W: 1.85, H: 1.68, wb: 2.66, r: 0.36, fo: 0.90, belt: 1.10, hood: 1.02, trunk: 1.12, ws: 0.72, rw: 0.22, roofL: 1.85, tail: 0.18 },
-};
+import { buildCar8, CAR_TYPES8 } from './car8.js';
+export const CAR_TYPES = CAR_TYPES8; // v8.1
 export function carParts(type, paint, opt = {}) {
-  const T = CAR_TYPES[type] || CAR_TYPES.sedan; const { L, W, H, wb, r, fo, belt, hood } = T; const x0 = -L / 2, x1 = L / 2; const xf = x1 - fo, xr = xf - wb; const tall = type === 'suv' || type === 'cuv'; const ra = r + 0.07, gc = tall ? 0.24 : 0.17;
   const P = { paint: [], glass: [], tyre: [], rim: [], trim: [], chrome: [], lightF: [], lightR: [], plate: [] }; const add = (k, g, c) => P[k].push(prep(g, c ?? (k === 'paint' ? paint : 0xffffff)));
-  const bv = 0.085; const iw = W; // carrocería inferior (perfil lateral con pasos de rueda)
-  const yb = gc + 0.02; const xw = xf - (tall ? 0.62 : 0.72); // base del parabrisas
-  const xc = type === 'sedan' ? xr - 0.15 : x0 + 0.16; // base pilar C / portón
-  const low = [[x1 - 0.06, yb + 0.06], ...arcPts(xf, r, ra, -0.4, Math.PI + 0.4, 12).map(([x, y]) => [x, Math.max(y, yb)]), ...arcPts(xr, r, ra, -0.4, Math.PI + 0.4, 12).map(([x, y]) => [x, Math.max(y, yb)]), [x0 + 0.08, yb + 0.04],
-    [x0 + 0.0, yb + 0.28], [x0 + 0.02, T.trunk - 0.14], [x0 + 0.12, T.trunk], [xc, belt + 0.02], [xw, belt], [xw + 0.25, hood + 0.03], [x1 - 0.32, hood - 0.03], [x1 - 0.06, hood - 0.16], [x1, hood - 0.32], [x1 - 0.02, yb + 0.2]];
-  const ins = low.map(([x, y]) => [x * (L - 2 * bv) / L, yb + (y - yb) * 0.985]);
-  add('paint', extrudeProfile(ins, iw, bv));
-  // habitáculo de vidrio (parabrisas, ventanas, luneta) con caída lateral (tumblehome)
-  const rt = H, rf = xw - T.ws, rb = Math.max(xc + T.rw, rf - T.roofL);
-  const gh = [[xw + 0.02, belt - 0.02], [rf, rt - 0.02], [rb, rt - 0.02], [xc - 0.02, belt - 0.0]];
-  const gW = W - 0.17; const gg = extrudeProfile(gh, gW, 0.025); const pa = gg.attributes.position;
-  for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); const k = 1 - 0.14 * Math.max(0, Math.min(1, (y - belt) / (rt - belt))); pa.setZ(i, pa.getZ(i) * k); } gg.computeVertexNormals(); add('glass', gg);
-  // techo pintado + pilares A, B, C
-  const tW = gW * 0.86 + 0.03; add('paint', extrudeProfile([[rf + 0.05, rt - 0.04], [rb - 0.03, rt - 0.04], [rb + 0.02, rt + 0.015], [rf + 0.0, rt + 0.015]], tW, 0.012));
-  for (const s of [-1, 1]) { const zb = s * (gW / 2 + 0.006), zt = s * (gW * 0.86 / 2 + 0.008);
-    add('paint', beam(V(xw + 0.02, belt, zb), V(rf, rt - 0.01, zt), 0.075, 0.03));
-    add('paint', beam(V(xc - 0.02, belt, zb), V(rb, rt - 0.01, zt), type === 'sedan' ? 0.11 : 0.08, 0.03));
-    add('trim', box(xw - xc, 0.03, 0.02, (xw + xc) / 2, belt + 0.01, s * (gW / 2 + 0.012)));
-    const xbp = (rf + rb) / 2 + (type === 'sedan' ? 0.12 : 0.02); add('trim', beam(V(xbp, belt, zb * 1.002), V(xbp - 0.06, rt - 0.02, zt * 1.002), 0.07, 0.025));
-    // espejos
-    const mz = s * (W / 2 + 0.06); add('paint', box(0.13, 0.1, 0.15, xw - 0.08, belt + 0.1, mz)); add('trim', box(0.08, 0.03, 0.08, xw - 0.04, belt + 0.06, s * (W / 2 - 0.0)));
-    add('glass', box(0.005, 0.07, 0.12, xw - 0.145, belt + 0.1, mz));
-    // manijas y junta de puertas
-    for (const xh of [xw - 0.45, (type === 'hatch' ? xr + 0.55 : xr + 0.75)]) add('chrome', box(0.16, 0.025, 0.02, xh, belt - 0.1, s * (W / 2 + 0.005)));
-    for (const xs of [xw + 0.02, (rf + rb) / 2 + 0.06, xc + (type === 'sedan' ? 0.25 : 0.1)]) add('trim', box(0.006, belt - gc - 0.15, 0.006, xs - 0.05, (belt + gc + 0.12) / 2, s * (W / 2 + 0.001)));
-    // faldón lateral
-    add('trim', box(xf - xr - 2 * ra - 0.05, 0.07, 0.03, (xf + xr) / 2, yb + 0.06, s * (W / 2 - 0.0)));
-    // luces delanteras y traseras
-    add('lightF', box(0.1, tall ? 0.1 : 0.085, 0.36, x1 - 0.05, hood - 0.11, s * (W / 2 - 0.27)));
-    add('lightR', box(0.05, 0.1, 0.34, x0 + 0.0, T.trunk - 0.15, s * (W / 2 - 0.25)));
-  }
-  // parachoques, rejilla, placas
-  add('trim', box(0.09, 0.14, W - 0.12, x1 - 0.03, yb + 0.15, 0)); add('trim', box(0.09, 0.15, W - 0.12, x0 + 0.03, yb + 0.16, 0));
-  add('trim', box(0.04, 0.15, W * 0.46, x1 - 0.01, hood - 0.25, 0)); add('chrome', box(0.045, 0.02, W * 0.46, x1 - 0.008, hood - 0.18, 0));
-  add('plate', box(0.02, 0.11, 0.33, x1 + 0.02, yb + 0.22, 0)); add('plate', box(0.02, 0.11, 0.33, x0 - 0.01, T.trunk - 0.33, 0));
-  if (tall) for (const s of [-1, 1]) add('trim', box(T.roofL * 0.9, 0.035, 0.035, (rf + rb) / 2, rt + 0.05, s * gW * 0.38));
-  // ruedas: llanta con hombro redondeado + rin de 5 radios
-  const tw = tall ? 0.24 : 0.21; const rr = r * 0.62;
-  const prof = [[rr, -tw / 2], [r - 0.04, -tw / 2], [r - 0.005, -tw / 2 + 0.035], [r, 0], [r - 0.005, tw / 2 - 0.035], [r - 0.04, tw / 2], [rr, tw / 2]].map(([a, b]) => new THREE.Vector2(a, b));
-  const wheels = [];
-  for (const wx of [xf, xr]) for (const s of [-1, 1]) {
-    const wz = s * (W / 2 - tw / 2 - 0.03);
-    // v6: con opt.wheels las ruedas se devuelven aparte (centradas en su eje) para poder girarlas
-    const WP = { tyre: [], rim: [], trim: [] }; const addW = (k, g, c) => { const q = prep(g, c ?? 0xffffff); q.translate(-wx, -r, -wz); WP[k].push(q); };
-    const addL = opt.wheels ? (k, g, c) => (k === 'tyre' || k === 'rim' || (k === 'trim' && c === 0x222222) ? addW(k, g, c) : add(k, g, c)) : add;
-    if (opt.wheels) wheels.push({ x: wx, y: r, z: wz, front: wx === xf, parts: WP });
-    const ty = new THREE.LatheGeometry(prof, 22); ty.rotateX(Math.PI / 2); ty.translate(wx, r, wz); addL('tyre', ty);
-    const disc = new THREE.CylinderGeometry(rr, rr, 0.02, 20); disc.rotateX(Math.PI / 2); disc.translate(wx, r, wz + s * (tw / 2 - 0.035)); addL('trim', disc, 0x222222);
-    const ring = new THREE.TorusGeometry(rr - 0.01, 0.018, 6, 22); ring.translate(wx, r, wz + s * (tw / 2 - 0.02)); addL('rim', ring);
-    const hub = new THREE.CylinderGeometry(0.055, 0.055, 0.05, 12); hub.rotateX(Math.PI / 2); hub.translate(wx, r, wz + s * (tw / 2 - 0.02)); addL('rim', hub);
-    for (let k = 0; k < 5; k++) { const a = k * Math.PI * 2 / 5 + (wx > 0 ? 0.3 : 0); const sp = beam(V(wx, r, 0), V(wx + Math.cos(a) * (rr - 0.02), r + Math.sin(a) * (rr - 0.02), 0), 0.045, 0.025); sp.translate(0, 0, wz + s * (tw / 2 - 0.022)); addL('rim', sp); }
-    const well = new THREE.CylinderGeometry(ra - 0.01, ra - 0.01, W - 0.3, 16, 1, true); well.rotateX(Math.PI / 2); well.translate(wx, r, 0); // pasos de rueda oscuros
-    addL('trim', well, 0x0b0c0d);
-  }
-  if (opt.wheels) P.wheels = wheels;
-  return P;
+  const R = buildCar8(type, add, opt, { box, beam, prep }); if (opt.wheels) P.wheels = R.wheels; return P;
 }
 export function motoParts(paint) {
   const P = { paint: [], glass: [], tyre: [], rim: [], trim: [], chrome: [], lightF: [], lightR: [], plate: [] }; const add = (k, g, c) => P[k].push(prep(g, c ?? (k === 'paint' ? paint : 0xffffff)));
@@ -123,7 +62,7 @@ export function motoParts(paint) {
 export function vehicleMaterials() {
   return {
     paint: new THREE.MeshPhysicalMaterial({ vertexColors: true, metalness: 0.55, roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.06 }),
-    glass: new THREE.MeshPhysicalMaterial({ color: 0x0d1319, metalness: 0.2, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.6 }),
+    glass: new THREE.MeshPhysicalMaterial({ color: 0x0a0e12, metalness: 0.35, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.9 }),
     tyre: new THREE.MeshStandardMaterial({ color: 0x151617, roughness: 0.92 }),
     rim: new THREE.MeshStandardMaterial({ color: 0xc3c7cc, metalness: 0.9, roughness: 0.28 }),
     trim: new THREE.MeshStandardMaterial({ vertexColors: true, color: 0x1a1c1f, roughness: 0.6, metalness: 0.2 }),

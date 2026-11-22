@@ -1,0 +1,244 @@
+[
+{
+"n": "01_fachada_esquina_ref01",
+"f": "__app.st.urban=false;__app.applyVis();__app.cam([44,1.6,40],[23,12.5,21])",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "01b_general",
+"f": "__app.st.urban=false;__app.applyVis();__app.cam([-22,16,-18],[16,9,10])",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "01c_general_media",
+"q": "media",
+"f": "__app.st.urban=false;__app.applyVis();__app.cam([-22,16,-18],[16,9,10])",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "01d_general_baja",
+"q": "baja",
+"f": "__app.st.urban=false;__app.applyVis();__app.cam([-22,16,-18],[16,9,10])",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "02_balcon_cerca_ref02",
+"f": "__app.st.urban=false;__app.applyVis();__app.cam([-4.5,10.6,2.3],[7.6,11.6,3.4])",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "03_esquina_balcon_ref03",
+"f": "__app.st.urban=false;__app.applyVis();__app.cam([-9,9,-10],[8,17.5,3])",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "05_ranura_lucernario_ref05",
+"f": "__app.fpEnter();__app.fpPose(23.9,11.2,-1.5708,0.95,'p3');__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "04_hall_escalera_parqueo_ref04",
+"f": "__app.fpEnter();__app.fpPose(24.3,8.0,2.68,-0.28,-2.375);__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "06_parqueo_topellantas",
+"f": "__app.fpEnter();__app.fpPose(21.0,19.2,3.1416,-0.32,-2.96);__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "06b_parqueo_amplio_ref10",
+"f": "__app.fpEnter();__app.fpPose(17.6,18.6,-2.3,-0.12,-2.96);__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "04b_hall_planters_baranda_ref10",
+"f": "__app.fpEnter();__app.fpPose(20.2,10.6,0.2,-0.12,-2.96);__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "07_corredor_ref06",
+"f": "__app.fpEnter();__app.fpPose(21.95,4.2,-1.5708,-0.1,'p3');__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "08_comedor_cocina_ref07",
+"f": "__app.fpEnter();__app.fpPose(20.7,13.2,3.1416,-0.15,'p3');__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "09_cocina_ref09",
+"f": "__app.fpEnter();__app.fpPose(20.9,6.7,3.1416,-0.2,'p3');__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "10_sala_303",
+"f": "__app.fpEnter();__app.fpPose(21.0,3.0,2.36,-0.2,'p3');__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "11_alcoba",
+"f": "__app.fpEnter();__app.fpPose(23.9,3.9,1.87,-0.25,'p3');__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "12_bano",
+"f": "__app.fpEnter();__app.fpPose(19.25,16.6,2.5,-0.4,'p3');__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "13_balcon_desde_sala",
+"f": "__app.fpEnter();__app.fpPose(9.0,2.6,1.5708,-0.12,'p3');__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "14_porton_letrero_kiosko",
+"f": "__app.st.urban=false;__app.applyVis();__app.cam([-9.5,3.4,3.7],[0,3.2,3.7])",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "16_hall_cuadros",
+"f": "__app.fpEnter();__app.fpPose(17.4,9.2,0,-0.05,'p3');__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "17_porton_estilo_calado_v7",
+"f": "__app.st.urban=false;__app.applyVis();__app.GT.setStyle('calado');__app.cam([-9.5,3.4,3.7],[0,3.2,3.7])",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "15_kiosko_cerca",
+"f": "var kz=__app.GT.kz;__app.fpEnter();__app.KS.frozen=true;__app.KS.st='idle';__app.KS.dirty=true;__app.fpPose(-0.47,kz+0.01,-Math.PI/2,-0.34,0);__app.sim(0.1)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "20_reg_ascensor_abrir",
+"f": "(()=>{__app.fpEnter();__app.fpPose(21.0,10.69,1.5708,-0.05,'p2');__app.evRequest('p2','land');__app.sim(12);__app.evOpen();__app.sim(2.5);return {st:__app.EV.state}})()",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "21_reg_escalera",
+"f": "__app.fpEnter();__app.fpPose(20.3,10.2,-1.5708,-0.55,3.7);__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "22_reg_escalera_tramo",
+"f": "__app.fpEnter();__app.fpPose(22.4,10.2,-1.5708,0.15,1.675);__app.sim(0.3)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "23_reg_rampa",
+"f": "__app.openVeh(true);__app.GT.v1.cur=__app.GT.v2.cur=1;__app.fpEnter();__app.fpPose(-1.6,2.3,-Math.PI/2,-0.2,0);__app.sim(0.1)",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "24_reg_carro_celda3",
+"f": "(()=>{__app.carStart('out');__app.sim(30);__app.carStart('in');__app.sim(40);__app.setCut('sot');__app.st.urban=false;__app.applyVis();__app.cam([28.5,3.0,-0.8],[22.5,-2.2,5.5]);return {st:__app.CAR.state}})()",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "25_reg_celdas_todas",
+"f": "__app.setCut('sot');__app.st.urban=false;__app.applyVis();__app.cam([22.0,22,14.5],[21.9,-3,14.4])",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "26_reg_porton_abierto_peatonal_cerrada",
+"f": "(()=>{__app.st.urban=false;__app.applyVis();__app.openVeh(true);__app.CAR.t=-1;__app.CAR.m.visible=false;const G=__app.GT;G.v1.cur=G.v2.cur=1;__app.sim(0.1);__app.cam([-7.5,3.6,-1.2],[1.2,1.6,3.9]);return {ped:G.ped.cur,v1:G.v1.cur}})()",
+"vp": {
+"width": 1600,
+"height": 900
+}
+},
+{
+"n": "27_reg_peatonal_kiosko_flujo",
+"f": "(()=>{var kz=__app.GT.kz;__app.fpEnter();__app.fpPose(-0.62,kz,-Math.PI/2,-0.06,0);__app.sim(2.6);const s1=__app.KS.st;__app.sim(2.4);const s2=__app.KS.st;__app.KS.frozen=true;__app.fpPose(-2.6,4.2,-Math.PI/2-0.25,-0.05,0);__app.sim(0.05);return {s1,s2,ped:__app.GT.ped.cur,v1:__app.GT.v1.cur}})()",
+"vp": {
+"width": 1600,
+"height": 900
+}
+}
+]

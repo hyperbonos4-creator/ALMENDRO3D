@@ -66,16 +66,22 @@ export function carParts(type, paint, opt = {}) {
   // ruedas: llanta con hombro redondeado + rin de 5 radios
   const tw = tall ? 0.24 : 0.21; const rr = r * 0.62;
   const prof = [[rr, -tw / 2], [r - 0.04, -tw / 2], [r - 0.005, -tw / 2 + 0.035], [r, 0], [r - 0.005, tw / 2 - 0.035], [r - 0.04, tw / 2], [rr, tw / 2]].map(([a, b]) => new THREE.Vector2(a, b));
+  const wheels = [];
   for (const wx of [xf, xr]) for (const s of [-1, 1]) {
     const wz = s * (W / 2 - tw / 2 - 0.03);
-    const ty = new THREE.LatheGeometry(prof, 22); ty.rotateX(Math.PI / 2); ty.translate(wx, r, wz); add('tyre', ty);
-    const disc = new THREE.CylinderGeometry(rr, rr, 0.02, 20); disc.rotateX(Math.PI / 2); disc.translate(wx, r, wz + s * (tw / 2 - 0.035)); add('trim', disc, 0x222222);
-    const ring = new THREE.TorusGeometry(rr - 0.01, 0.018, 6, 22); ring.translate(wx, r, wz + s * (tw / 2 - 0.02)); add('rim', ring);
-    const hub = new THREE.CylinderGeometry(0.055, 0.055, 0.05, 12); hub.rotateX(Math.PI / 2); hub.translate(wx, r, wz + s * (tw / 2 - 0.02)); add('rim', hub);
-    for (let k = 0; k < 5; k++) { const a = k * Math.PI * 2 / 5 + (wx > 0 ? 0.3 : 0); const sp = beam(V(wx, r, 0), V(wx + Math.cos(a) * (rr - 0.02), r + Math.sin(a) * (rr - 0.02), 0), 0.045, 0.025); sp.translate(0, 0, wz + s * (tw / 2 - 0.022)); add('rim', sp); }
+    // v6: con opt.wheels las ruedas se devuelven aparte (centradas en su eje) para poder girarlas
+    const WP = { tyre: [], rim: [], trim: [] }; const addW = (k, g, c) => { const q = prep(g, c ?? 0xffffff); q.translate(-wx, -r, -wz); WP[k].push(q); };
+    const addL = opt.wheels ? (k, g, c) => (k === 'tyre' || k === 'rim' || (k === 'trim' && c === 0x222222) ? addW(k, g, c) : add(k, g, c)) : add;
+    if (opt.wheels) wheels.push({ x: wx, y: r, z: wz, front: wx === xf, parts: WP });
+    const ty = new THREE.LatheGeometry(prof, 22); ty.rotateX(Math.PI / 2); ty.translate(wx, r, wz); addL('tyre', ty);
+    const disc = new THREE.CylinderGeometry(rr, rr, 0.02, 20); disc.rotateX(Math.PI / 2); disc.translate(wx, r, wz + s * (tw / 2 - 0.035)); addL('trim', disc, 0x222222);
+    const ring = new THREE.TorusGeometry(rr - 0.01, 0.018, 6, 22); ring.translate(wx, r, wz + s * (tw / 2 - 0.02)); addL('rim', ring);
+    const hub = new THREE.CylinderGeometry(0.055, 0.055, 0.05, 12); hub.rotateX(Math.PI / 2); hub.translate(wx, r, wz + s * (tw / 2 - 0.02)); addL('rim', hub);
+    for (let k = 0; k < 5; k++) { const a = k * Math.PI * 2 / 5 + (wx > 0 ? 0.3 : 0); const sp = beam(V(wx, r, 0), V(wx + Math.cos(a) * (rr - 0.02), r + Math.sin(a) * (rr - 0.02), 0), 0.045, 0.025); sp.translate(0, 0, wz + s * (tw / 2 - 0.022)); addL('rim', sp); }
     const well = new THREE.CylinderGeometry(ra - 0.01, ra - 0.01, W - 0.3, 16, 1, true); well.rotateX(Math.PI / 2); well.translate(wx, r, 0); // pasos de rueda oscuros
-    add('trim', well, 0x0b0c0d);
+    addL('trim', well, 0x0b0c0d);
   }
+  if (opt.wheels) P.wheels = wheels;
   return P;
 }
 export function motoParts(paint) {
@@ -129,6 +135,6 @@ export function vehicleMaterials() {
 }
 // fusiona varias piezas (con su matriz) en una malla por material
 export function mergeVehicles(list, MAT) {
-  const acc = {}; for (const { parts, m } of list) for (const [k, gs] of Object.entries(parts)) for (const g of gs) { const c = g.clone(); c.applyMatrix4(m); (acc[k] = acc[k] || []).push(c); }
+  const acc = {}; for (const { parts, m } of list) for (const [k, gs] of Object.entries(parts)) if (k !== 'wheels') for (const g of gs) { const c = g.clone(); c.applyMatrix4(m); (acc[k] = acc[k] || []).push(c); }
   const G = new THREE.Group(); for (const [k, gs] of Object.entries(acc)) { if (!gs.length) continue; const me = new THREE.Mesh(mergeGeometries(gs, false), MAT[k]); me.castShadow = k !== 'glass'; me.receiveShadow = true; G.add(me); } return G;
 }

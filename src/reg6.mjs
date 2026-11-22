@@ -12,7 +12,7 @@ async function shot(name, fn, vp = { width: 1600, height: 1000 }, wait = 2500) {
   await p.waitForTimeout(500);
   const info = await fn(p);
   await p.waitForTimeout(wait);
-  await p.screenshot({ path: `../shots5/${name}.png` });
+  await p.screenshot({ path: `../shots6/regresion/${name}.png` });
   if (info) logs.push(`[${name}] info: ${JSON.stringify(info)}`);
   await p.close();
 }
@@ -37,6 +37,6 @@ await shot('60_movil_kiosko', async (p) => { await E(p, (o) => { eval(o); __app.
 // capturas planas de la pantalla del kiosko (canvas) en cada estado
 { const p = await b.newPage({ viewport: { width: 800, height: 500 } }); await p.goto('file:///workspace/almendra/3d/ed_almendra_3d.html'); await p.waitForFunction(() => document.body.classList.contains('ready'), null, { timeout: 90000 });
   const urls = await p.evaluate(() => { const K = __app.KS; K.frozen = true; const out = {}; for (const [st, t, src] of [['idle', 0, 'face'], ['scan', 1.4, 'face'], ['open', 0, 'face'], ['done', 0, 'face'], ['vehopen', 0, 'face']]) { K.st = st; K.t = t; K.src = src; __app.drawKiosk(); out[st] = __app.GT.kcv.toDataURL('image/png'); } return out; });
-  const fs = await import('fs'); for (const [k, v] of Object.entries(urls)) fs.writeFileSync(`../shots5/ui_${k}.png`, Buffer.from(v.split(',')[1], 'base64')); await p.close(); }
+  const fs = await import('fs'); for (const [k, v] of Object.entries(urls)) fs.writeFileSync(`../shots6/regresion/ui_${k}.png`, Buffer.from(v.split(',')[1], 'base64')); await p.close(); }
 console.log(logs.join('\n')); console.log('all logs', logs.length);
 await b.close();

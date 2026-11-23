@@ -419,11 +419,12 @@ function skirt(pts, fy, yb) { // pared vertical bajo un borde de rampa
 const VMAT = vehicleMaterials(); VMAT.trim.side = THREE.DoubleSide; VMAT.rim.side = THREE.DoubleSide; VMAT.tyre.side = THREE.DoubleSide;
 function carMesh(color, type = 'sedan', lit = false) { const G = mergeVehicles([{ parts: carParts(type, color), m: new THREE.Matrix4() }], VMAT); if (lit) G.children.forEach((m) => { if (m.material === VMAT.lightF) { m.material = VMAT.lightF.clone(); m.material.emissiveIntensity = 1.4; } }); return G; }
 // plazas (rectángulo de la plaza en PL_A004, cotas 2,50 × 4,50): x0,x1,z0,z1.
-// El pasillo está en z bajo (rampa o circulación). f=-1: trompa hacia el pasillo. f=+1: trompa hacia el muro.
+// aisle 'n': el pasillo está en z bajo (rampa, plazas 1–3; pasillo central, plazas 6–9). Trompa hacia −Z.
+// aisle 's': el pasillo central está en z alto (plazas 4–5, la flecha entre las dos filas). Trompa hacia +Z.
 const SPOTS = [
-  { n: 1, r: [16.86, 19.35, 3.87, 8.37], f: -1, t: 'hatch', c: 0xe4e4e1 }, { n: 2, r: [19.35, 21.85, 3.87, 8.37], f: -1, t: 'cuv', c: 0x2d3135 }, { n: 3, r: [21.85, 24.35, 3.87, 8.37], f: -1, t: 'hatch', c: 0x6a1020 },
-  { n: 4, r: [19.29, 21.79, 12.69, 17.19], f: -1, t: 'sedan', c: 0x8d9196 }, { n: 5, r: [21.85, 24.35, 12.69, 17.19], f: -1, t: 'sedan', c: 0x5e0d12 },
-  { n: 6, r: [17.02, 19.52, 20.95, 25.44], f: -1, t: 'hatch', c: 0xc8cbcf }, { n: 7, r: [19.52, 22.02, 20.95, 25.44], f: -1, t: 'sedan', c: 0x111214 }, { n: 8, r: [22.02, 24.52, 20.95, 25.44], f: -1, t: 'suv', c: 0x16171a }, { n: 9, r: [24.52, 27.02, 20.95, 25.44], f: -1, t: 'sedan', c: 0xeceae6 },
+  { n: 1, r: [16.86, 19.35, 3.87, 8.37], aisle: 'n', t: 'hatch', c: 0xe4e4e1 }, { n: 2, r: [19.35, 21.85, 3.87, 8.37], aisle: 'n', t: 'cuv', c: 0x2d3135 }, { n: 3, r: [21.85, 24.35, 3.87, 8.37], aisle: 'n', t: 'hatch', c: 0x6a1020 },
+  { n: 4, r: [19.29, 21.79, 12.69, 17.19], aisle: 's', t: 'sedan', c: 0x8d9196 }, { n: 5, r: [21.85, 24.35, 12.69, 17.19], aisle: 's', t: 'sedan', c: 0x5e0d12 },
+  { n: 6, r: [17.02, 19.52, 20.95, 25.44], aisle: 'n', t: 'hatch', c: 0xc8cbcf }, { n: 7, r: [19.52, 22.02, 20.95, 25.44], aisle: 'n', t: 'sedan', c: 0x111214 }, { n: 8, r: [22.02, 24.52, 20.95, 25.44], aisle: 'n', t: 'suv', c: 0x16171a }, { n: 9, r: [24.52, 27.02, 20.95, 25.44], aisle: 'n', t: 'sedan', c: 0xeceae6 },
 ];
 const MOTO_Z = [[12.69, 13.81], [13.81, 14.93], [14.93, 16.05], [16.05, 17.19]]; // 1.12 / 1.12 / 1.12 / 1.14 (PL_A004)
 const MOTO_C = [0x141414, 0x9b1c1c, 0x1c3e88, 0xe6e6e6];
@@ -432,8 +433,24 @@ const MOTO_C = [0x141414, 0x9b1c1c, 0x1c3e88, 0xe6e6e6];
 const RN = [[0, 0.784], [7.871, 0.774], [9.81, 0.621], [12.502, 0.481], [20.712, 0.0], [21.79, 0.045]];
 const rampN = (x) => { for (let i = 0; i < RN.length - 1; i++) { const [a, za] = RN[i], [b, zb] = RN[i + 1]; if (x <= b) return za + (zb - za) * Math.max(0, (x - a) / (b - a)); } return RN[RN.length - 1][1]; };
 const RAMP_S = 3.97; const SV_CEIL = LEVY.p1 - 0.2;
+// El antepecho sur de la rampa es el muro de los cuartos (C. Basuras termina en x = 16,64).
+// Desde ahí las plazas 1–3 abren al pasillo: sin muro, sin bordillo y sin franja.
+const MOUTH_X0 = 16.64;
+const APRON = 2.6; // la rampa aún baja; estos metros empalman su borde sur con la plataforma, sin escalón
+function driveY(x, z) {
+  if (x >= MOUTH_X0 && x <= RAMP.x1 && z >= RAMP_S - APRON && z <= RAMP_S + 0.25) {
+    const yR = rampY(Math.max(0, Math.min(x, RAMP.x1)));
+    if (z >= RAMP_S) return RAMP.deck;
+    const t = Math.max(0, (z - (RAMP_S - APRON)) / APRON);
+    const s = t * t * (3 - 2 * t);
+    return yR + (RAMP.deck - yR) * s;
+  }
+  if (x >= 0 && x <= RAMP.x1 && z < RAMP_S + 0.1) return rampY(x);
+  return floorAt(x, z);
+}
 function buildRamp(B) {
-  const L = RAMP.x1, yb = RAMP.low - 0.25, xs = []; for (let x = 0; x < L; x += 0.25) xs.push(x); xs.push(L);
+  const L = RAMP.x1, yb = RAMP.low - 0.25, xs = []; for (let x = 0; x < L; x += 0.25) xs.push(+x.toFixed(3)); xs.push(L);
+  if (!xs.some((x) => Math.abs(x - MOUTH_X0) < 1e-3)) { xs.push(MOUTH_X0); xs.sort((a, b) => a - b); }
   // concreto escobillado con ranuras transversales antideslizantes (textura + relieve)
   const tc = document.createElement('canvas'); tc.width = tc.height = 256; const g = tc.getContext('2d');
   g.fillStyle = '#a19e96'; g.fillRect(0, 0, 256, 256);
@@ -441,27 +458,41 @@ function buildRamp(B) {
   for (let x = 0; x < 256; x += 32) { g.fillStyle = 'rgba(78,76,72,.55)'; g.fillRect(x, 0, 5, 256); g.fillStyle = 'rgba(235,232,224,.25)'; g.fillRect(x + 5, 0, 2, 256); }
   const tex = new THREE.CanvasTexture(tc); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   const mat = new THREE.MeshStandardMaterial({ map: tex, bumpMap: tex, bumpScale: 1.5, roughness: 0.9 });
-  // superficie superior (malla continua, sin huecos)
-  const P = [], UV = [], IDX = []; const nz = 4;
-  xs.forEach((x, i) => { const y = rampY(x), zN = rampN(x); for (let j = 0; j <= nz; j++) { const z = zN + (RAMP_S - zN) * j / nz; P.push(x, y, z); UV.push(x, z); } });
+  // superficie superior. Delante de las plazas 1–3 el borde sur baja hasta la plataforma (sin muro ni escalón).
+  const P = [], UV = [], IDX = []; const nz = 8;
+  xs.forEach((x) => {
+    const yR = rampY(x), zN = rampN(x), mouth = x >= MOUTH_X0 - 1e-3;
+    const zFar = mouth ? RAMP_S + 0.06 : RAMP_S;
+    for (let j = 0; j <= nz; j++) {
+      const z = zN + (zFar - zN) * j / nz;
+      let y = yR;
+      if (mouth && z > RAMP_S - APRON) {
+        if (z >= RAMP_S - 0.02) y = RAMP.deck + 0.008;
+        else { const t = (z - (RAMP_S - APRON)) / APRON; const s = t * t * (3 - 2 * t); y = yR + (RAMP.deck - yR) * s; }
+      }
+      P.push(x, y, z); UV.push(x, z);
+    }
+  });
   for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < nz; j++) { const a = i * (nz + 1) + j, b = a + nz + 1; IDX.push(a, a + 1, b, a + 1, b + 1, b); }
   const top = new THREE.BufferGeometry(); top.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); top.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); top.setIndex(IDX); top.computeVertexNormals();
   const tm = new THREE.Mesh(top, mat); tm.receiveShadow = true; B.add(tm); RAMPG.top = tm;
-  // caras laterales (sur: visible desde las plazas 1–2; entrada en el portón) — el norte lo cubre el muro existente
+  // cara sur solo frente a los cuartos. En las plazas 1–3 esa cara cerraba la boca de la celda.
   const side = []; const face = (pts) => { const v = []; for (let i = 0; i < pts.length - 1; i++) { const [ax, ay, az] = pts[i], [bx, by, bz] = pts[i + 1]; v.push(ax, yb, az, ax, ay, az, bx, by, bz, ax, yb, az, bx, by, bz, bx, yb, bz); } const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); q.computeVertexNormals(); return q; };
-  side.push(face(xs.map((x) => [x, rampY(x), RAMP_S]).reverse()), face([[0, 0, RAMP_S], [0, 0, rampN(0)]]));
+  const xsW = xs.filter((x) => x <= MOUTH_X0 + 1e-3);
+  side.push(face(xsW.map((x) => [x, rampY(x), RAMP_S]).reverse()), face([[0, 0, RAMP_S], [0, 0, rampN(0)]]));
   B.add(meshOf(side, new THREE.MeshStandardMaterial({ color: 0xb7b4ad, roughness: 0.95, side: THREE.DoubleSide })));
   // bordillos con franja de seguridad amarilla/negra a ambos lados (siguen la pendiente)
   const hz = document.createElement('canvas'); hz.width = 128; hz.height = 32; const h2 = hz.getContext('2d'); h2.fillStyle = '#f2c230'; h2.fillRect(0, 0, 128, 32); h2.fillStyle = '#17181a'; for (let i = -64; i < 160; i += 32) { h2.beginPath(); h2.moveTo(i, 32); h2.lineTo(i + 16, 32); h2.lineTo(i + 32, 0); h2.lineTo(i + 16, 0); h2.fill(); }
   const ht = new THREE.CanvasTexture(hz); ht.wrapS = ht.wrapT = THREE.RepeatWrapping; ht.colorSpace = THREE.SRGBColorSpace; ht.anisotropy = 4;
-  const curb = (zf, dir, w, h) => { const v = [], uv = []; for (let i = 0; i < xs.length - 1; i++) { const xa = xs[i], xb = xs[i + 1], ya = rampY(xa), yb2 = rampY(xb), za = zf(xa), zb = zf(xb), ia = za + dir * w, ib = zb + dir * w, ua = xa / 0.9, ub = xb / 0.9;
+  const curb = (zf, dir, w, h, xLim) => { const v = [], uv = []; for (let i = 0; i < xs.length - 1; i++) { const xa = xs[i]; if (xa >= xLim - 1e-3) break; const xb = Math.min(xs[i + 1], xLim); if (xb - xa < 1e-3) continue; const ya = rampY(xa), yb2 = rampY(xb), za = zf(xa), zb = zf(xb), ia = za + dir * w, ib = zb + dir * w, ua = xa / 0.9, ub = xb / 0.9;
       v.push(xa, ya + h, za, xb, yb2 + h, zb, xb, yb2 + h, ib, xa, ya + h, za, xb, yb2 + h, ib, xa, ya + h, ia); uv.push(ua, 1, ub, 1, ub, 0.6, ua, 1, ub, 0.6, ua, 0.6);
       v.push(xa, ya + h, ia, xb, yb2 + h, ib, xb, yb2 - 0.01, ib, xa, ya + h, ia, xb, yb2 - 0.01, ib, xa, ya - 0.01, ia); uv.push(ua, 0.6, ub, 0.6, ub, 0, ua, 0.6, ub, 0, ua, 0); }
     const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); q.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); q.computeVertexNormals(); return q; };
-  B.add(meshOf([curb(rampN, 1, 0.16, 0.15), curb(() => RAMP_S, -1, 0.16, 0.15)], new THREE.MeshStandardMaterial({ map: ht, roughness: 0.6, side: THREE.DoubleSide })));
-  // líneas amarillas pintadas a 0,35 m de cada bordillo
-  const line = (zf) => { const v = []; for (let i = 0; i < xs.length - 1; i++) { const xa = xs[i] + 0.3, xb = xs[i + 1] + 0.3; if (xb > L - 0.2) break; const ya = rampY(xa) + 0.006, yb2 = rampY(xb) + 0.006, za = zf(xa), zb = zf(xb); v.push(xa, ya, za - 0.05, xa, ya, za + 0.05, xb, yb2, zb + 0.05, xa, ya, za - 0.05, xb, yb2, zb + 0.05, xb, yb2, zb - 0.05); } const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); q.computeVertexNormals(); return q; };
-  B.add(meshOf([line((x) => rampN(x) + 0.51), line(() => RAMP_S - 0.51)], new THREE.MeshStandardMaterial({ color: 0xe8bd2a, roughness: 0.6, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }), false));
+  // El bordillo sur sigue solo hasta el cuarto de basuras. Delante de las plazas 1–3 el plano no tiene sardinel.
+  B.add(meshOf([curb(rampN, 1, 0.16, 0.15, L + 1), curb(() => RAMP_S, -1, 0.16, 0.15, MOUTH_X0)], new THREE.MeshStandardMaterial({ map: ht, roughness: 0.6, side: THREE.DoubleSide })));
+  // líneas amarillas pintadas junto al bordillo que sí existe (no cruzan la boca de las plazas)
+  const line = (zf, xLim) => { const v = []; for (let i = 0; i < xs.length - 1; i++) { const xa = xs[i] + 0.3; if (xa >= xLim - 0.25) break; const xb = Math.min(xs[i + 1] + 0.3, xLim - 0.2); if (xb - xa < 1e-3) continue; const ya = rampY(xa) + 0.006, yb2 = rampY(xb) + 0.006, za = zf(xa), zb = zf(xb); v.push(xa, ya, za - 0.05, xa, ya, za + 0.05, xb, yb2, zb + 0.05, xa, ya, za - 0.05, xb, yb2, zb + 0.05, xb, yb2, zb - 0.05); } const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); q.computeVertexNormals(); return q; };
+  B.add(meshOf([line((x) => rampN(x) + 0.51, L), line(() => RAMP_S - 0.51, MOUTH_X0)], new THREE.MeshStandardMaterial({ color: 0xe8bd2a, roughness: 0.6, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }), false));
   // iluminación: apliques LED en el muro norte del tramo exterior y regletas en el cielo raso del tramo cubierto
   const lum = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff3dc, emissiveIntensity: 1.3 });
   B.add(meshOf([1.6, 4.2, 6.8].map((x) => boxG(x - 0.18, x + 0.18, rampY(x) + 0.95, rampY(x) + 1.03, 0.79, 0.83)), lum, false));
@@ -491,12 +522,17 @@ const MOTO_EXT = meshExtent(motoParts(0xffffff));
 // Holgura dentro de la línea de la plaza: 0,22 m del lado del pasillo (detrás del bordillo) y 0,08 m del muro.
 const AISLE_IN = 0.22, BACK_IN = 0.18, SIDE_IN = 0.08;
 const VEH = { cars: [], motos: [] };
+const COL_RECTS = I.sotx.cols_in.map((c) => {
+  const xs = c.o.map((q) => q[0]), zs = c.o.map((q) => q[1]);
+  return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+});
 SPOTS.forEach((p) => {
   const ex = CAR_EXT[p.t]; const depth = p.r[3] - p.r[2], width = p.r[1] - p.r[0];
   const sc = Math.min(1, (depth - AISLE_IN - BACK_IN) / ex.L, (width - 2 * SIDE_IN) / ex.W);
-  const cx = (p.r[0] + p.r[1]) / 2;
-  // f<0: giro +90°, +X local (trompa) → −Z. f>0: giro −90°, +X → +Z. El extremo que da al pasillo queda en z0+AISLE_IN.
-  const cz = p.f < 0 ? p.r[2] + AISLE_IN + ex.x1 * sc : p.r[2] + AISLE_IN - ex.x0 * sc;
+  let cx = (p.r[0] + p.r[1]) / 2;
+  // f<0: giro +90°, +X local (trompa) → −Z, pasillo en z bajo. f>0: giro −90°, trompa → +Z, pasillo en z alto.
+  p.f = p.aisle === 's' ? 1 : -1;
+  const cz = p.f < 0 ? p.r[2] + AISLE_IN + ex.x1 * sc : p.r[3] - AISLE_IN - ex.x1 * sc;
   const zOf = (lx) => (p.f < 0 ? cz - lx * sc : cz + lx * sc);
   p.sc = sc; p.ex = ex; p.cx = cx; p.cz = cz; p.y = floorAt(cx, (p.r[2] + p.r[3]) / 2);
   p.noseZ = zOf(ex.x1); p.tailZ = zOf(ex.x0);
@@ -504,6 +540,18 @@ SPOTS.forEach((p) => {
   const xSign = p.f < 0 ? 1 : -1; // +Z local → +X si f<0, → −X si f>0
   p.xMin = Math.min(cx + xSign * ex.z0 * sc, cx + xSign * ex.z1 * sc);
   p.xMax = Math.max(cx + xSign * ex.z0 * sc, cx + xSign * ex.z1 * sc);
+  // Si una columna de eje (está en el plano) muerde la carrocería, se corre el carro dentro de la celda.
+  const half = (p.xMax - p.xMin) / 2;
+  for (const c of COL_RECTS) {
+    if (c.z1 < p.zMin + 0.05 || c.z0 > p.zMax - 0.05) continue;
+    if (c.x1 < p.xMin + 0.02 || c.x0 > p.xMax - 0.02) continue;
+    const lo = p.r[0] + half + 0.04, hi = p.r[1] - half - 0.04;
+    const nx = c.x0 < cx ? Math.min(hi, c.x1 + half + 0.06) : Math.max(lo, c.x0 - half - 0.06);
+    if (nx >= lo && nx <= hi && Math.abs(nx - cx) > 0.005) {
+      const d = nx - cx; cx = nx; p.xMin += d; p.xMax += d;
+    }
+  }
+  p.cx = cx;
   p.L = p.zMax - p.zMin; p.Wd = p.xMax - p.xMin;
   VEH.cars.push(p);
 });
@@ -574,8 +622,8 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
   B.add(meshOf(rims, new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.5 }), false));
   // v8: topellantas amarillos (dos bloques por celda), detrás de la llanta que queda contra el final de la celda
   { const ws = []; for (const p of VEH.cars) {
-      // Tope al fondo de la celda, contra el muro, como el bloque gris de PL_A004 (detrás de la cola).
-      const za = p.r[3] - 0.16, zb = p.r[3] - 0.04;
+      // Tope al fondo de la celda, contra el muro (el lado opuesto al pasillo), detrás de la cola.
+      const za = p.f < 0 ? p.r[3] - 0.16 : p.r[2] + 0.04, zb = p.f < 0 ? p.r[3] - 0.04 : p.r[2] + 0.16;
       const fy = floorAt(p.cx, (za + zb) / 2);
       const g = new THREE.BoxGeometry(Math.min(1.7, p.r[1] - p.r[0] - 0.35), 0.1, zb - za);
       const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) if (pp.getY(i) > 0) pp.setZ(i, pp.getZ(i) * 0.55);
@@ -736,7 +784,7 @@ function carPaths() {
   const OUT = new THREE.CurvePath(); OUT.add(bez([cx, cz], [cx, cz - 2.0], [21.5, 2.36], [19.5, 2.36])); OUT.add(new THREE.LineCurve3(V2(19.5, 2.36), V2(-13, 2.3)));
   return { in: [{ c: IN, dir: 1, vmax: 3.2, gate: 'in' }, { c: REV, dir: -1, vmax: 1.1 }], out: [{ c: OUT, dir: 1, vmax: 3.0, gate: 'out' }] };
 }
-function carY(x, z) { if (x < 0) return 0; if (x <= RAMP.x1 && z < RAMP_S + 0.1) return rampY(x); return floorAt(x, z); }
+function carY(x, z) { if (x < 0) return 0; return driveY(x, z); }
 const _cp = new THREE.Vector3(), _ct = new THREE.Vector3();
 function carPose(c, u, dir) {
   c.getPointAt(u, _cp); c.getTangentAt(u, _ct); const fx = _ct.x * dir, fz = _ct.z * dir; const h = Math.atan2(-fz, fx);
@@ -1210,7 +1258,7 @@ function dSeg(px, pz, s) { const [ax, az, bx, bz] = s; const dx = bx - ax, dz = 
 function grid(segs) { const G = new Map(); for (const s of segs) { const x0 = Math.floor(Math.min(s[0], s[2]) - 0.4), x1 = Math.floor(Math.max(s[0], s[2]) + 0.4), z0 = Math.floor(Math.min(s[1], s[3]) - 0.4), z1 = Math.floor(Math.max(s[1], s[3]) + 0.4);
   for (let i = x0; i <= x1; i++) for (let j = z0; j <= z1; j++) { const k = i * 1000 + j; if (!G.has(k)) G.set(k, []); G.get(k).push(s); } } return G; }
 const SEGS_SOT = [...segsOf([...I.sotx.walls_in, ...I.sotx.walls_out]).filter((g) => !(Math.max(g[0], g[2]) < 7.7 && Math.min(g[1], g[3]) > 3.75 && Math.max(g[1], g[3]) < 4.25)), ...segsOf(I.sotx.cols_in), ...SV.segs,
-  [1.2, 3.97, 7.8, 3.97], [16.4, 8.3, 24.55, 8.3], [16.5, 3.97, 21.79, 3.97], [24.55, 8.3, 24.55, 12.6],
+  [1.2, 3.97, 7.8, 3.97], [16.4, 8.3, 24.55, 8.3], [7.8, 3.97, MOUTH_X0, 3.97], [24.55, 8.3, 24.55, 12.6],
   ...SOT8.planters.flatMap(([a, z0, b, z1]) => segsOf([{ o: [[a, z0], [b, z0], [b, z1], [a, z1]] }])),
   ...VEH.cars.filter((p) => p.n !== DEMO_SPOT).flatMap((p) => segsOf([{ o: [[p.xMin, p.zMin], [p.xMax, p.zMin], [p.xMax, p.zMax], [p.xMin, p.zMax]] }])),
   ...VEH.motos.flatMap((m) => segsOf([{ o: [[m.xMin, m.zMin], [m.xMax, m.zMin], [m.xMax, m.zMax], [m.xMin, m.zMax]] }])), [STR.x0, STR.zm, STR.x0, STR.z1]];
@@ -1249,7 +1297,7 @@ function cands(x, z) {
   if (x > CI.x0 && x < CI.x1 + 0.03 && z > CI.z0 && z < CI.z1) { out.push(EV.y); return out; }
   if (x >= CI.x1 && x <= ED[1] + 0.03 && z > ED[2] && z < ED[3]) { out.push(EV.y); FLOORS.forEach((f) => out.push(LEVY[f])); return out; }
   if (x > SH[0] - 0.1 && x < ED[1] && z > SH[1] - 0.1 && z < SH[3] + 0.1) return out;
-  if (onRamp(x, z)) out.push(rampY(x));
+  if (onRamp(x, z) || (x >= MOUTH_X0 && x <= RAMP.x1 + 0.05 && z >= RAMP_S - APRON && z <= RAMP_S + 0.2)) out.push(driveY(x, z));
   else {
     if (x < 7.884) out.push(x >= STEPS.x0 && z > STEPS.z0 && z < STEPS.z1 ? stepY(x) : 0);
     else if (pipH(W.walk.p1, x, z)) out.push(LEVY.p1);
@@ -1716,5 +1764,84 @@ function loop(now) {
 requestAnimationFrame(loop);
 function sim(sec, step = 1 / 30) { for (let t = 0; t < sec; t += step) { evUpdate(step); if (FP.on) fpUpdate(step); doorsUpdate(step); gateUpdate(step); kioskUpdate(step); carUpdate(step); } }
 const QA_MODE = /(?:^|[?&#])(qa|debug)=1(?:&|$)/.test(location.search + location.hash);
-if (QA_MODE) window.__app = { THREE, SV, VEH, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); } };
+// Paso libre: un rectángulo del ancho de la plaza, desde la línea de la boca hasta 2,60 m dentro del pasillo.
+// Una columna de eje (cols_in, está en el plano) se anota aparte; un muro, bordillo o baranda que cruce el paso lo cierra.
+const ACCESS = [];
+const ACC_G = new THREE.Group(); ACC_G.name = 'qa-acceso';
+function measureAccess() {
+  const meshes = [];
+  lv('sot').g.updateWorldMatrix(true, true);
+  lv('sot').g.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.attributes && o.geometry.attributes.position && o.parent !== VEH.group) meshes.push(o); });
+  const bounds = meshes.map((mesh) => { if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld); });
+  const jobs = [];
+  for (const p of VEH.cars) {
+    const south = p.aisle === 's', zf = south ? p.r[3] : p.r[2];
+    const zA = south ? [zf + 0.03, zf + 2.6] : [zf - 2.6, zf - 0.03];
+    const zM = south ? [zf - 0.16, zf] : [zf, zf + 0.16];
+    jobs.push({ id: String(p.n), kind: 'carro', aisle: p.n <= 3 ? 'rampa' : 'central', x0: p.r[0], x1: p.r[1], z0: zA[0], z1: zA[1], mz0: zM[0], mz1: zM[1], need: 2.5, y: p.y });
+  }
+  for (const m of VEH.motos) jobs.push({ id: 'M' + m.n, kind: 'moto', aisle: 'central', x0: 16.58, x1: 19.29, z0: 17.22, z1: 19.6, mz0: m.z0, mz1: m.z1, need: 1.12, y: m.y });
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+  const inCol = (x, z) => COL_RECTS.find((c) => x >= c.x0 - 0.02 && x <= c.x1 + 0.02 && z >= c.z0 - 0.02 && z <= c.z1 + 0.02);
+  function sweep(job, z0, z1) {
+    const span = job.x1 - job.x0, step = 0.02, n = Math.max(1, Math.ceil(span / step));
+    const bar = new Uint8Array(n), col = new Uint8Array(n);
+    const y0 = job.y + 0.04, y1 = job.y + 1.45;
+    const mark = (xa, xb, asCol) => {
+      const i0 = Math.max(0, Math.floor((xa - job.x0) / step)), i1 = Math.min(n - 1, Math.floor((xb - job.x0) / step));
+      for (let i = i0; i <= i1; i++) { if (asCol) col[i] = 1; else bar[i] = 1; }
+    };
+    for (let mi = 0; mi < meshes.length; mi++) {
+      const mesh = meshes[mi], bb = bounds[mi];
+      if (bb.max.x < job.x0 || bb.min.x > job.x1 || bb.max.z < z0 || bb.min.z > z1 || bb.max.y < y0 || bb.min.y > y1) continue;
+      const g = mesh.geometry, pos = g.attributes.position, idx = g.index, M = mesh.matrixWorld;
+      const nT = idx ? idx.count : pos.count;
+      for (let i = 0; i < nT; i += 3) {
+        const ia = idx ? idx.getX(i) : i, ib = idx ? idx.getX(i + 1) : i + 1, ic = idx ? idx.getX(i + 2) : i + 2;
+        A.fromBufferAttribute(pos, ia).applyMatrix4(M); B.fromBufferAttribute(pos, ib).applyMatrix4(M); C.fromBufferAttribute(pos, ic).applyMatrix4(M);
+        const minx = Math.min(A.x, B.x, C.x), maxx = Math.max(A.x, B.x, C.x);
+        const miny = Math.min(A.y, B.y, C.y), maxy = Math.max(A.y, B.y, C.y);
+        const minz = Math.min(A.z, B.z, C.z), maxz = Math.max(A.z, B.z, C.z);
+        if (maxx < job.x0 || minx > job.x1 || maxz < z0 || minz > z1 || maxy < y0 || miny > y1) continue;
+        const cx = (A.x + B.x + C.x) / 3, cz = (A.z + B.z + C.z) / 3;
+        if (maxy < driveY(cx, cz) + 0.12) continue;
+        const edge = maxx <= job.x0 + 0.16 || minx >= job.x1 - 0.16;
+        if (edge && maxy - miny < 0.14 && maxy < driveY(cx, cz) + 0.18) continue;
+        mark(Math.max(job.x0, minx), Math.min(job.x1, maxx), !!inCol(cx, cz));
+      }
+    }
+    for (const p of VEH.cars) {
+      if (p.n === DEMO_SPOT) continue;
+      if (p.xMax < job.x0 || p.xMin > job.x1 || p.zMax < z0 || p.zMin > z1) continue;
+      if (maxOverlap(p, job, z0, z1) <= 0) continue;
+      mark(Math.max(job.x0, p.xMin), Math.min(job.x1, p.xMax), false);
+    }
+    const both = new Uint8Array(n); for (let i = 0; i < n; i++) both[i] = bar[i] || col[i] ? 1 : 0;
+    const run = (flag) => { let b = 0, c = 0; for (let i = 0; i < n; i++) { if (!flag[i]) { c++; if (c > b) b = c; } else c = 0; } return b * step; };
+    return { libre: Math.min(span, run(bar)), conCol: Math.min(span, run(both)) };
+  }
+  function maxOverlap(p, job, z0, z1) {
+    const xa = Math.max(p.xMin, job.x0), xb = Math.min(p.xMax, job.x1), za = Math.max(p.zMin, z0), zb = Math.min(p.zMax, z1);
+    return xa < xb && za < zb ? (xb - xa) * (zb - za) : 0;
+  }
+  for (const job of jobs) {
+    const aisle = sweep(job, Math.min(job.z0, job.z1), Math.max(job.z0, job.z1));
+    const mouth = job.kind === 'carro' ? sweep(job, job.mz0, job.mz1) : { libre: job.x1 - job.x0, conCol: job.x1 - job.x0 };
+    const ancho = +(job.x1 - job.x0).toFixed(2);
+    const libre = +aisle.libre.toFixed(2), boca = +mouth.libre.toFixed(2), conCol = +Math.min(aisle.conCol, mouth.conCol).toFixed(2);
+    const ok = libre >= Math.min(job.need, ancho) - 0.03 && boca >= ancho - 0.04;
+    const row = { id: job.id, kind: job.kind, aisle: job.aisle, x0: job.x0, x1: job.x1, z0: Math.min(job.z0, job.z1), z1: Math.max(job.z0, job.z1), y: job.y, ancho, libre, boca, conCol, need: job.need, ok };
+    ACCESS.push(row);
+    const key = [job.x0, job.z0, job.x1, job.z1].join(':');
+    if (ACC_G.userData.seen?.has(key)) continue;
+    (ACC_G.userData.seen || (ACC_G.userData.seen = new Set())).add(key);
+    const g = new THREE.BoxGeometry(Math.abs(job.x1 - job.x0), 0.025, Math.abs(job.z1 - job.z0));
+    g.translate((job.x0 + job.x1) / 2, job.y + 0.07, (Math.min(job.z0, job.z1) + Math.max(job.z0, job.z1)) / 2);
+    const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: ok ? 0x3ecf6e : 0xd23b3b, transparent: true, opacity: 0.42, depthWrite: false }));
+    mesh.userData.access = true; mesh.name = 'acceso-' + job.id; ACC_G.add(mesh);
+  }
+  lv('sot').g.add(ACC_G);
+}
+if (QA_MODE) measureAccess();
+if (QA_MODE) window.__app = { THREE, SV, VEH, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); }, access: ACCESS, showAccess: (on) => { ACC_G.visible = !!on; }, driveY, MOUTH_X0 };
 document.body.classList.add('ready');

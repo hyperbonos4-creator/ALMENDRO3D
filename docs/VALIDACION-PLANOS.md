@@ -14,12 +14,12 @@ Método: las láminas se rasterizaron y, con la misma escala del extractor (71,0
 | Bordillo entre plazas | 0,14 × 4,49 m en el dibujo | `YC` en esas coordenadas | sin cambio | 0,01 | Igual |
 | Motos | 4 celdas, anchos 1,12 / 1,12 / 1,12 / 1,14 entre z 12,69 y 17,19, x 16,58–19,29 | igual | la moto (2,06 × 0,76 m de malla) cabe; escala 1 | 0,01 | Igual |
 | Trompa plazas 1–3 | dentro de la celda, mirando al pasillo de la rampa; el bloque de tope está al fondo | malla más larga que la cota nominal y trompa a z = 3,93, encima del bordillo (z ≈ 3,81–3,97) | trompa en z = 4,09 (0,22 m dentro de 3,87); escala 0,93–0,94 | se corrige el rebase | Corregido |
-| Trompa plazas 4–5 | igual, mirando al pasillo central | sedán nominal 4,55 m y malla 4,66 m en celda de 4,50 m | trompa z = 12,91; largo útil 4,10 m; escala 0,88 | cabe | Corregido |
+| Trompa plazas 4–5 | el dibujo pone la trompa hacia el pasillo central (z alto, la flecha) y la cola contra el muro norte | `f = −1` las dejaba mirando al muro (trompa z = 12,91) | `aisle: 's'`, trompa z = 16,97 (0,22 m dentro de 17,19); cola z = 12,87; escala 0,88 | orientación | Corregido |
 | Plazas 6–9 | el dibujo pone la trompa hacia el pasillo (z bajo) y el tope contra el muro | `f = +1` las ponía al revés y la cola salía de z = 20,95 | `f = −1`, trompa z = 21,17, cola z = 25,26, tope en z 25,28–25,40 | orientación y holgura | Corregido |
-| Tope de rueda | bloque al fondo de la celda, detrás de la cola (se ve en el símbolo del plano) | topellantas junto al eje, a veces hacia el pasillo | barra amarilla en z1−0,16 … z1−0,04, dentro de la celda | — | Corregido |
+| Tope de rueda | bloque al fondo de la celda, detrás de la cola (se ve en el símbolo del plano) | topellantas junto al eje, a veces hacia el pasillo | barra al fondo, del lado del muro: z alto en las plazas 1–3 y 6–9, z bajo en las 4–5 | — | Corregido |
 | Columnas del sótano | cuadrados del dibujo, ~0,5–0,6 m | `cols4` extruido | la superposición cae sobre el cuadrado azul del plano | ≤ 0,05 | Igual |
 | Muros del sótano y cuartos | perímetro y divisiones de C. Útil 1/2, eléctrico y basuras | `walls4` / `sotx` | la línea roja del modelo sigue el muro negro | ≤ 0,10 | Igual |
-| Rampa | 21,79 m, borde sur z ≈ 3,97, rótulos 10,9 % y 13,6 % | igual | sin cambio de geometría | 0,01 en el borde | Igual |
+| Rampa | 21,79 m, borde sur z ≈ 3,97 junto a los cuartos; las plazas 1–3 abren a ese pasillo sin sardinel | muro y bordillo amarillo/negro corrían también por delante de las plazas 1–3 | el muro, el bordillo y la línea amarilla del borde sur terminan en x = 16,64 (fin de C. Basuras). Delante de las plazas el piso empalma con la plataforma | el pasillo queda abierto | Corregido |
 | Muros planta tipo | PL_A002 | `walls2` | superposición roja sobre el muro del plano en los cuatro apartamentos, balcón, puertas y ventanas | ≤ 0,10 | Igual |
 | Columnas planta tipo | cuadrados del dibujo | `cols2` | coinciden (marca azul) | ≤ 0,05 | Igual |
 | Escalera | 21,36–24,46 × 9,69–11,69 | `I.stair` | el rectángulo naranja cae sobre la escalera dibujada | 0,01 | Igual |
@@ -28,6 +28,27 @@ Método: las láminas se rasterizaron y, con la misma escala del extractor (71,0
 | Cubierta | no hay planta de cubierta; la huella es la de PL_A002 / el antepecho sigue `foot2` | igual | sin desvío nuevo; N+20.30 y antepecho 0,60 m se mantienen | ≤ 0,10 en planta | Igual |
 
 La malla real del carro (no la cota nominal del tipo) mide: hatch 4,37 × 2,01 m, CUV 4,41 × 1,98 m, sedán 4,66 × 2,02 m, SUV 4,61 × 2,04 m. Por eso un sedán «de 4,55 m» no cabía en 4,50 m y la trompa pasaba el bordillo. Ahora se escala solo lo necesario para quedar dentro, sin mover la celda.
+
+## Paso libre hasta el pasillo
+
+Con `?qa=1` el visor mide, contra la malla del sótano, un rectángulo del ancho de la plaza desde la línea de la boca hasta 2,60 m dentro del pasillo, entre 0,04 m y 1,45 m sobre el piso. El piso y la pintura no cuentan. El bordillo amarillo de la línea de plaza (0,14 m, en el borde) tampoco: es el límite del módulo, no un obstáculo en medio. Una columna de `cols_in` es la del plano y se anota aparte; un muro, un bordillo o una baranda que cruce el rectángulo lo cierra. El resultado queda en `window.__app.access` y se dibuja en verde (pasa) o rojo (no pasa) sobre el piso.
+
+Plazas 1–3 salen a la rampa (z bajo). Plazas 4–5 y 6–9, y las motos, salen al pasillo de la flecha (el plano lo acota 3,76 m entre las dos filas; los 2,80 m del rótulo son el tramo de 13,6 % al oriente, no esta circulación). Las motos del dibujo miran al muro oeste, con la cola hacia la línea amarilla; se dejaron así.
+
+| Plaza | Pasillo | Ancho del paso | Libre de muro y bordillo | Si cuenta la columna de eje | Estado |
+|---|---|---|---|---|---|
+| 1 | rampa, al norte | 2,49 m (el vector da 16,86–19,35) | 2,49 m | 2,49 m | Pasa |
+| 2 | rampa, al norte | 2,50 m | 2,50 m | 2,44 m | Pasa. La columna 21,82–22,22 × 3,88–4,28 roza la esquina |
+| 3 | rampa, al norte | 2,50 m | 2,50 m | 2,10 m en la boca | Pasa en el pasillo. La misma columna queda dentro de la celda, en la esquina que el plano dibuja. El carro se corrió a x = 23,24 para no montarla (sigue dentro de la línea, holgura 0,17 m al este) |
+| 4 | central, al sur | 2,50 m | 2,50 m | 2,46 m | Pasa |
+| 5 | central, al sur | 2,50 m | 2,50 m | 2,04 m en la boca | Pasa en el pasillo. Columna de eje 21,76–22,29 × 16,78–17,20 en la línea. El carro se corrió a x = 23,19 |
+| 6 | central, al norte | 2,50 m | 2,50 m | 2,50 m | Pasa |
+| 7 | central, al norte | 2,50 m | 2,50 m | 2,50 m | Pasa |
+| 8 | central, al norte | 2,50 m | 2,50 m | 2,50 m | Pasa |
+| 9 | central, al norte | 2,50 m | 2,50 m | 2,50 m | Pasa |
+| M1–M4 | central, al sur del grupo | celda 1,12 / 1,14 m; el frente del grupo mide 2,71 m | 2,46 m | 2,14 m | Pasa para la celda. No cabe un rectángulo de 2,50 m: el muro del lindero y la columna 16,71–17,14 × 16,73–17,25 están en el plano y comen el extremo oeste. El paso de cada moto (0,76 m de malla) queda libre |
+
+El empalme de la rampa con las plazas 1–3 no es un escalón. En x ≥ 16,64 los últimos 2,60 m del borde sur bajan de la pendiente 10,9 % a la plataforma (N−2,37). En el extremo oeste de esa boca el desnivel es de unos 0,54 m, así que el empalme sale al 21 %. Es el acuerdo entre el rótulo 10,9 % × 21,79 m y la plataforma plana donde el plano dibuja las celdas; no se cambió la pendiente media ni la cota de la plataforma.
 
 ## Lectura de rótulos (pase anterior)
 

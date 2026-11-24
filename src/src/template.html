@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Modelo 3D interactivo del Edificio Almendra (PLANEX, Cocorná, Antioquia): 7 pisos y sótano, recorrido en primera persona. Basado en los planos PL_A002, PL_A004 y PL_A006 del 09/09/2022.">
+<meta name="description" content="Modelo 3D interactivo del Edificio Almendra (PLANEX, Cocorná, Antioquia): 6 pisos de apartamentos y sótano, recorrido en primera persona. Basado en PL_A002, PL_A006 (09/09/2022) y el plano nuevo de parqueadero.">
 <meta property="og:title" content="Edificio Almendra · Modelo 3D">
 <meta property="og:description" content="Recorrido 3D del Edificio Almendra en Cocorná, Antioquia. Siete pisos, sótano y acceso. VISIONYX · URBAN.">
 <meta property="og:type" content="website">
@@ -149,7 +149,7 @@ body.fp #side,body.fp #panel{display:none}
 <body>
 <canvas id="c"></canvas>
 <div id="labels"></div>
-<header class="glass"><div class="logo">V</div><div><div class="b">VISIONYX · URBAN</div><h1>Edificio Almendra — Modelo 3D</h1><div class="s">PLANEX · Cocorná, Antioquia · 7 pisos + sótano</div></div></header>
+<header class="glass"><div class="logo">V</div><div><div class="b">VISIONYX · URBAN</div><h1>Edificio Almendra — Modelo 3D</h1><div class="s">PLANEX · Cocorná, Antioquia · 6 pisos + sótano</div></div></header>
 <button id="menuBtn" class="btn">☰ Controles</button>
 <aside id="side" class="glass">
  <button id="bFP" class="btn w fpb">Recorrer por dentro</button>
@@ -189,12 +189,12 @@ body.fp #side,body.fp #panel{display:none}
 <aside id="panel" class="glass"></aside>
 <div id="tip" class="glass"></div>
 <div id="fp">
- <div id="fpTop" class="glass"><div class="loc"><b id="fpWhere">Andén</b><span id="fpSub"></span></div><span class="fh">WASD mover · clic = mirar con ratón · Shift correr · <b>E</b>/clic interactuar · 0–7 pisos en el ascensor · M sonido · Esc salir</span><span class="fm">Joystick mover · arrastra para mirar · botón ● interactuar</span><button id="snd" class="btn">🔇 Sonido</button><button id="fpExit" class="btn">Salir</button></div>
- <div id="fpFloors" class="glass"><small>IR A</small><button class="btn" data-tp="p7">7</button><button class="btn" data-tp="p6">6</button><button class="btn" data-tp="p5">5</button><button class="btn" data-tp="p4">4</button><button class="btn" data-tp="p3">3</button><button class="btn" data-tp="p2">2</button><button class="btn" data-tp="acceso">1</button><button class="btn" data-tp="sot">S</button><button class="btn" data-tp="inicio" title="Andén">⌂</button></div>
+ <div id="fpTop" class="glass"><div class="loc"><b id="fpWhere">Andén</b><span id="fpSub"></span></div><span class="fh">WASD mover · clic = mirar con ratón · Shift correr · <b>E</b>/clic interactuar · 0–6 pisos en el ascensor · M sonido · Esc salir</span><span class="fm">Joystick mover · arrastra para mirar · botón ● interactuar</span><button id="snd" class="btn">🔇 Sonido</button><button id="fpExit" class="btn">Salir</button></div>
+ <div id="fpFloors" class="glass"><small>IR A</small><button class="btn" data-tp="p6">6</button><button class="btn" data-tp="p5">5</button><button class="btn" data-tp="p4">4</button><button class="btn" data-tp="p3">3</button><button class="btn" data-tp="p2">2</button><button class="btn" data-tp="p1">1</button><button class="btn" data-tp="sot">S</button><button class="btn" data-tp="inicio" title="Andén">⌂</button></div>
  <div id="fpPrompt"></div>
  <div id="fpToast"></div>
  <div id="elev" class="glass"><div class="eh"><span id="elevTitle">Ascensor</span><div id="elevInd"></div></div>
-  <div id="elevSt" style="font:600 12px Segoe UI,Arial;color:#ffd59a;margin:2px 0 6px">Puertas cerradas</div><div id="elevKeysH" style="font:500 10.5px Segoe UI,Arial;opacity:.7;margin-bottom:4px"></div><div id="elevKeys"><button class="ek" data-f="p7">7</button><button class="ek" data-f="p6">6</button><button class="ek" data-f="p5">5</button><button class="ek" data-f="p4">4</button><button class="ek" data-f="p3">3</button><button class="ek" data-f="p2">2</button><button class="ek" data-f="p1">1</button><button class="ek" data-f="sot">S</button></div>
+  <div id="elevSt" style="font:600 12px Segoe UI,Arial;color:#ffd59a;margin:2px 0 6px">Puertas cerradas</div><div id="elevKeysH" style="font:500 10.5px Segoe UI,Arial;opacity:.7;margin-bottom:4px"></div><div id="elevKeys"><button class="ek" data-f="p6">6</button><button class="ek" data-f="p5">5</button><button class="ek" data-f="p4">4</button><button class="ek" data-f="p3">3</button><button class="ek" data-f="p2">2</button><button class="ek" data-f="p1">1</button><button class="ek" data-f="sot">S</button></div>
   <div class="er"><button id="elevCall" class="btn">Llamar</button><button id="elevOpen" class="btn">◀▶ Abrir</button><button id="elevClose" class="btn">▶◀ Cerrar</button></div>
   <div class="en">Llama la cabina, camina adentro y elige el piso: las puertas se cierran y viajas dentro de la cabina hasta el piso elegido. Sin selección, la cabina queda quieta con puertas cerradas.</div></div>
  <div id="fpAct"><button id="fpOpen" class="btn">Abrir peatonal (app / salida)</button><button id="fpVeh" class="btn">Portón vehicular (V)</button></div>
@@ -209,9 +209,8 @@ body.fp #side,body.fp #panel{display:none}
  <div class="lg">
   <span><b style="background:#35d3ff;box-shadow:0 0 8px #35d3ff"></b>Equipo URBAN (propuesta)</span>
   <span><b style="background:#7cf7c5;box-shadow:0 0 8px #7cf7c5"></b>Cámara + campo de visión</span>
-  <span><b class="ln"></b>Ruta de cable propuesta</span>
+  <span><b class="ln"></b>Ruta de tubería propuesta (a la vista, por aire)</span>
   <span><b style="background:#c9a77c"></b>≈ Aproximado</span>
-  <span><b style="background:#9aa3ad"></b>Piso 1 esquemático</span>
  </div>
  <div class="disc">Modelo informativo basado en planos PL_A002, PL_A004, PL_A006 (Arq. Andrea Ramírez Arango, 09/09/2022). No apto para construcción. Elementos URBAN en ubicación propuesta.</div>
  <button id="infoBtn" class="btn">≈ Qué es aproximado</button>

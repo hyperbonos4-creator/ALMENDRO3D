@@ -1,4 +1,55 @@
-# Validación contra los planos originales
+# Validación contra los planos
+
+## Plano nuevo de parqueadero y pisos (este cambio)
+
+El sótano ya no sale de PL_A004. Lo reemplaza el plano de AutoCAD de una lámina (no se versiona el PDF). La escala se midió en los rectángulos blancos de las plazas: 171,8 pt = 2,50 m y 309,2 pt = 4,50 m, o sea **68,72 pt/m**. El origen (413,4 / 138,7) deja el pozo de 2,45 × 1,70 m encima del pozo de PL_A002, para que el ascensor siga siendo un solo hueco.
+
+No hay piso esquemático ni lobby. Desde el parqueadero se sube **un entrepiso** y se llega al piso 1 de apartamentos. El entrepiso se toma de PL_A006: 2,70 m (libre 2,50 m + losa 0,20 m).
+
+| Nivel | Cota | Cómo se obtiene |
+|---|---|---|
+| Sótano | N−2,96 | PL_A006, sin cambio |
+| Piso 1 | N−0,26 | N−2,96 + 2,70 |
+| Piso 2 | N+2,44 | piso 1 + 2,70 |
+| Piso 3 | N+5,14 | |
+| Piso 4 | N+7,84 | |
+| Piso 5 | N+10,54 | |
+| Piso 6 | N+13,24 | |
+| Cubierta | N+16,34 | la cubierta estaba 3,10 m sobre el piso 6 (20,30 − 17,20); se conserva ese remate |
+
+Toda la torre baja 3,96 m respecto del modelo anterior, que dejaba el piso 1 en N+3,70. El cielo del sótano queda en N−0,46 (losa de 0,20 m), así que la altura libre sobre el piso del sótano es 2,50 m. No hay zócalo vacío bajo el primer piso: la fachada arranca en el cielo del sótano, justo bajo la calle (N±0,00).
+
+La puerta de bronce ED.ALMENDRA queda en el acceso oeste, a nivel de calle, del ancho de 3,33 m, abriendo hacia la rampa y el núcleo. El plano nuevo no dibuja otra puerta peatonal: se asume que la hoja peatonal va en ese portón.
+
+La rampa del acceso sale a la calle (N±0,00), por encima del cielo del sótano. El primer tramo está fuera de la placa de apartamentos (el bloque empieza hacia x = 6,86 m). La pendiente del tramo oeste no está escrita en el plano (solo dice «pend. %»); el modelo la reparte entre N±0,00 en el portón y el empalme con el 13,6 % del pasillo oriente.
+
+La escalera en U se corrió 2,00 m hacia el ascensor para sentarla sobre la escalera del plano nuevo (x 19,36–22,46 m, misma z 9,69–11,69). Ese rectángulo cae dentro del hall de PL_A002, así que el tramo sigue apilado en los seis pisos. El ascensor no se movió: su caja del plano nuevo coincide con el hueco existente (2,45 × 1,70 m). El tramo sótano → piso 1 salva 2,70 m en 16 contrahuellas: **0,169 m**, por debajo de 0,18 m. Los tramos de piso a piso siguen en 0,169 m.
+
+La losa del sótano es una superficie continua sobre toda la L, incluida la rampa, así que la planta no queda negra. Superponiendo el modelo al PDF (misma escala, origen en el ascensor) las plazas 1 a 10, las cuatro motos, C.UTIL 1 y 2, el ascensor, la escalera, C.ASEO, C.ELECTRICO y las flechas caen sobre el dibujo.
+
+| Plaza | Medida en el vector | Pasillo | Notas |
+|---|---|---|---|
+| 1 | 5,22 × 2,50, en paralelo, al sur del acceso | norte, la rampa | pozo de 0,44 m en el extremo oriente, fuera de la boca |
+| 2 | 4,82 × 2,40, en paralelo, al norte | sur | |
+| 3 | 2,35 × 4,70 | sur | el módulo es 2,35 m, no 2,50: así está dibujado |
+| 4 | 2,35 × 5,00 | sur | igual |
+| 5 y 6 | 2,50 × 4,50 | sur, el pasillo de 3,76 m | la 6 al oeste, la 5 al este |
+| 7 a 10 | 2,50 × 4,50 | norte, el mismo pasillo | fila sur, de oeste a este |
+| Motos | 2,71 m de fondo; anchos 1,12 / 1,12 / 1,12 / 1,14 | el grupo abre al pasillo de 3,76 m | cuatro celdas al oeste de las plazas 5 y 6 |
+
+Circulación, como las flechas del plano: se entra por el oeste hacia el oriente, se baja por el pasillo oriente de 2,64 m (flecha al sur, rótulo 13,6 %) y se sigue por el pasillo sur de 3,76 m (flecha al oriente). El rótulo del acceso oeste dice «pend. %» sin cifra. El modelo baja ese tramo solo lo necesario para empatar con la cota alta del 13,6 % (unos 0,38 m en 24 m, cerca del 1,6 %). C.ASEO y C.ELECTRICO/TELEC están en el borde norte, entre los ejes A y B. C.UTIL 1 y 2 quedan al norte del ascensor. No hay cuarto de basuras en el plano nuevo.
+
+### Tubería URBAN
+
+EMT de **3/4"** (diámetro exterior 23,4 mm), a la vista, grapada al muro norte del acceso. No va enterrada. El eje está a **2,25 m** sobre la rasante; el bajo del tubo queda a **2,24 m**, por encima de un vehículo. El tronco entra por la jamba oeste, hace un barrido de 90° con radio **200 mm** (más holgado que el mínimo usual de 114 mm para 3/4") y sigue recto hasta C. Eléctrico/Telecom, donde otro barrido de 90° entra al cuarto. En el tronco hay **180°** de curvatura.
+
+Cajas de paso: **CJ1** en la jamba del acceso, **CJ2** a mitad del tramo recto (x ≈ 6 m) y **CJ3** en la entrada del cuarto eléctrico. Entre dos cajas no se acumulan más de 90°. Las cámaras C1, C2 y C3, el kiosko, el ESP32, la cerradura, el sensor y el botón de salida bajan o suben hasta el tronco con un solo barrido de 90° cada uno. El largo del tronco y el largo con derivaciones los escribe el visor en el rótulo de la ruta («Ruta de tubería propuesta (a la vista, por aire)»).
+
+## Validación geométrica (planta contra el dibujo anterior)
+
+Lo que sigue describe el pase contra PL_A004, ya reemplazado en el sótano. Se conserva como historial del método.
+
+
 
 ## Validación geométrica (planta contra el dibujo)
 
@@ -24,7 +75,7 @@ Método: las láminas se rasterizaron y, con la misma escala del extractor (71,0
 | Columnas planta tipo | cuadrados del dibujo | `cols2` | coinciden (marca azul) | ≤ 0,05 | Igual |
 | Escalera | 21,36–24,46 × 9,69–11,69 | `I.stair` | el rectángulo naranja cae sobre la escalera dibujada | 0,01 | Igual |
 | Pozo del ascensor | 16,755–19,207 × 9,841–11,541 (2,45 × 1,70) | `I.shaft` | el rectángulo cyan cae sobre el pozo | 0,01 | Igual |
-| Piso 1 | plancha 1/6 ausente | volumen esquemático | sin inventar planta | — | Sigue esquemático |
+| Piso 1 | el N+1,00 sin planta se eliminó | volumen esquemático y lobby | el piso 1 de apartamentos queda un entrepiso (2,70 m) sobre el sótano, en N−0,26. No hay lobby | — | Corregido |
 | Cubierta | no hay planta de cubierta; la huella es la de PL_A002 / el antepecho sigue `foot2` | igual | sin desvío nuevo; N+20.30 y antepecho 0,60 m se mantienen | ≤ 0,10 en planta | Igual |
 
 La malla real del carro (no la cota nominal del tipo) mide: hatch 4,37 × 2,01 m, CUV 4,41 × 1,98 m, sedán 4,66 × 2,02 m, SUV 4,61 × 2,04 m. Por eso un sedán «de 4,55 m» no cabía en 4,50 m y la trompa pasaba el bordillo. Ahora se escala solo lo necesario para quedar dentro, sin mover la celda.
@@ -120,7 +171,7 @@ Puertas: el JSON trae hojas de ~0.60, ~0.68 y ~0.77 m (el arco dibujado). En la 
 | Pozo | 2.45 × 1.70 m (PL_A004, cota junto al núcleo) | `shaft` 16.755–19.207 × 9.841–11.541 = 2.452 × 1.700 | Igual |
 | Puerta de piso | vano 1.00 m (19.207–19.355 en X es el muro; en Z, 10.192–11.192 = 1.00) | `edoor` del JSON, sin reescalar | Igual |
 | Contrahuella pisos 2–7 | no está acotada; el entrepiso de PL_A006 es 2.70 m | 16 contrahuellas × 2.70/16 = 0.16875 m | Derivada del entrepiso, no inventada |
-| Tramo sótano → piso 1 | misma planta (las huellas de 0.30 se dibujan también en PL_A004); el desnivel es N−2.96 → N+1.00 = 3.96 m | las mismas 16 huellas, contrahuella ≈ 0.247 m | La lámina no da otra cantidad de huellas. Se mantiene la planta y se reparte el desnivel. Sigue más empinado que un tramo de piso tipo; está declarado en el visor |
+| Tramo sótano → piso 1 | entrepiso de PL_A006, 2,70 m | 16 contrahuellas × 2,70/16 = 0,169 m | El desnivel anterior (6,66 m, contrahuella 0,42 m) se descartó. Ver la sección del plano nuevo |
 
 La escalera en U no se cambió por la zanca única del video. Las huellas siguen en las cotas de la planta. Lo que cambió es el aspecto: huella abierta de concreto claro y zanca de acero, que es el acabado de la foto del hall, no una cota nueva.
 

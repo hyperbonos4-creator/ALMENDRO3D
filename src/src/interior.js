@@ -7,9 +7,11 @@ import { buildFur7 } from './fur7.js';
 import { tropicalGeo, plantMats } from './style8.js';
 
 export const H = 2.5, DOORH = 2.1, H1 = 2.5; // v4: piso 1 en N+1.00 (PL_A006) → altura libre 2.50
-export const LEVY = { sot: -2.96, p1: 1.0, p2: 3.7, p3: 6.4, p4: 9.1, p5: 11.8, p6: 14.5, p7: 17.2 };
-export const FLOORS = ['sot', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
-export const FLABEL = { sot: 'S', p1: '1', p2: '2', p3: '3', p4: '4', p5: '5', p6: '6', p7: '7' };
+// Sin piso esquemático. El primer piso de apartamentos es el N+3.70 de PL_A006 (antes «piso 2»);
+// los demás conservan su cota. No queda un nivel vacío en el selector.
+export const LEVY = { sot: -2.96, p1: -0.26, p2: 2.44, p3: 5.14, p4: 7.84, p5: 10.54, p6: 13.24 };
+export const FLOORS = ['sot', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6'];
+export const FLABEL = { sot: 'S', p1: '1', p2: '2', p3: '3', p4: '4', p5: '5', p6: '6' };
 
 // ---------- geometría con color por vértice y UV mundo (triplanar simple) ----------
 class GB {
@@ -355,7 +357,7 @@ export function buildWorld(ctx) {
     const fl = levelId === 'p1' ? 1 : levelId === 'sot' ? 0 : +levelId.slice(1); const y0 = LEVY[levelId] - LEVY[levelId];
     const name = levelId === 'sot' ? 'SÓTANO' : 'PISO ' + fl;
     const add = (tex, w, h, x, y, z, nx, nz) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.1, transparent: true })); m.position.set(x, y0 + y, z); m.lookAt(x + nx, y0 + y, z + nz); parent.add(m); return m; };
-    if (/^p[2-7]$/.test(levelId)) {
+    if (/^p[1-6]$/.test(levelId)) {
       const t = textTex([{ t: String(fl), s: 150, w: 300, c: '#f4efe6' }, { t: 'PISO', s: 34, w: 600, c: '#c9a77c', ls: 10 }, { t: `APTOS ${fl}01 · ${fl}02 · ${fl}03 · ${fl}04`, s: 24, w: 500, c: '#d8d2c6', ls: 2 }], { w: 400, h: 330, y0: 14, bg: '#1d1f23', r: 18 });
       add(t, 0.48, 0.4, 21.92, 1.35, 8.705, 0, 1); // muro norte de la franja superior del hall, entre las ventanas altas
       const d1 = textTex([{ t: `← ${fl}04   ·   ${fl}03 ↑`, s: 40, w: 600, c: '#f4efe6' }], { w: 512, h: 72, bg: '#1d1f23', r: 10 });
@@ -364,7 +366,7 @@ export function buildWorld(ctx) {
       add(d2, 0.42, 0.085, 21.92, 1.85, 8.705, 0, 1);
     }
     // escalera
-    const up = levelId === 'p7' ? 'Cubierta: fuera del recorrido' : `↑ ${levelId === 'sot' ? 'Piso 1' : 'Piso ' + (fl + 1)}`;
+    const up = levelId === 'p6' ? 'Cubierta: fuera del recorrido' : `↑ ${levelId === 'sot' ? 'Piso 1' : 'Piso ' + (fl + 1)}`;
     const dn = levelId === 'sot' ? '' : `↓ ${fl === 1 ? 'Sótano' : 'Piso ' + (fl - 1)}`;
     const ts = textTex([{ t: 'ESCALERA · ' + name, s: 34, w: 700, c: '#f4efe6', ls: 2 }, { t: up + (dn ? '    ' + dn : ''), s: 28, w: 500, c: '#c9a77c' }], { w: 600, h: 110, y0: 8, bg: '#1d1f23', r: 12 });
     add(ts, 0.62, 0.115, 21.0, 2.2, 9.71, 0, 1);
@@ -456,7 +458,7 @@ export function buildWorld(ctx) {
   const indMat = new THREE.MeshBasicMaterial({ map: indT, toneMapped: false });
   // botonera de cabina (textura dinámica; las teclas se detectan por UV con el raycaster)
   const panC = document.createElement('canvas'); panC.width = 256; panC.height = 704; const panT = new THREE.CanvasTexture(panC); panT.colorSpace = THREE.SRGBColorSpace;
-  const KEYS = [['p7', 0, 0], ['p6', 1, 0], ['p5', 0, 1], ['p4', 1, 1], ['p3', 0, 2], ['p2', 1, 2], ['p1', 0, 3], ['sot', 1, 3], ['open', 0, 4], ['close', 1, 4]];
+  const KEYS = [['p6', 0, 0], ['p5', 1, 0], ['p4', 0, 1], ['p3', 1, 1], ['p2', 0, 2], ['p1', 1, 2], ['sot', 0, 3], ['open', 1, 3], ['close', 0, 4]];
   const keyRect = (c, r) => [40 + c * 100, 120 + r * 104, 76, 76];
   EV.drawPanel = (lit) => { const g = panC.getContext('2d'); const gr = g.createLinearGradient(0, 0, 256, 0); gr.addColorStop(0, '#8f969c'); gr.addColorStop(0.5, '#cfd4d8'); gr.addColorStop(1, '#8f969c'); g.fillStyle = gr; g.fillRect(0, 0, 256, 704);
     g.fillStyle = '#07090c'; g.fillRect(36, 18, 184, 76); g.fillStyle = '#ff5a36'; g.font = '700 52px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -586,15 +588,14 @@ export function buildWorld(ctx) {
   for (const id of FLOORS) {
     const l = lv(id); const int = new THREE.Group(); int.name = 'int_' + id; int.position.y = LEVY[id]; l.g.add(int);
     const E = { id, int, doors: [], y: LEVY[id] };
-    if (/^p[2-7]$/.test(id)) {
+    if (/^p[1-6]$/.test(id)) {
       TIP.meshes.forEach((m) => { const c = new THREE.Mesh(m.geometry, m.material); c.castShadow = m.castShadow; c.receiveShadow = m.receiveShadow; int.add(c); });
       { const fg = new THREE.Group(); fg.name = 'fur'; int.add(fg); FUR.meshes.forEach((m) => { const c = new THREE.Mesh(m.geometry, m.material); c.castShadow = m.castShadow; c.receiveShadow = m.receiveShadow; c.userData = { ...m.userData }; fg.add(c); FUR.register(c); }); }
       signs.forEach((s) => int.add(s.clone()));
       const fr = mesh(DOORFRAME, MI.frame); int.add(fr);
-      E.doors = makeDoors(id, int); plaques(id, int); E.bal = balcony(id, int); hallSigns(id, int); landing(id, int); stairGuards(int, 0, id === 'p7');
+      E.doors = makeDoors(id, int); plaques(id, int); E.bal = balcony(id, int); hallSigns(id, int); landing(id, int); stairGuards(int, 0, id === 'p6');
       E.ceil = new THREE.Group(); E.ceil.add(mesh(TIP.ceil, MI.ceil, true, true), mesh(TIP.lamps, MI.lamp, false, false)); if (TIP.cove) E.ceil.add(mesh(TIP.cove, MI.cove, false, false)); E.ceil.visible = false; int.add(E.ceil);
-    } else if (id === 'p1') { const r = lobby(int); E.ent = r.ent; E.ceil = r.ceil; E.ceil.visible = false; hallSigns(id, int); landing(id, int); stairGuards(int, 0); stairEncl(int, LEVY.p2 - LEVY.p1 - 0.2); }
-    else if (id === 'sot') { hallSigns(id, int); landing(id, int); stairEncl(int, LEVY.p1 - LEVY.sot - 0.2); const g = new THREE.Group(); int.add(g); stairGuards(g, 0); g.children.forEach((c) => { c.visible = true; }); }
+    } else if (id === 'sot') { hallSigns(id, int); landing(id, int); stairEncl(int, LEVY.p1 - LEVY.sot - 0.2); const g = new THREE.Group(); int.add(g); stairGuards(g, 0); g.children.forEach((c) => { c.visible = true; }); }
     // escalera hacia el nivel superior (pertenece a este nivel)
     const P = PAIRS.find((p) => p.lo === id); if (P) stairGeo(P).forEach((m) => { m.position.y = -LEVY[id]; int.add(m); });
     LEV[id] = E;
@@ -603,7 +604,7 @@ export function buildWorld(ctx) {
   {
     const t = textTex([{ t: 'ACCESO A CUBIERTA', s: 34, w: 700, c: '#f4efe6', ls: 3 }, { t: 'fuera del recorrido', s: 26, w: 500, c: '#c9a77c' }], { w: 512, h: 100, y0: 10, bg: '#1d1f23', r: 10 });
     const B = new GB(), w = C('#ffffff'); B.box(ST.x0 - 0.02, ST.x0 + 0.02, 0, 1.0, ST.z0, ST.zm, w); B.box(ST.x0 - 0.03, ST.x0 + 0.03, 1.0, 1.05, ST.z0, ST.zm, w);
-    LEV.p7.int.add(mesh(B.geo(), MI.rail)); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.098), new THREE.MeshBasicMaterial({ map: t })); m.position.set(ST.x0 - 0.035, 0.8, (ST.z0 + ST.zm) / 2); m.rotation.y = -Math.PI / 2; LEV.p7.int.add(m);
+    LEV.p6.int.add(mesh(B.geo(), MI.rail)); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.098), new THREE.MeshBasicMaterial({ map: t })); m.position.set(ST.x0 - 0.035, 0.8, (ST.z0 + ST.zm) / 2); m.rotation.y = -Math.PI / 2; LEV.p6.int.add(m);
     const B2 = new GB(); B2.box(ST.x0 - 0.02, ST.x0 + 0.02, 0, 1.0, ST.zm, ST.z1, w); LEV.sot.int.add(mesh(B2.geo(), MI.rail));
   }
 
@@ -620,13 +621,13 @@ export function buildWorld(ctx) {
     if (s[0] > ST.x1 - 0.01 && Math.abs(s[1] - ST.z1) < 0.02 && Math.abs(s[3] - ST.z1) < 0.02) continue;
     const w = C('#ffffff'); const ax = Math.abs(s[2] - s[0]) > Math.abs(s[3] - s[1]); const [a0, a1] = ax ? [Math.min(s[0], s[2]), Math.max(s[0], s[2])] : [Math.min(s[1], s[3]), Math.max(s[1], s[3])];
     if (ax) { vG.box(a0, a1, 0.05, 1.0, mz - 0.006, mz + 0.006, w); vB.box(a0, a1, 1.0, 1.05, mz - 0.025, mz + 0.025, w); } else { vG.box(mx - 0.006, mx + 0.006, 0.05, 1.0, a0, a1, w); vB.box(mx - 0.025, mx + 0.025, 1.0, 1.05, a0, a1, w); } }
-  if (vB.p.length) for (const id of ['p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p1']) { LEV[id].int.add(mesh(vB.geo(), MI.rail), mesh(vG.geo(), MI.glass, false)); }
+  if (vB.p.length) for (const id of ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']) { LEV[id].int.add(mesh(vB.geo(), MI.rail), mesh(vG.geo(), MI.glass, false)); }
   const elevSegs = [[SH[0], CI.z0, SH[2], CI.z0], [SH[0], CI.z1, SH[2], CI.z1], [SH[0], SH[1], SH[0], SH[3]], [CI.x0, SH[1], CI.x0, SH[3]]];
   return {
     MI, LEV, EV, cab, EXT, PAIRS, stairY, ST, CI, ED, SH, CB, LAND, roomSign,
     seg: { tip: [...faceSegs, ...winSegs, ...skinSegs, ...furSegs, ...balSegs, ...voidSegs], stair: stairSegs, elev: elevSegs,
       p1: [...segsOfPolys(I.f1walls), ...voidSegs], sotExtra: [] },
-    walk: { tip: [...I.slab, BAL], p1: I.lobby },
+    walk: { tip: [...I.slab, BAL], p1: [...I.slab, BAL] },
     TIP, FUR, rooms: I.rooms,
   };
 }

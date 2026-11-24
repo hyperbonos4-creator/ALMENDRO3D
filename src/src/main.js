@@ -535,17 +535,35 @@ MOTO_Z.forEach(([z0, z1], i) => {
 // pintura del piso y señalización con funciones simples
 function decalGeo(pts, fy, dy = 0.014) { const sh = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z))); const g = new THREE.ShapeGeometry(sh); g.rotateX(-Math.PI / 2); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, fy(p.getX(i), p.getZ(i)) + dy); g.computeVertexNormals(); return g.index ? g.toNonIndexed() : g; }
 const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.7, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
+function inPoly(poly, x, z) {
+  let n = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], zi = poly[i][1], xj = poly[j][0], zj = poly[j][1];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / ((zj - zi) || 1e-9) + xi) n++;
+  }
+  return n % 2 === 1;
+}
+const TOWER = S.foot2[0].o;
+const inTower = (x, z) => inPoly(TOWER, x, z);
 {
   const B = lv('sot').g, y0 = RAMP.low, yd = RAMP.deck, CEIL = LEVY.p1 - 0.2;
   const sotWall = new THREE.MeshStandardMaterial({ color: 0xf2f1ee, map: T8.concTie, roughness: 0.9 }); M.sotWall = sotWall; // v8: concreto a la vista con pasatubos (ref_04/ref_10)
   B.add(meshOf([extrude(S.lower, y0 - 0.25, 0.25)], M.park));
   if (I.sotx.walls_in.length) {
-    const geos = I.sotx.walls_in.map((w) => {
+    const geos = I.sotx.walls_in.flatMap((w) => {
       const o = w.o;
       const a = [(o[0][0] + o[3][0]) / 2, (o[0][1] + o[3][1]) / 2];
       const b = [(o[1][0] + o[2][0]) / 2, (o[1][1] + o[2][1]) / 2];
-      const my = floorY((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
-      return seg(a, b, y0, Math.max(CEIL, my + 1.05), 0.16, 0);
+      const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1;
+      const n = Math.max(1, Math.ceil(L / 1.2));
+      const bits = [];
+      for (let i = 0; i < n; i++) {
+        const t0 = i / n, t1 = (i + 1) / n;
+        const p = [a[0] + dx * t0, a[1] + dz * t0], q = [a[0] + dx * t1, a[1] + dz * t1];
+        const top = inTower((p[0] + q[0]) / 2, (p[1] + q[1]) / 2) ? CEIL : 0.08;
+        bits.push(seg(p, q, y0, top, 0.16, 0));
+      }
+      return bits;
     });
     B.add(meshOf(geos, sotWall));
   }
@@ -553,8 +571,9 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
   if (I.sotx.cols_in.length) {
     const cg = I.sotx.cols_in.map((c) => {
       const xs = c.o.map((p) => p[0]), zs = c.o.map((p) => p[1]);
-      const my = floorY((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2);
-      return boxG(Math.min(...xs), Math.max(...xs), y0, Math.max(CEIL, my + 1.05), Math.min(...zs), Math.max(...zs));
+      const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+      const top = inTower(cx, cz) ? CEIL : 0.08;
+      return boxG(Math.min(...xs), Math.max(...xs), y0, top, Math.min(...zs), Math.max(...zs));
     });
     B.add(meshOf(cg, new THREE.MeshStandardMaterial({ color: 0xe6e5e1, map: T8.concTie, roughness: 0.9 })));
   }
@@ -783,9 +802,18 @@ carPark();
 let GRIDH = null;
 {
   const big = new THREE.Shape([new THREE.Vector2(-60, 60), new THREE.Vector2(90, 60), new THREE.Vector2(90, -90), new THREE.Vector2(-60, -90)]);
-  const f4 = S.foot4[0]; big.holes.push(new THREE.Path([...f4.o].reverse().map(([x, z]) => new THREE.Vector2(x, -z))));
+  // El hueco del terreno es la torre y el tramo de rampa que está fuera de ella.
+  // El resto del sótano queda bajo relleno hasta la calle.
+  const rampSlot = [[-0.5, 0.45], [8.3, 0.45], [8.3, 4.25], [-0.5, 4.25]];
+  big.holes.push(new THREE.Path([...TOWER].reverse().map(([x, z]) => new THREE.Vector2(x, -z))));
+  big.holes.push(new THREE.Path(rampSlot.map(([x, z]) => new THREE.Vector2(x, -z))));
   const gg = new THREE.ShapeGeometry(big); gg.rotateX(-Math.PI / 2);
   const gm = new THREE.Mesh(gg, M.ground); gm.receiveShadow = true; gm.position.y = -0.005; scene.add(gm);
+  // Tapa de concreto del sótano donde no hay torre ni rampa abierta: desde adentro se ve cielo raso, no la calle.
+  const lid = { o: S.lower[0].o, h: [TOWER, rampSlot] };
+  const lidMat = new THREE.MeshStandardMaterial({ color: 0xc8c6bf, roughness: 0.95, side: THREE.DoubleSide });
+  const lidMesh = meshOf([extrude([lid], -0.22, 0.22)], lidMat);
+  lidMesh.name = 'relleno'; scene.add(lidMesh);
   const street = new THREE.Mesh(new THREE.PlaneGeometry(9, 70), new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 1 }));
   street.rotation.x = -Math.PI / 2; street.position.set(-5.6, 0.0, 13); street.receiveShadow = true; scene.add(street);
   const sw = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.15, 70), new THREE.MeshStandardMaterial({ color: 0x6d7178, roughness: 1 }));
@@ -1793,49 +1821,8 @@ function measureAccess() {
   }
   lv('sot').g.add(ACC_G);
 }
-// La losa del piso 1 (N−0.26, bajo en N−0.46) no puede tapar la rampa mientras
-// el carro todavía no tiene 2.20 m libres. Ese tramo queda abierto hasta el piso 2.
 const SOFFIT = LEVY.p1 - 0.2;
 const CLEAR_MIN = 2.20;
-function lowHeadroom(x, z) { return x > 6.7 && floorY(x, z) + CLEAR_MIN > SOFFIT + 0.02; }
-function stripLowSlab(root) {
-  const v = new THREE.Vector3();
-  root.updateWorldMatrix(true, true);
-  root.traverse((o) => {
-    if (!o.isMesh || !o.geometry || !o.geometry.attributes || !o.geometry.attributes.position) return;
-    let p = o; while (p) { if (p === GT.g) return; p = p.parent; }
-    const src = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
-    const pos = src.attributes.position;
-    const names = Object.keys(src.attributes);
-    const buckets = {};
-    for (const n of names) buckets[n] = [];
-    let dropped = 0;
-    for (let i = 0; i < pos.count; i += 3) {
-      let cy = 0, bad = false;
-      for (let k = 0; k < 3; k++) {
-        v.fromBufferAttribute(pos, i + k).applyMatrix4(o.matrixWorld);
-        cy += v.y;
-        if (lowHeadroom(v.x, v.z)) bad = true;
-      }
-      cy /= 3;
-      if (bad && cy < 2.15) { dropped++; continue; }
-      for (const n of names) {
-        const a = src.attributes[n];
-        for (let k = 0; k < 3; k++) {
-          const base = (i + k) * a.itemSize;
-          for (let c = 0; c < a.itemSize; c++) buckets[n].push(a.array[base + c]);
-        }
-      }
-    }
-    if (!dropped) return;
-    if (!buckets.position.length) { o.visible = false; return; }
-    const g = new THREE.BufferGeometry();
-    for (const n of names) g.setAttribute(n, new THREE.Float32BufferAttribute(buckets[n], src.attributes[n].itemSize));
-    o.geometry = g;
-  });
-}
-stripLowSlab(lv('p1').g);
-stripLowSlab(FPC.sot);
 function measureHeadroom() {
   const ray = new THREE.Raycaster();
   const dir = new THREE.Vector3(0, 1, 0);
@@ -1864,6 +1851,7 @@ function measureHeadroom() {
       clear = h.point.y - y; hitName = h.object.name || (h.object.material && h.object.material.color ? '#' + h.object.material.color.getHexString() : 'malla');
       break;
     }
+    if (inTower(s.x, s.z)) { const slab = SOFFIT - y; if (slab < clear) { clear = slab; hitName = 'losa piso 1'; } }
     if (clear < min) { min = clear; where = { ...s, y: +y.toFixed(2), clear: +clear.toFixed(2), hit: hitName }; }
     if (clear < 3) worst.push({ ...s, y: +y.toFixed(2), clear: +clear.toFixed(2), hit: hitName });
     rows.push({ ...s, clear });

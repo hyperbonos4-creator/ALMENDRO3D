@@ -4,24 +4,26 @@
 
 El sótano ya no sale de PL_A004. Lo reemplaza el plano de AutoCAD de una lámina (no se versiona el PDF). La escala se midió en los rectángulos blancos de las plazas: 171,8 pt = 2,50 m y 309,2 pt = 4,50 m, o sea **68,72 pt/m**. El origen (413,4 / 138,7) deja el pozo de 2,45 × 1,70 m encima del pozo de PL_A002, para que el ascensor siga siendo un solo hueco.
 
-No hay piso esquemático ni lobby. El edificio es el de v11, con dos cambios: se elimina la planta 1 esquemática y **toda la torre de apartamentos baja exactamente un piso** (2,70 m, el entrepiso de PL_A006). El primer piso de apartamentos ocupa la cota donde estaba esa planta, N+1,00, que es la tapa del parqueadero. No queda nivel vacío ni zócalo entre el sótano y los apartamentos.
+No hay piso esquemático ni lobby. Las cotas salen de las láminas:
+
+- **PL_A006** rotula el sótano en **N−2,96** en los cuatro alzados, la calle en **N+0,00**, y los pisos en N+1,00, N+3,70, N+6,40, N+9,10, N+11,80, N+14,50 y N+17,20, con cubierta en N+20,30. De N+1,00 a N+3,70 hay 2,70 m. El alzado repite **2,50** como altura libre, así que la losa es 2,70 − 2,50 = **0,20 m**. El plano nuevo de parqueadero no trae otra cota de nivel: solo «pend. %» en el acceso y «pend. 13,6 %» en el pasillo oriente.
+- El piso 1 de apartamentos es el sótano más un entrepiso: N−2,96 + 2,50 + 0,20 = **N−0,26**. El bajo de esa losa queda en **N−0,46**.
 
 | Nivel | Cota | Cómo se obtiene |
 |---|---|---|
-| Sótano | N−2,96 | PL_A006, sin cambio |
-| Piso 1 | N+1,00 | el piso 2 de v11 (N+3,70) menos 2,70 m. Es la cota de la antigua planta esquemática |
-| Piso 2 | N+3,70 | piso 1 + 2,70 |
-| Piso 3 | N+6,40 | |
-| Piso 4 | N+9,10 | |
-| Piso 5 | N+11,80 | |
-| Piso 6 | N+14,50 | el piso 7 de v11 (N+17,20) menos 2,70 m |
-| Cubierta | N+17,60 | la cubierta de v11 (N+20,30) menos 2,70 m |
+| Sótano | N−2,96 | PL_A006 |
+| Bajo de losa | N−0,46 | piso 1 − 0,20 |
+| Piso 1 | N−0,26 | N−2,96 + 2,50 + 0,20 |
+| Piso 2 | N+2,44 | piso 1 + 2,70 |
+| Piso 3 | N+5,14 | |
+| Piso 4 | N+7,84 | |
+| Piso 5 | N+10,54 | |
+| Piso 6 | N+13,24 | |
+| Cubierta | N+16,34 | PL_A006 deja la cubierta 3,10 m sobre el último piso (20,30 − 17,20) |
 
-El cielo del sótano queda en N+0,80. La fachada del piso 1 arranca ahí, sobre los muros del parqueadero. No hay paso peatonal aparte ni bloque de vidrio: carros y personas entran por el acceso oeste de la rampa. El portón de bronce ED.ALMENDRA está en ese acceso, con la hoja peatonal en la misma hoja, y detrás no hay muro. El ancho exterior del acceso es 3,33 m.
+En todo el recorrido de un carro, del piso terminado al bajo de la losa o de la tubería EMT, hay por lo menos **2,20 m**. La rampa nace en N±0,00 en el portón y baja. El arranque queda a cielo abierto. La losa y el balcón del piso 1 no cruzan ese arranque: mientras el gálibo contra N−0,46 sería menor de 2,20 m, el techo que se ve es el del piso 2 (bajo en N+2,24). El acceso oeste no trae cifra; se deja en la pendiente que ya empataba con el 13,6 %. No hay otra entrada: carros y personas usan el portón de bronce, de 3,33 m de ancho exterior.
 
-La pendiente del tramo oeste no está escrita en el plano (solo dice «pend. %»). El modelo la reparte entre N±0,00 en el portón y la cota del pasillo oriente a la misma profundidad, para que el empalme no tenga escalón. En el eje del acceso (z ≈ 2 m) eso da unos 0,38 m en 24 m.
-
-La escalera en U se corrió 2,00 m hacia el ascensor para sentarla sobre la escalera del plano nuevo (x 19,36–22,46 m, misma z 9,69–11,69). Ese rectángulo cae dentro del hall de PL_A002, así que el tramo sigue apilado en los seis pisos. El ascensor no se movió. El tramo sótano → piso 1 salva N−2,96 a N+1,00 (3,96 m) con las 16 contrahuellas de la escalera en U: **0,248 m**. Es el mismo desnivel que el tramo al lobby de v11, porque el piso 1 quedó en esa cota. Los tramos entre pisos de apartamentos siguen en 0,169 m.
+La escalera en U se corrió 2,00 m hacia el ascensor para sentarla sobre la escalera del plano nuevo (x 19,36–22,46 m, misma z 9,69–11,69). Ese rectángulo cae dentro del hall de PL_A002, así que el tramo sigue apilado en los seis pisos. El ascensor no se movió. El tramo sótano → piso 1 salva 2,70 m en 16 contrahuellas: **0,169 m**, por debajo de 0,18 m. Los tramos entre pisos de apartamentos miden lo mismo.
 
 La losa del sótano es una superficie continua sobre toda la L, incluida la rampa, así que la planta no queda negra. Superponiendo el modelo al PDF (misma escala, origen en el ascensor) las plazas 1 a 10, las cuatro motos, C.UTIL 1 y 2, el ascensor, la escalera, C.ASEO, C.ELECTRICO y las flechas caen sobre el dibujo.
 

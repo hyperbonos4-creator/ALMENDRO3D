@@ -1,6 +1,6 @@
 # Edificio Almendra — Modelo 3D (VISIONYX · URBAN)
 
-Modelo 3D interactivo del Edificio Almendra (PLANEX · Cocorná, Antioquia): 7 pisos + sótano, recorrido en primera persona, ascensor animado, portón con puerta peatonal y kiosco facial URBAN (propuesta).
+Modelo 3D interactivo del Edificio Almendra (PLANEX · Cocorná, Antioquia): 6 pisos + sótano, recorrido en primera persona, ascensor animado, portón con puerta peatonal y kiosco facial URBAN (propuesta).
 
 **Ver en línea:** https://visionyx.duckdns.org/almendra (calidad *Alta* y «Recorrer por dentro»).
 

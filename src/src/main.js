@@ -180,8 +180,8 @@ function normOf(p) { const dx = p.b[0] - p.a[0], dz = p.b[1] - p.a[1], L = Math.
 // ---------- levels ----------
 const LV = [
   { id: 'sot', name: 'Sótano', y: -2.96, k: -1.6 },
-  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + n, y: -0.26 + i * 2.7, k: i })),
-  { id: 'cub', name: 'Cubierta', y: 16.34, k: 6 },
+  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + n, y: 1.0 + i * 2.7, k: i })),
+  { id: 'cub', name: 'Cubierta', y: 17.6, k: 6 },
 ];
 const root = new THREE.Group(); scene.add(root);
 LV.forEach((l) => { l.g = new THREE.Group(); l.g.name = l.id; root.add(l.g); l.on = true; });
@@ -262,7 +262,8 @@ const GT = { leaves: [] };
   // Hoja derecha = panel angosto + PUERTA PEATONAL INTEGRADA (con manija y cerradura) que viaja con su hoja.
   // Jamba fija a la derecha: kiosko URBAN (Galaxy Tab Active5 en carcasa con visera, sobre submarco metálico).
   // Cortes medidos sobre la imagen del render (768 px): eje central u=0.4975, peatonal u=0.613–0.912, jamba u=0.918–1.
-  GT.Z0 = 0.45; GT.Z1 = 3.78; GT.W = GT.Z1 - GT.Z0; GT.H = Math.max(2.6, GT.W / (856 / 630));
+  // 3,33 m es el ancho exterior del acceso (el plano lo acota así). El vano libre queda entre los muros.
+  GT.Z0 = 0.63; GT.Z1 = 3.96; GT.W = GT.Z1 - GT.Z0; GT.H = Math.max(2.6, GT.W / (856 / 630));
   const g = new THREE.Group(); L1.add(g); GT.g = g;
   const gmat = new THREE.MeshStandardMaterial({ map: texDoor, metalness: 0.55, roughness: 0.42, color: 0xffffff, side: THREE.DoubleSide });
   const fmat = new THREE.MeshStandardMaterial({ color: 0x5a3f27, metalness: 0.6, roughness: 0.4 });
@@ -413,6 +414,7 @@ const MOTO_C = [0x141414, 0x9b1c1c, 0x1c3e88, 0xe6e6e6];
 // Borde norte según el vector (band1) y cara del muro; borde sur z = 3.97 (muro de cuartos / antepecho).
 const rampN = (x) => 0.7;
 const RAMP_S = 3.9;
+const APRON = 2.6;
 const SV_CEIL = LEVY.p1 - 0.2;
 const MOUTH_X0 = 8.0;
 function driveY(x, z) { return floorY(x, z); }
@@ -542,8 +544,7 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
       const o = w.o;
       const a = [(o[0][0] + o[3][0]) / 2, (o[0][1] + o[3][1]) / 2];
       const b = [(o[1][0] + o[2][0]) / 2, (o[1][1] + o[2][1]) / 2];
-      const my = floorY((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
-      return seg(a, b, Math.min(y0, my - 0.2), Math.max(CEIL, my + 1.05), 0.16, 0);
+      return seg(a, b, y0, CEIL, 0.16, 0);
     });
     B.add(meshOf(geos, sotWall));
   }
@@ -551,8 +552,7 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
   if (I.sotx.cols_in.length) {
     const cg = I.sotx.cols_in.map((c) => {
       const xs = c.o.map((p) => p[0]), zs = c.o.map((p) => p[1]);
-      const my = floorY((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2);
-      return boxG(Math.min(...xs), Math.max(...xs), Math.min(y0, my), Math.max(CEIL, my + 1.05), Math.min(...zs), Math.max(...zs));
+      return boxG(Math.min(...xs), Math.max(...xs), y0, CEIL, Math.min(...zs), Math.max(...zs));
     });
     B.add(meshOf(cg, new THREE.MeshStandardMaterial({ color: 0xe6e5e1, map: T8.concTie, roughness: 0.9 })));
   }
@@ -625,9 +625,8 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
   // luminarias LED del parqueadero (ilustrativas) en el cielo raso
   // v8: plafones LED redondos de sobreponer (ref_04/ref_10) en lugar de regletas
   const tubes = [], rims = []; for (const [x, z] of [[18.1, 6.1], [23.1, 6.1], [20.6, 5.0], [20.6, 10.0], [26.0, 8.0], [26.0, 11.0], [26.0, 14.0], [18.0, 15.0], [22.6, 15.0], [20.0, 19.2], [24.0, 19.2], [19.5, 23.2], [24.5, 23.2], [22.0, 23.2], [14.5, 2.3], [9.5, 2.3]]) {
-    const hy = Math.max(CEIL, floorY(x, z) + 2.35);
-    const d = new THREE.CylinderGeometry(0.15, 0.15, 0.012, 28); d.translate(x, hy - 0.036, z); tubes.push(d.toNonIndexed());
-    const r = new THREE.CylinderGeometry(0.175, 0.17, 0.03, 28); r.translate(x, hy - 0.015, z); rims.push(r.toNonIndexed()); }
+    const d = new THREE.CylinderGeometry(0.15, 0.15, 0.012, 28); d.translate(x, CEIL - 0.036, z); tubes.push(d.toNonIndexed());
+    const r = new THREE.CylinderGeometry(0.175, 0.17, 0.03, 28); r.translate(x, CEIL - 0.015, z); rims.push(r.toNonIndexed()); }
   const tm = meshOf(tubes, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.25 }), false); B.add(tm);
   B.add(meshOf(rims, new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.5 }), false));
   // v8: topellantas amarillos (dos bloques por celda), detrás de la llanta que queda contra el final de la celda
@@ -747,7 +746,7 @@ carPark();
 
 // ---------- Cubierta ----------
 {
-  const R = lv('cub').g, y = 16.34;
+  const R = lv('cub').g, y = 17.6;
   R.add(meshOf([extrude(S.foot2, y - 0.2, 0.2)], M.slab));
   // v8: antepecho grueso en revoque café (remate superior de los renders), cerrando también el frente del balcón empotrado
   const par = [], parIn = [];
@@ -766,15 +765,15 @@ carPark();
     const top = new THREE.Mesh(extrude(S.foot2, y + 0.005, 0.015), new THREE.MeshStandardMaterial({ map: pt, color: 0xc0c0c0, roughness: 0.9 })); top.receiveShadow = true; R.add(top); }
   R.add(meshOf([worldUV(boxG(6.864, 7.835, PT, y, 0.718, 3.969))], F8.recess)); // losa/cielo sobre el balcón del piso 7
   // volumen punto fijo sobre cubierta (aproximado, ≈N+24.4) en revoque café como en el video
-  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 20.24, 9.4, 12.6))], F8.render));
+  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 21.5, 9.4, 12.6))], F8.render));
   // v8: lucernario de vidrio oscuro sobre la ranura del punto fijo (ref_05) — ilustrativo, no está en planos
-  { const x0 = 24.46, x1 = 27.3, z0 = 8.69, z1 = 12.64, yb = PY + 0.02; const fr = [];
+  { const x0 = 22.46, x1 = 25.3, z0 = 8.69, z1 = 12.64, yb = PY + 0.02; const fr = [];
     fr.push(boxG(x0, x1, yb, yb + 0.08, z0, z0 + 0.06), boxG(x0, x1, yb, yb + 0.08, z1 - 0.06, z1), boxG(x0, x0 + 0.06, yb, yb + 0.08, z0 + 0.06, z1 - 0.06), boxG(x1 - 0.06, x1, yb, yb + 0.08, z0 + 0.06, z1 - 0.06));
     for (const z of [z0 + (z1 - z0) / 3, z0 + 2 * (z1 - z0) / 3]) fr.push(boxG(x0 + 0.06, x1 - 0.06, yb, yb + 0.07, z - 0.025, z + 0.025));
     R.add(meshOf(fr, M.alu));
     const gl = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.1, z1 - z0 - 0.1), new THREE.MeshStandardMaterial({ color: 0x1d2328, metalness: 0.6, roughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
     gl.rotation.x = -Math.PI / 2; gl.position.set((x0 + x1) / 2, yb + 0.045, (z0 + z1) / 2); R.add(gl); gl.material.userData.op = 0.55; gl.material.userData.tr = true; FACADE.push(gl.material); }
-  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 20.34, 11.0);
+  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 21.6, 11.0);
   R.add(meshOf([rf], M.roof));
 }
 
@@ -832,7 +831,7 @@ const MK = [
     why: 'Confirma quién entró realmente después de cada apertura.' },
   { id: 'c3', lv: 'p1', p: [8.4, 2.4, 1.15], aim: [16, -0.4, 2.2], c: C_CAM, t: 'C3 · Cámara rampa', s: 'Propuesta', loc: 'Muro norte de la rampa, mirando el acceso hacia el oriente.', bom: [27],
     why: 'Registra vehículos que entran y salen por la rampa al sótano.' },
-  { id: 'rack', lv: 'sot', p: [SV.rack.x, SV.rack.y + 0.55, SV.rack.z], c: C_URB, t: 'Cuarto técnico (C. Eléctrico/Telecom 3.67 m²)', s: 'Hecho', s2: 'Propuesta (equipos)', loc: 'Sótano, C. ELÉCTRICO / TELEC (3.67 m² en PL_A004), bajo la rampa entre C. Útil 2 y C. Basuras. Rack de pared 7 UR en el muro del fondo, UPS en el piso; tableros eléctricos en el muro derecho (ilustrativos).', bom: [22, 20, 21, 23, 24, 28, 29, 18],
+  { id: 'rack', lv: 'sot', p: [SV.rack.x, SV.rack.y + 0.55, SV.rack.z], c: C_URB, t: 'C. Eléctrico / Telecom', s: 'Hecho', s2: 'Propuesta (equipos)', loc: 'Sótano, C. ELECTRICO/TELEC del plano nuevo, en el borde norte del acceso. Rack de pared 7 UR; tableros ilustrativos.', bom: [22, 20, 21, 23, 24, 28, 29, 18],
     why: 'Concentra router VPN, switch PoE, NVR y UPS en un espacio cerrado del sótano. El cuarto existe en el plano; los equipos son propuesta.' },
   { id: 'door', lv: 'p1', p: [-0.25, 3.2, 2.5], c: 0xc9a77c, t: 'Portón ED. ALMENDRA · 2 hojas (peatonal integrada)', s: 'Aproximado', s2: 'Fase 2: motor del portón', loc: 'Un solo portón en borde de calle bajo el dintel ED.ALMENDRA. Ancho ≈6,1 m (muro norte de la rampa → lindero); alto por proporción del render. Abre en 2 hojas por el eje central (izq. ≈3,0 m, der. ≈2,6 m); la puerta peatonal va dentro de la hoja derecha; jamba fija a la derecha con el kiosko. Medidas por tomar en sitio.', bom: [43, 44],
     why: 'Es la MISMA puerta: para carros abren solo las 2 hojas (la peatonal permanece cerrada y se mueve con su hoja); para personas abre solo la puerta peatonal integrada, con URBAN (facial, app o PIN). Motor y control del vehicular: fase 2.' },
@@ -1055,16 +1054,11 @@ canvas.addEventListener('pointerup', (e) => {
 // ---------- apt labels for cut floor ----------
 const aptLbl = APT.map((a) => { const el = document.createElement('div'); el.className = 'apt'; labels.appendChild(el); return { a, el }; });
 const floatLbl = [
-  { t: 'PISO 1 · ESQUEMÁTICO — falta plancha 1/6', p: [16.7, 2.2, 20], l: 'p1', cls: 'note' },
-  { t: 'Paso peatonal', p: [4.2, 0.25, 5.4], l: 'p1', cls: 'note sm' },
-  { t: 'Portón en borde de calle · medidas aprox.', p: [0, 0.4, -0.3], l: 'p1', cls: 'note sm' },
-  { t: 'Acceso al edificio (aprox.)', p: [7.8, 2.6, 5.4], l: 'p1', cls: 'note sm' },
-  { t: 'Rampa 10.9 % · 21.79 m (PL_A004)', p: [6, 0.1, 2.3], l: 'sot', cls: 'note sm' },
+  { t: 'Portón ED. ALMENDRA · carros y peatones', p: [-0.2, 1.8, 2.3], l: 'p1', cls: 'note sm' },
   ...SV.rooms.map((r) => ({ t: r.plan + ' · ' + r.area.toFixed(2) + ' m²', p: [r.cx, r.fy + 1.2, r.cz], l: 'sot', cls: 'note', only: 'sot' })),
-  { t: 'Plataforma ≈N-2.37 (por verificar)', p: [23, -1.6, 2.3], l: 'sot', cls: 'note sm', only: 'sot' },
-  { t: 'Sótano N-2.96 · 9 carros + 4 motos', p: [22, -1.2, 26.4], l: 'sot', cls: 'note sm', only: 'sot' },
+  { t: 'Sótano N-2.96 · 10 carros + 4 motos', p: [22, -1.2, 26.4], l: 'sot', cls: 'note sm', only: 'sot' },
   { t: 'Rampa 13.6 % → N-2.96', p: [26, -1.6, 10.4], l: 'sot', cls: 'note sm', only: 'sot' },
-  { t: 'Volumen punto fijo ≈ (aprox.)', p: [16.34, 20.64, 11], l: 'cub', cls: 'note sm' },
+  { t: 'Volumen punto fijo ≈ (aprox.)', p: [17.6, 21.9, 11], l: 'cub', cls: 'note sm' },
 ].map((f) => { const el = document.createElement('div'); el.className = f.cls; el.textContent = f.t; labels.appendChild(el); return { ...f, el }; });
 
 
@@ -1216,7 +1210,7 @@ const SEGS_SOT = [...segsOf([...I.sotx.walls_in, ...I.sotx.walls_out]), ...segsO
 const SEGS_GROUND = [[1.2, 3.97, 7.884, 3.97], [0, 0.49, 0, 0.64], [0, 6.74, 0, 6.89], [-0.12, 0.49, 0.12, 0.49], [-0.12, 6.89, 0.12, 6.89], [0.1, 6.74, 7.884, 6.74], [7.884, 6.4, 7.884, 6.74], [7.884, 3.9, 7.884, 4.1]];
 const GRID = {
   sot: grid([...SEGS_SOT, ...W.seg.stair, ...W.seg.elev]),
-  p1: grid([...SEGS_GROUND, ...W.seg.p1, ...W.seg.stair, ...W.seg.elev]),
+  p1: grid([...W.seg.tip, ...W.seg.stair, ...W.seg.elev]),
   tip: grid([...W.seg.tip, ...W.seg.stair, ...W.seg.elev]),
 };
 const P7BAR = [STR.x0, STR.z0, STR.x0, STR.zm];
@@ -1250,17 +1244,17 @@ function cands(x, z) {
   if (x > SH[0] - 0.1 && x < ED[1] && z > SH[1] - 0.1 && z < SH[3] + 0.1) return out;
   if (onRamp(x, z) || (x >= MOUTH_X0 && x <= RAMP.x1 + 0.05 && z >= RAMP_S - APRON && z <= RAMP_S + 0.2)) out.push(driveY(x, z));
   else {
-    if (x < 7.884) out.push(x >= STEPS.x0 && z > STEPS.z0 && z < STEPS.z1 ? stepY(x) : 0);
-    else if (pipH(W.walk.p1, x, z)) out.push(LEVY.p1);
+    if (x < 0.4) out.push(0);
     const sr = SV.at(x, z); if (sr) out.push(sr.fy);
-    if (pip(S.foot4, x, z) && x > 7.6) out.push(pip(S.deck, x, z) ? RAMP.deck : pip(S.lane2, x, z) ? laneY(z) : RAMP.low);
+    if (pip(S.foot4, x, z) && x > 7.6) out.push(RAMP.low);
   }
+  if (pipH(W.walk.p1, x, z)) out.push(LEVY.p1);
   if (pipH(W.walk.tip, x, z)) for (const id of TIPS) out.push(LEVY[id]);
   return out;
 }
 function pickH(x, z, y) { let best = null; for (const h of cands(x, z)) if (h <= y + STEPH && (best === null || h > best)) best = h; if (best !== null && y - best > 0.6) return null; return best; }
 // ---------- interacción ----------
-function roomAt(x, z, lvl) { if (!/^p[2-7]$/.test(lvl)) return null; for (const r of W.rooms) if (r.type !== 'hall' && pipH([r], x, z)) return r; if (pipH(I.hallFloor, x, z)) return W.rooms.find((r) => r.type === 'hall'); return null; }
+function roomAt(x, z, lvl) { if (!/^p[1-6]$/.test(lvl)) return null; for (const r of W.rooms) if (r.type !== 'hall' && pipH([r], x, z)) return r; if (pipH(I.hallFloor, x, z)) return W.rooms.find((r) => r.type === 'hall'); return null; }
 const NAMEAPT = { '01': 'Tipo 1', '02': 'Tipo 1', '03': 'Tipo 2', '04': 'Tipo 3' };
 function doorLabel(d, lvl) { if (d.svc) return d.label; const r = roomAt(FP.x, FP.z, lvl); const other = r && r.id === d.ra ? d.rb : d.ra; const ro = W.rooms.find((q) => q.id === other); if (d.entry) { const a = W.rooms.find((q) => q.id === d.ra)?.apt || W.rooms.find((q) => q.id === d.rb)?.apt; return a ? 'Apto ' + (+lvl.slice(1) * 100 + +a) : 'Apartamento'; } return ro ? ro.name : ''; }
 function nearElev() { return !FP.inCab && Math.abs(FP.y - LEVY[FP.lvl]) < 0.3 && FP.x > ED[1] - 0.05 && FP.x < ED[1] + 1.6 && FP.z > ED[2] - 0.9 && FP.z < ED[3] + 0.9; }
@@ -1436,7 +1430,7 @@ function placeName() {
   if (FP.inCab) return ['Ascensor', EV.state === 'moving' ? (EV.dir > 0 ? 'Subiendo ▲ ' : 'Bajando ▼ ') + EV.curLabel + (EV.target ? ' → ' + FLABEL[EV.target] : '') : 'Piso ' + EV.curLabel];
   if (FP.x >= STR.x0 && FP.x <= STR.xl && FP.z >= STR.z0 && FP.z <= STR.z1) { const lo = FLOORS.slice().reverse().find((f) => LEVY[f] <= FP.y + 0.05) || 'sot'; const hi = FLOORS[FLOORS.indexOf(lo) + 1]; return ['Escalera', Math.abs(FP.y - LEVY[lo]) < 0.05 ? (lo === 'sot' ? 'Sótano' : 'Piso ' + FLABEL[lo]) : 'Entre ' + (lo === 'sot' ? 'sótano' : 'piso ' + FLABEL[lo]) + ' y piso ' + FLABEL[hi]]; }
   if (lvl === 'sot' && SV.at(FP.x, FP.z)) { const r = SV.at(FP.x, FP.z); return ['Sótano · ' + r.name, r.area.toFixed(2).replace('.', ',') + ' m² (cuadro de áreas PL_A004) · altura libre ≈' + r.clear.toFixed(2).replace('.', ',') + ' m'] }
-  if (lvl === 'sot') return [FP.x < 7.7 && pip(S.band1, FP.x, FP.z) ? 'Rampa vehicular' : 'Sótano', pip(S.band1, FP.x, FP.z) ? 'Pendiente 10,9 % (PL_A004)' : 'Parqueaderos · N-2.96'];
+  if (lvl === 'sot') return [FP.z < 7.2 && FP.x < 24 ? 'Rampa de acceso' : 'Sótano', FP.x >= 24.15 ? 'Pendiente 13,6 %' : 'Parqueaderos · N-2.96'];
   if (lvl === 'p1') { if (FP.x < 2) return ['Acceso oeste', 'Portón ED. ALMENDRA · nivel de calle']; return ['Piso 1', 'Apartamentos']; }
   const r = roomAt(FP.x, FP.z, lvl); const fl = +lvl.slice(1);
   if (!r) return ['Piso ' + fl, ''];
@@ -1483,7 +1477,7 @@ function autoUpdate(dt) {
   if (A.phase === 'call') { walk(20.15, 10.69, Math.PI / 2, 1.0); if (here && EV.state === 'open') { A.phase = 'enter'; } else if (here && EV.state === 'idle') evCall(FP.lvl); }
   else if (A.phase === 'enter') { if (EV.state === 'open') EV.timer = 3; const done = walk(18.3, 10.69, Math.PI / 2 + 0.0001, 1.0); if (FP.x < 18.6) { const ok = walk(18.3, 10.69, -Math.PI / 2, 0.6); if (ok || A.t > 12) { A.phase = 'ride'; evCall(A.f); } } void done; }
   else if (A.phase === 'ride') { FP.yaw = lerpA(FP.yaw, -Math.PI / 2, Math.min(1, dt * 3)); if (EV.state === 'open' && FLOORS[EV.fi] === A.f) { A.phase = 'exit'; A.t = 0; } }
-    else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(16.34, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
+    else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(17.6, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
 }
 // ---------- entrar / salir del modo ----------
 function fpEnter() {
@@ -1722,7 +1716,7 @@ const ACC_G = new THREE.Group(); ACC_G.name = 'qa-acceso';
 function measureAccess() {
   const meshes = [];
   lv('sot').g.updateWorldMatrix(true, true);
-  lv('sot').g.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.attributes && o.geometry.attributes.position && o.parent !== VEH.group) meshes.push(o); });
+  lv('sot').g.traverse((o) => { if (o.isMesh && o.visible && o.geometry && o.geometry.attributes && o.geometry.attributes.position && o.parent !== VEH.group) meshes.push(o); });
   const bounds = meshes.map((mesh) => { if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld); });
   const jobs = [];
   for (const p of VEH.cars) {
@@ -1756,6 +1750,10 @@ function measureAccess() {
         if (maxx < job.x0 || minx > job.x1 || maxz < z0 || minz > z1 || maxy < y0 || miny > y1) continue;
         const cx = (A.x + B.x + C.x) / 3, cz = (A.z + B.z + C.z) / 3;
         if (maxy < driveY(cx, cz) + 0.8) continue;
+        const ex = B.x - A.x, ey = B.y - A.y, ez = B.z - A.z, fx = C.x - A.x, fy = C.y - A.y, fz = C.z - A.z;
+        const ny = ez * fx - ex * fz, nl = Math.hypot(ey * fz - ez * fy, ny, ex * fy - ey * fx);
+        if (nl > 1e-8 && Math.abs(ny) / nl > 0.75) continue;
+        if (maxx - minx < 0.3 && maxz - minz < 0.3) continue;
         const edge = maxx <= job.x0 + 0.16 || minx >= job.x1 - 0.16;
         if (edge && maxy - miny < 0.14 && maxy < driveY(cx, cz) + 0.18) continue;
         mark(Math.max(job.x0, minx), Math.min(job.x1, maxx), !!inCol(cx, cz));

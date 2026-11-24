@@ -180,16 +180,18 @@ function normOf(p) { const dx = p.b[0] - p.a[0], dz = p.b[1] - p.a[1], L = Math.
 // ---------- levels ----------
 const LV = [
   { id: 'sot', name: 'Sótano', y: -2.96, k: -1.6 },
-  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + n, y: 3.7 + i * 2.7, k: i })),
-  { id: 'cub', name: 'Cubierta', y: 20.3, k: 6 },
+  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + n, y: -0.26 + i * 2.7, k: i })),
+  { id: 'cub', name: 'Cubierta', y: 16.34, k: 6 },
 ];
 const root = new THREE.Group(); scene.add(root);
 LV.forEach((l) => { l.g = new THREE.Group(); l.g.name = l.id; root.add(l.g); l.on = true; });
 const lv = (id) => LV.find((l) => l.id === id);
 const I = window.__INT__;
+// La escalera del plano nuevo arranca 2 m más cerca del ascensor y cae dentro del hall.
+I.stair = { ...I.stair, x0: 19.36, x1: 21.46, xl: 22.46 };
 const W = buildWorld({ I, S, lv, T: makeTextures(), M, isMobile, T8 });
 scene.add(W.cab);
-const CORE_HOLES = [[[21.36, 9.69], [24.46, 9.69], [24.46, 11.69], [21.36, 11.69]], [[16.755, 9.841], [19.207, 9.841], [19.207, 11.541], [16.755, 11.541]]];
+const CORE_HOLES = [[[19.36, 9.69], [22.46, 9.69], [22.46, 11.69], [19.36, 11.69]], [[16.755, 9.841], [19.207, 9.841], [19.207, 11.541], [16.755, 11.541]]];
 const withHoles = (polys) => polys.map((p) => ({ o: p.o, h: [...(p.h || []), ...CORE_HOLES] }));
 
 // ---------- typical floor (shared geometry, 2–7) ----------
@@ -540,7 +542,8 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
       const o = w.o;
       const a = [(o[0][0] + o[3][0]) / 2, (o[0][1] + o[3][1]) / 2];
       const b = [(o[1][0] + o[2][0]) / 2, (o[1][1] + o[2][1]) / 2];
-      return seg(a, b, y0, CEIL, 0.16, 0);
+      const my = floorY((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      return seg(a, b, Math.min(y0, my - 0.2), Math.max(CEIL, my + 1.05), 0.16, 0);
     });
     B.add(meshOf(geos, sotWall));
   }
@@ -548,11 +551,30 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
   if (I.sotx.cols_in.length) {
     const cg = I.sotx.cols_in.map((c) => {
       const xs = c.o.map((p) => p[0]), zs = c.o.map((p) => p[1]);
-      return boxG(Math.min(...xs), Math.max(...xs), y0, CEIL, Math.min(...zs), Math.max(...zs));
+      const my = floorY((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2);
+      return boxG(Math.min(...xs), Math.max(...xs), Math.min(y0, my), Math.max(CEIL, my + 1.05), Math.min(...zs), Math.max(...zs));
     });
     B.add(meshOf(cg, new THREE.MeshStandardMaterial({ color: 0xe6e5e1, map: T8.concTie, roughness: 0.9 })));
   }
   buildRamp(B);
+  // Losa de piso continua y sin luz propia: el corte cenital no puede quedar negro.
+  {
+    const ring = S.lower[0].o;
+    const inside = (x, z) => { let n = 0; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, zi] = ring[i], [xj, zj] = ring[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / ((zj - zi) || 1e-9) + xi) n++; } return n % 2 === 1; };
+    const pos = [], ix = [], xA = -0.2, xB = 27.8, zA = -1.0, zB = 26.4, s = 0.55;
+    const nx = Math.ceil((xB - xA) / s), nz = Math.ceil((zB - zA) / s), id = new Map();
+    const vid = (i, j) => { const k = i + ',' + j; if (id.has(k)) return id.get(k); const x = xA + i * s, z = zA + j * s; const v = pos.length / 3; id.set(k, v); pos.push(x, floorY(x, z) + 0.012, z); return v; };
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      if (!inside(xA + (i + 0.5) * s, zA + (j + 0.5) * s)) continue;
+      const a = vid(i, j), b = vid(i + 1, j), c = vid(i + 1, j + 1), d = vid(i, j + 1);
+      ix.push(a, b, c, a, c, d);
+    }
+    const fg = new THREE.BufferGeometry();
+    fg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    fg.setIndex(ix); fg.computeVertexNormals();
+    const floor = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ color: 0xc9c7c0, side: THREE.DoubleSide }));
+    floor.name = 'sot-floor'; B.add(floor);
+  }
   texAsph.repeat.set(0.15, 0.15);
   // Flechas del plano nuevo: acceso al oriente, pasillo 2.64 m al sur (13.6 %), pasillo 3.76 m al oriente.
   const AR = [
@@ -603,8 +625,9 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
   // luminarias LED del parqueadero (ilustrativas) en el cielo raso
   // v8: plafones LED redondos de sobreponer (ref_04/ref_10) en lugar de regletas
   const tubes = [], rims = []; for (const [x, z] of [[18.1, 6.1], [23.1, 6.1], [20.6, 5.0], [20.6, 10.0], [26.0, 8.0], [26.0, 11.0], [26.0, 14.0], [18.0, 15.0], [22.6, 15.0], [20.0, 19.2], [24.0, 19.2], [19.5, 23.2], [24.5, 23.2], [22.0, 23.2], [14.5, 2.3], [9.5, 2.3]]) {
-    const d = new THREE.CylinderGeometry(0.15, 0.15, 0.012, 28); d.translate(x, CEIL - 0.036, z); tubes.push(d.toNonIndexed());
-    const r = new THREE.CylinderGeometry(0.175, 0.17, 0.03, 28); r.translate(x, CEIL - 0.015, z); rims.push(r.toNonIndexed()); }
+    const hy = Math.max(CEIL, floorY(x, z) + 2.35);
+    const d = new THREE.CylinderGeometry(0.15, 0.15, 0.012, 28); d.translate(x, hy - 0.036, z); tubes.push(d.toNonIndexed());
+    const r = new THREE.CylinderGeometry(0.175, 0.17, 0.03, 28); r.translate(x, hy - 0.015, z); rims.push(r.toNonIndexed()); }
   const tm = meshOf(tubes, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.25 }), false); B.add(tm);
   B.add(meshOf(rims, new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.5 }), false));
   // v8: topellantas amarillos (dos bloques por celda), detrás de la llanta que queda contra el final de la celda
@@ -724,7 +747,7 @@ carPark();
 
 // ---------- Cubierta ----------
 {
-  const R = lv('cub').g, y = 20.3;
+  const R = lv('cub').g, y = 16.34;
   R.add(meshOf([extrude(S.foot2, y - 0.2, 0.2)], M.slab));
   // v8: antepecho grueso en revoque café (remate superior de los renders), cerrando también el frente del balcón empotrado
   const par = [], parIn = [];
@@ -743,7 +766,7 @@ carPark();
     const top = new THREE.Mesh(extrude(S.foot2, y + 0.005, 0.015), new THREE.MeshStandardMaterial({ map: pt, color: 0xc0c0c0, roughness: 0.9 })); top.receiveShadow = true; R.add(top); }
   R.add(meshOf([worldUV(boxG(6.864, 7.835, PT, y, 0.718, 3.969))], F8.recess)); // losa/cielo sobre el balcón del piso 7
   // volumen punto fijo sobre cubierta (aproximado, ≈N+24.4) en revoque café como en el video
-  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 24.2, 9.4, 12.6))], F8.render));
+  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 20.24, 9.4, 12.6))], F8.render));
   // v8: lucernario de vidrio oscuro sobre la ranura del punto fijo (ref_05) — ilustrativo, no está en planos
   { const x0 = 24.46, x1 = 27.3, z0 = 8.69, z1 = 12.64, yb = PY + 0.02; const fr = [];
     fr.push(boxG(x0, x1, yb, yb + 0.08, z0, z0 + 0.06), boxG(x0, x1, yb, yb + 0.08, z1 - 0.06, z1), boxG(x0, x0 + 0.06, yb, yb + 0.08, z0 + 0.06, z1 - 0.06), boxG(x1 - 0.06, x1, yb, yb + 0.08, z0 + 0.06, z1 - 0.06));
@@ -751,7 +774,7 @@ carPark();
     R.add(meshOf(fr, M.alu));
     const gl = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.1, z1 - z0 - 0.1), new THREE.MeshStandardMaterial({ color: 0x1d2328, metalness: 0.6, roughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
     gl.rotation.x = -Math.PI / 2; gl.position.set((x0 + x1) / 2, yb + 0.045, (z0 + z1) / 2); R.add(gl); gl.material.userData.op = 0.55; gl.material.userData.tr = true; FACADE.push(gl.material); }
-  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 24.3, 11.0);
+  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 20.34, 11.0);
   R.add(meshOf([rf], M.roof));
 }
 
@@ -759,7 +782,7 @@ carPark();
 let GRIDH = null;
 {
   const big = new THREE.Shape([new THREE.Vector2(-60, 60), new THREE.Vector2(90, 60), new THREE.Vector2(90, -90), new THREE.Vector2(-60, -90)]);
-  const f4 = S.foot4[0]; const hole = [[0.0, 0.635], [0.0, 3.97], ...f4.o.slice(7)]; big.holes.push(new THREE.Path(hole.map(([x, z]) => new THREE.Vector2(x, -z))));
+  const f4 = S.foot4[0]; big.holes.push(new THREE.Path([...f4.o].reverse().map(([x, z]) => new THREE.Vector2(x, -z))));
   const gg = new THREE.ShapeGeometry(big); gg.rotateX(-Math.PI / 2);
   const gm = new THREE.Mesh(gg, M.ground); gm.receiveShadow = true; gm.position.y = -0.005; scene.add(gm);
   const street = new THREE.Mesh(new THREE.PlaneGeometry(9, 70), new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 1 }));
@@ -1041,7 +1064,7 @@ const floatLbl = [
   { t: 'Plataforma ≈N-2.37 (por verificar)', p: [23, -1.6, 2.3], l: 'sot', cls: 'note sm', only: 'sot' },
   { t: 'Sótano N-2.96 · 9 carros + 4 motos', p: [22, -1.2, 26.4], l: 'sot', cls: 'note sm', only: 'sot' },
   { t: 'Rampa 13.6 % → N-2.96', p: [26, -1.6, 10.4], l: 'sot', cls: 'note sm', only: 'sot' },
-  { t: 'Volumen punto fijo ≈ (aprox.)', p: [20.3, 24.6, 11], l: 'cub', cls: 'note sm' },
+  { t: 'Volumen punto fijo ≈ (aprox.)', p: [16.34, 20.64, 11], l: 'cub', cls: 'note sm' },
 ].map((f) => { const el = document.createElement('div'); el.className = f.cls; el.textContent = f.t; labels.appendChild(el); return { ...f, el }; });
 
 
@@ -1460,7 +1483,7 @@ function autoUpdate(dt) {
   if (A.phase === 'call') { walk(20.15, 10.69, Math.PI / 2, 1.0); if (here && EV.state === 'open') { A.phase = 'enter'; } else if (here && EV.state === 'idle') evCall(FP.lvl); }
   else if (A.phase === 'enter') { if (EV.state === 'open') EV.timer = 3; const done = walk(18.3, 10.69, Math.PI / 2 + 0.0001, 1.0); if (FP.x < 18.6) { const ok = walk(18.3, 10.69, -Math.PI / 2, 0.6); if (ok || A.t > 12) { A.phase = 'ride'; evCall(A.f); } } void done; }
   else if (A.phase === 'ride') { FP.yaw = lerpA(FP.yaw, -Math.PI / 2, Math.min(1, dt * 3)); if (EV.state === 'open' && FLOORS[EV.fi] === A.f) { A.phase = 'exit'; A.t = 0; } }
-  else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(20.3, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
+    else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(16.34, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
 }
 // ---------- entrar / salir del modo ----------
 function fpEnter() {

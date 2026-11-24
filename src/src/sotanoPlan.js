@@ -8,15 +8,16 @@ export const EMT_R = 0.20; // radio de los barridos (mayor que el mínimo de có
 export const CLEAR_H = 2.25; // eje del tubo sobre la rasante; el bajo queda a 2.24 m
 
 export function floorY(x, z) {
-  // Pasillo oriente 2.64 m: baja hacia el sur al 13.6 % y llega a N−2.96 en z = 20.95.
-  if (x >= 24.15 && z <= 21.05) return -2.96 + 0.136 * Math.max(0, 20.95 - z);
-  // Acceso oeste y plataforma norte (plazas 1–4): empalma en x = 24.2 con la cota alta del 13.6 %.
-  if (z < 7.2 && x < 24.3) {
-    const yJoin = -2.96 + 0.136 * (20.95 - 2.0);
-    const t = Math.min(1, Math.max(0, x / 24.2));
-    return yJoin * t;
-  }
-  return -2.96;
+  // Pasillo oriente: baja hacia el sur al 13.6 % y llega a N−2.96 en z = 20.95.
+  // El resto del piso empalma con ese pasillo sin escalón: en el acceso (z chico)
+  // el borde oeste está en la calle, y hacia el sur baja al sótano.
+  if (z > 21.05) return -2.96;
+  const slope = Math.min(0, -2.96 + 0.136 * Math.max(0, 20.95 - z));
+  if (x >= 24.15) return slope;
+  const k = Math.min(1, Math.max(0, (z - 6.2) / 3));
+  const west = -2.96 * k;
+  const t = Math.min(1, Math.max(0, x / 24.15));
+  return west + (slope - west) * t;
 }
 
 const rect = (x0, x1, z0, z1) => ({ o: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], h: [] });
@@ -47,7 +48,7 @@ function band(x0, z0, x1, z1, t = 0.18) {
   return { o: [[x0 + nx, z0 + nz], [x1 + nx, z1 + nz], [x1 - nx, z1 - nz], [x0 - nx, z0 - nz]], h: [] };
 }
 export const WALLS = [
-  band(0.10, 0.78, 0.10, 3.82),
+  // El acceso oeste queda abierto: el portón está en x = 0 y no hay muro detrás.
   band(0.10, 0.78, 9.91, 0.77),
   band(9.91, 0.77, 12.61, 0.63),
   band(12.61, 0.63, 20.81, 0.15),

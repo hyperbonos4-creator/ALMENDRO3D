@@ -1,4 +1,4 @@
-// Interiores fieles a PL_A002 (muros/vanos/puertas/ventanas/mobiliario del vector del PDF), lobby aproximado del piso 1,
+// Interiores fieles a PL_A002 (muros/vanos/puertas/ventanas/mobiliario del vector del PDF).
 // escaleras caminables y ascensor (pozo/cabina/puertas) — todo procedural, sin red.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -7,9 +7,9 @@ import { buildFur7 } from './fur7.js';
 import { tropicalGeo, plantMats } from './style8.js';
 
 export const H = 2.5, DOORH = 2.1, H1 = 2.5; // v4: piso 1 en N+1.00 (PL_A006) → altura libre 2.50
-// Sin piso esquemático. El primer piso de apartamentos es el N+3.70 de PL_A006 (antes «piso 2»);
+// Sin piso esquemático. Los apartamentos bajaron un piso: el piso 1 está en N+1,00.
 // los demás conservan su cota. No queda un nivel vacío en el selector.
-export const LEVY = { sot: -2.96, p1: -0.26, p2: 2.44, p3: 5.14, p4: 7.84, p5: 10.54, p6: 13.24 };
+export const LEVY = { sot: -2.96, p1: 1.0, p2: 3.7, p3: 6.4, p4: 9.1, p5: 11.8, p6: 14.5 };
 export const FLOORS = ['sot', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6'];
 export const FLABEL = { sot: 'S', p1: '1', p2: '2', p3: '3', p4: '4', p5: '5', p6: '6' };
 

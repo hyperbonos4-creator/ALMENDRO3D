@@ -9,7 +9,10 @@ import { tropicalGeo, plantMats } from './style8.js';
 export const H = 2.5, DOORH = 2.1, H1 = 2.5; // v4: piso 1 en N+1.00 (PL_A006) → altura libre 2.50
 // Sin piso esquemático. El piso 1 es el sótano más un entrepiso: N−2.96 + 2.50 de altura libre + 0.20 de losa = N−0.26.
 // Los pisos 2 a 6 suben de a 2.70 m. No queda un nivel vacío en el selector.
-export const LEVY = { sot: -2.96, p1: -0.26, p2: 2.44, p3: 5.14, p4: 7.84, p5: 10.54, p6: 13.24 };
+// La rasante mas alta bajo la torre es floorY(7.84, 0.85) = -0.073498.
+// El bajo teorico es -0.073498 + 2.20 = 2.126502. El borde modelado de la losa
+// Bajo = -0.073498 + 2.20 = 2.126502. Piso 1 = bajo + 0.20 = 2.326502.
+export const LEVY = { sot: -2.96, p1: 2.326502, p2: 5.026502, p3: 7.726502, p4: 10.426502, p5: 13.126502, p6: 15.826502 };
 export const FLOORS = ['sot', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6'];
 export const FLABEL = { sot: 'S', p1: '1', p2: '2', p3: '3', p4: '4', p5: '5', p6: '6' };
 
@@ -376,11 +379,18 @@ export function buildWorld(ctx) {
   }
 
   // ====================== ESCALERA EN U (PL_A002: 2 tramos × 7 huellas 0,30 + descanso 1,00) ======================
-  const ST = I.stair; const NT = 7, TW = 0.3;
-  function stairPair(a, b) { // y(a) → y(b), 16 contrahuellas
-    const hr = (b - a) / 16, m = a + 8 * hr; return { a, b, hr, m };
+  const ST = I.stair;
+  // Misma planta en U (tramo de 2.10 m). El numero de huellas cabe en ese largo.
+  // 16 contrahuellas entre pisos de 2.70 m (0.16875 m). Del sotano al piso 1,
+  // 5.3015 m en 30 contrahuellas iguales de 0.1767 m, huella 0.15 m.
+  function stairPair(a, b, nRiser = 16) {
+    const nt = nRiser / 2 - 1;
+    const tw = (ST.x1 - ST.x0) / nt;
+    const hr = (b - a) / nRiser;
+    return { a, b, hr, m: a + (nRiser / 2) * hr, nt, tw };
   }
-  function stairY(P, x, z) { // altura de pisada en la escalera del par P (o null)
+  function stairY(P, x, z) {
+    const NT = P.nt, TW = P.tw;
     if (x < ST.x0 || x > ST.xl || z < ST.z0 || z > ST.z1) return null;
     if (x >= ST.x1) return P.m;
     if (z < ST.zm) { const k = Math.min(NT, Math.floor((x - ST.x0) / TW) + 1); return P.a + k * P.hr; }
@@ -390,7 +400,7 @@ export function buildWorld(ctx) {
     const B = new GB(1.2, 1.2); const Rl = new GB(), tc = C('#d8d6d0'), rc = C('#1a1a1a'), D = new GB(), sc = C('#333333');
     // Huella abierta: concreto claro de 5 cm en la cota de la planta (7 × 0,30 m) y zanca de acero #333.
     // La escalera sigue siendo la U del plano, no la zanca única del video.
-    const TT = 0.05;
+    const TT = 0.05, NT = P.nt, TW = P.tw;
     for (let k = 1; k <= NT; k++) { const xa = ST.x0 + (k - 1) * TW, xb = xa + TW, y = P.a + k * P.hr; B.box(xa, xb + 0.015, y - TT, y, ST.z0, ST.zm - 0.04, tc); }
     B.box(ST.x1, ST.xl, P.m - TT, P.m, ST.z0, ST.z1, tc);
     for (let kk = 1; kk <= NT; kk++) { const xb = ST.x1 - (kk - 1) * TW, xa = xb - TW, y = P.m + kk * P.hr; B.box(xa - 0.015, xb, y - TT, y, ST.zm + 0.04, ST.z1, tc); }
@@ -435,7 +445,7 @@ export function buildWorld(ctx) {
     for (const [z, xa, xb] of (top ? [[ST.z0 - 0.02, ST.x0, ST.xl], [ST.z1, ST.x0, ST.x1]] : [[ST.z1, ST.x0, ST.x1]])) { G.box(xa, xb, y0 + 0.05, y0 + 1.0, z - 0.006, z + 0.006, w); B.box(xa, xb, y0 + 1.0, y0 + 1.05, z - 0.025, z + 0.025, w); for (let x = xa; x <= xb + 0.01; x += (xb - xa) / 3) B.box(x - 0.02, x + 0.02, y0, y0 + 1.0, z - 0.02, z + 0.02, w); }
     parent.add(mesh(B.geo(), MI.rail), mesh(G.geo(), MI.glass, false));
   }
-  const PAIRS = []; for (let i = 0; i < FLOORS.length - 1; i++) PAIRS.push({ lo: FLOORS[i], hi: FLOORS[i + 1], ...stairPair(LEVY[FLOORS[i]], LEVY[FLOORS[i + 1]]) });
+  const PAIRS = []; for (let i = 0; i < FLOORS.length - 1; i++) { const lo = FLOORS[i], hi = FLOORS[i + 1]; PAIRS.push({ lo, hi, ...stairPair(LEVY[lo], LEVY[hi], lo === 'sot' ? 30 : 16) }); }
 
   // ====================== ASCENSOR (v7: cabina física, pozo con revestimiento, puertas de piso en cada nivel) ======================
   const SH = I.shaft, CB = I.cab, ED = I.edoor; // pozo 2.45×1.70; cabina; vano de puerta x 19.207–19.355, z 10.192–11.192

@@ -180,8 +180,8 @@ function normOf(p) { const dx = p.b[0] - p.a[0], dz = p.b[1] - p.a[1], L = Math.
 // ---------- levels ----------
 const LV = [
   { id: 'sot', name: 'Sótano', y: -2.96, k: -1.6 },
-  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + n, y: -0.26 + i * 2.7, k: i })),
-  { id: 'cub', name: 'Cubierta', y: 16.34, k: 6 },
+  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + n, y: 2.326502 + i * 2.7, k: i })),
+  { id: 'cub', name: 'Cubierta', y: 18.926502, k: 6 },
 ];
 const root = new THREE.Group(); scene.add(root);
 LV.forEach((l) => { l.g = new THREE.Group(); l.g.name = l.id; root.add(l.g); l.on = true; });
@@ -767,7 +767,7 @@ carPark();
 
 // ---------- Cubierta ----------
 {
-  const R = lv('cub').g, y = 16.34;
+  const R = lv('cub').g, y = 18.926502;
   R.add(meshOf([extrude(S.foot2, y - 0.2, 0.2)], M.slab));
   // v8: antepecho grueso en revoque café (remate superior de los renders), cerrando también el frente del balcón empotrado
   const par = [], parIn = [];
@@ -786,7 +786,7 @@ carPark();
     const top = new THREE.Mesh(extrude(S.foot2, y + 0.005, 0.015), new THREE.MeshStandardMaterial({ map: pt, color: 0xc0c0c0, roughness: 0.9 })); top.receiveShadow = true; R.add(top); }
   R.add(meshOf([worldUV(boxG(6.864, 7.835, PT, y, 0.718, 3.969))], F8.recess)); // losa/cielo sobre el balcón del piso 7
   // volumen punto fijo sobre cubierta (aproximado, ≈N+24.4) en revoque café como en el video
-  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 20.24, 9.4, 12.6))], F8.render));
+  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 22.826502, 9.4, 12.6))], F8.render));
   // v8: lucernario de vidrio oscuro sobre la ranura del punto fijo (ref_05) — ilustrativo, no está en planos
   { const x0 = 22.46, x1 = 25.3, z0 = 8.69, z1 = 12.64, yb = PY + 0.02; const fr = [];
     fr.push(boxG(x0, x1, yb, yb + 0.08, z0, z0 + 0.06), boxG(x0, x1, yb, yb + 0.08, z1 - 0.06, z1), boxG(x0, x0 + 0.06, yb, yb + 0.08, z0 + 0.06, z1 - 0.06), boxG(x1 - 0.06, x1, yb, yb + 0.08, z0 + 0.06, z1 - 0.06));
@@ -794,7 +794,7 @@ carPark();
     R.add(meshOf(fr, M.alu));
     const gl = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.1, z1 - z0 - 0.1), new THREE.MeshStandardMaterial({ color: 0x1d2328, metalness: 0.6, roughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
     gl.rotation.x = -Math.PI / 2; gl.position.set((x0 + x1) / 2, yb + 0.045, (z0 + z1) / 2); R.add(gl); gl.material.userData.op = 0.55; gl.material.userData.tr = true; FACADE.push(gl.material); }
-  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 20.34, 11.0);
+  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 22.926502, 11.0);
   R.add(meshOf([rf], M.roof));
 }
 
@@ -809,11 +809,19 @@ let GRIDH = null;
   big.holes.push(new THREE.Path(rampSlot.map(([x, z]) => new THREE.Vector2(x, -z))));
   const gg = new THREE.ShapeGeometry(big); gg.rotateX(-Math.PI / 2);
   const gm = new THREE.Mesh(gg, M.ground); gm.receiveShadow = true; gm.position.y = -0.005; scene.add(gm);
-  // Tapa de concreto del sótano donde no hay torre ni rampa abierta: desde adentro se ve cielo raso, no la calle.
-  const lid = { o: S.lower[0].o, h: [TOWER, rampSlot] };
+  // Tapa solo donde el sótano ya está 2,20 m bajo la calle y fuera de la torre.
+  // Encima de la torre el cielo es la losa del piso 1; la rampa alta queda abierta.
   const lidMat = new THREE.MeshStandardMaterial({ color: 0xc8c6bf, roughness: 0.95, side: THREE.DoubleSide });
-  const lidMesh = meshOf([extrude([lid], -0.22, 0.22)], lidMat);
-  lidMesh.name = 'relleno'; scene.add(lidMesh);
+  const lidBoxes = [];
+  const foot = S.lower[0].o;
+  for (let x = -0.2; x < 27.6; x += 0.8) for (let z = -1; z < 26.2; z += 0.8) {
+    const cx = x + 0.4, cz = z + 0.4;
+    if (!inPoly(foot, cx, cz) || inTower(cx, cz)) continue;
+    if (cx < 8.4 && cz > 0.4 && cz < 4.3) continue;
+    if (floorY(cx, cz) + 2.2 > -0.02) continue;
+    lidBoxes.push(boxG(x, x + 0.8, -0.22, 0, z, z + 0.8));
+  }
+  if (lidBoxes.length) { const lidMesh = meshOf(lidBoxes, lidMat); lidMesh.name = 'relleno'; scene.add(lidMesh); }
   const street = new THREE.Mesh(new THREE.PlaneGeometry(9, 70), new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 1 }));
   street.rotation.x = -Math.PI / 2; street.position.set(-5.6, 0.0, 13); street.receiveShadow = true; scene.add(street);
   const sw = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.15, 70), new THREE.MeshStandardMaterial({ color: 0x6d7178, roughness: 1 }));
@@ -1088,7 +1096,7 @@ const floatLbl = [
   ...SV.rooms.map((r) => ({ t: r.plan + ' · ' + r.area.toFixed(2) + ' m²', p: [r.cx, r.fy + 1.2, r.cz], l: 'sot', cls: 'note', only: 'sot' })),
   { t: 'Sótano N-2.96 · 10 carros + 4 motos', p: [22, -1.2, 26.4], l: 'sot', cls: 'note sm', only: 'sot' },
   { t: 'Rampa 13.6 % → N-2.96', p: [26, -1.6, 10.4], l: 'sot', cls: 'note sm', only: 'sot' },
-  { t: 'Volumen punto fijo ≈ (aprox.)', p: [16.34, 20.64, 11], l: 'cub', cls: 'note sm' },
+  { t: 'Volumen punto fijo ≈ (aprox.)', p: [18.926502, 23.226502, 11], l: 'cub', cls: 'note sm' },
 ].map((f) => { const el = document.createElement('div'); el.className = f.cls; el.textContent = f.t; labels.appendChild(el); return { ...f, el }; });
 
 
@@ -1507,7 +1515,7 @@ function autoUpdate(dt) {
   if (A.phase === 'call') { walk(20.15, 10.69, Math.PI / 2, 1.0); if (here && EV.state === 'open') { A.phase = 'enter'; } else if (here && EV.state === 'idle') evCall(FP.lvl); }
   else if (A.phase === 'enter') { if (EV.state === 'open') EV.timer = 3; const done = walk(18.3, 10.69, Math.PI / 2 + 0.0001, 1.0); if (FP.x < 18.6) { const ok = walk(18.3, 10.69, -Math.PI / 2, 0.6); if (ok || A.t > 12) { A.phase = 'ride'; evCall(A.f); } } void done; }
   else if (A.phase === 'ride') { FP.yaw = lerpA(FP.yaw, -Math.PI / 2, Math.min(1, dt * 3)); if (EV.state === 'open' && FLOORS[EV.fi] === A.f) { A.phase = 'exit'; A.t = 0; } }
-    else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(16.34, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
+    else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(18.926502, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
 }
 // ---------- entrar / salir del modo ----------
 function fpEnter() {
@@ -1839,7 +1847,12 @@ function measureHeadroom() {
   scene.updateMatrixWorld(true);
   const vehicle = (o) => { let p = o; while (p) { if (p === VEH.group || p === CAR.m) return true; p = p.parent; } return false; };
   const camCone = (o) => o.material && o.material.color && o.material.color.getHex() === C_CAM;
-  scene.traverse((o) => { if (o.isMesh && o.visible && !o.userData.access && !vehicle(o) && !camCone(o) && o.geometry && o.geometry.attributes && o.geometry.attributes.position && o.geometry.attributes.position.count >= 3 && o.matrixWorld) meshes.push(o); });
+  scene.traverse((o) => {
+    if (!o.isMesh || !o.visible || o.userData.access || vehicle(o) || camCone(o)) return;
+    if (o.material && o.material.visible === false) return;
+    if (!o.geometry || !o.geometry.attributes || !o.geometry.attributes.position || o.geometry.attributes.position.count < 3 || !o.matrixWorld) return;
+    meshes.push(o);
+  });
   for (const s of targets) {
     const y = floorY(s.x, s.z);
     origin.set(s.x, y + 0.3, s.z);
@@ -1848,7 +1861,7 @@ function measureHeadroom() {
     let clear = 99, hitName = 'cielo';
     for (const h of hits) {
       if (!h.object.visible || h.point.y < y + 0.45) continue;
-      clear = h.point.y - y; hitName = h.object.name || (h.object.material && h.object.material.color ? '#' + h.object.material.color.getHexString() : 'malla');
+      clear = h.point.y - y; hitName = h.object.name || 'losa';
       break;
     }
     if (inTower(s.x, s.z)) { const slab = SOFFIT - y; if (slab < clear) { clear = slab; hitName = 'losa piso 1'; } }
@@ -1859,7 +1872,7 @@ function measureHeadroom() {
   worst.sort((a, b) => a.clear - b.clear);
   const stalls = {};
   for (const r of rows) if (r.id !== 'paso') stalls[r.id] = +r.clear.toFixed(2);
-  return { min: +min.toFixed(2), ok: min >= CLEAR_MIN, where, stalls, worst: worst.slice(0, 8) };
+  return { min: +min.toFixed(3), ok: min >= CLEAR_MIN, where, stalls, worst: worst.slice(0, 8) };
 }
 if (QA_MODE) measureAccess();
 const HEADROOM = QA_MODE ? measureHeadroom() : null;

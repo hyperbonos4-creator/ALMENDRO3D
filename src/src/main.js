@@ -180,8 +180,8 @@ function normOf(p) { const dx = p.b[0] - p.a[0], dz = p.b[1] - p.a[1], L = Math.
 // ---------- levels ----------
 const LV = [
   { id: 'sot', name: 'Sótano', y: -2.96, k: -1.6 },
-  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + n, y: 1.0 + i * 2.7, k: i })),
-  { id: 'cub', name: 'Cubierta', y: 17.6, k: 6 },
+  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + n, y: 2.326502 + i * 2.7, k: i })),
+  { id: 'cub', name: 'Cubierta', y: 18.926502, k: 6 },
 ];
 const root = new THREE.Group(); scene.add(root);
 LV.forEach((l) => { l.g = new THREE.Group(); l.g.name = l.id; root.add(l.g); l.on = true; });
@@ -535,16 +535,35 @@ MOTO_Z.forEach(([z0, z1], i) => {
 // pintura del piso y señalización con funciones simples
 function decalGeo(pts, fy, dy = 0.014) { const sh = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z))); const g = new THREE.ShapeGeometry(sh); g.rotateX(-Math.PI / 2); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, fy(p.getX(i), p.getZ(i)) + dy); g.computeVertexNormals(); return g.index ? g.toNonIndexed() : g; }
 const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.7, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
+function inPoly(poly, x, z) {
+  let n = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], zi = poly[i][1], xj = poly[j][0], zj = poly[j][1];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / ((zj - zi) || 1e-9) + xi) n++;
+  }
+  return n % 2 === 1;
+}
+const TOWER = S.foot2[0].o;
+const inTower = (x, z) => inPoly(TOWER, x, z);
 {
   const B = lv('sot').g, y0 = RAMP.low, yd = RAMP.deck, CEIL = LEVY.p1 - 0.2;
   const sotWall = new THREE.MeshStandardMaterial({ color: 0xf2f1ee, map: T8.concTie, roughness: 0.9 }); M.sotWall = sotWall; // v8: concreto a la vista con pasatubos (ref_04/ref_10)
   B.add(meshOf([extrude(S.lower, y0 - 0.25, 0.25)], M.park));
   if (I.sotx.walls_in.length) {
-    const geos = I.sotx.walls_in.map((w) => {
+    const geos = I.sotx.walls_in.flatMap((w) => {
       const o = w.o;
       const a = [(o[0][0] + o[3][0]) / 2, (o[0][1] + o[3][1]) / 2];
       const b = [(o[1][0] + o[2][0]) / 2, (o[1][1] + o[2][1]) / 2];
-      return seg(a, b, y0, CEIL, 0.16, 0);
+      const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1;
+      const n = Math.max(1, Math.ceil(L / 1.2));
+      const bits = [];
+      for (let i = 0; i < n; i++) {
+        const t0 = i / n, t1 = (i + 1) / n;
+        const p = [a[0] + dx * t0, a[1] + dz * t0], q = [a[0] + dx * t1, a[1] + dz * t1];
+        const top = inTower((p[0] + q[0]) / 2, (p[1] + q[1]) / 2) ? CEIL : 0.08;
+        bits.push(seg(p, q, y0, top, 0.16, 0));
+      }
+      return bits;
     });
     B.add(meshOf(geos, sotWall));
   }
@@ -552,7 +571,9 @@ const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.
   if (I.sotx.cols_in.length) {
     const cg = I.sotx.cols_in.map((c) => {
       const xs = c.o.map((p) => p[0]), zs = c.o.map((p) => p[1]);
-      return boxG(Math.min(...xs), Math.max(...xs), y0, CEIL, Math.min(...zs), Math.max(...zs));
+      const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+      const top = inTower(cx, cz) ? CEIL : 0.08;
+      return boxG(Math.min(...xs), Math.max(...xs), y0, top, Math.min(...zs), Math.max(...zs));
     });
     B.add(meshOf(cg, new THREE.MeshStandardMaterial({ color: 0xe6e5e1, map: T8.concTie, roughness: 0.9 })));
   }
@@ -746,7 +767,7 @@ carPark();
 
 // ---------- Cubierta ----------
 {
-  const R = lv('cub').g, y = 17.6;
+  const R = lv('cub').g, y = 18.926502;
   R.add(meshOf([extrude(S.foot2, y - 0.2, 0.2)], M.slab));
   // v8: antepecho grueso en revoque café (remate superior de los renders), cerrando también el frente del balcón empotrado
   const par = [], parIn = [];
@@ -765,7 +786,7 @@ carPark();
     const top = new THREE.Mesh(extrude(S.foot2, y + 0.005, 0.015), new THREE.MeshStandardMaterial({ map: pt, color: 0xc0c0c0, roughness: 0.9 })); top.receiveShadow = true; R.add(top); }
   R.add(meshOf([worldUV(boxG(6.864, 7.835, PT, y, 0.718, 3.969))], F8.recess)); // losa/cielo sobre el balcón del piso 7
   // volumen punto fijo sobre cubierta (aproximado, ≈N+24.4) en revoque café como en el video
-  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 21.5, 9.4, 12.6))], F8.render));
+  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 22.826502, 9.4, 12.6))], F8.render));
   // v8: lucernario de vidrio oscuro sobre la ranura del punto fijo (ref_05) — ilustrativo, no está en planos
   { const x0 = 22.46, x1 = 25.3, z0 = 8.69, z1 = 12.64, yb = PY + 0.02; const fr = [];
     fr.push(boxG(x0, x1, yb, yb + 0.08, z0, z0 + 0.06), boxG(x0, x1, yb, yb + 0.08, z1 - 0.06, z1), boxG(x0, x0 + 0.06, yb, yb + 0.08, z0 + 0.06, z1 - 0.06), boxG(x1 - 0.06, x1, yb, yb + 0.08, z0 + 0.06, z1 - 0.06));
@@ -773,7 +794,7 @@ carPark();
     R.add(meshOf(fr, M.alu));
     const gl = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.1, z1 - z0 - 0.1), new THREE.MeshStandardMaterial({ color: 0x1d2328, metalness: 0.6, roughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
     gl.rotation.x = -Math.PI / 2; gl.position.set((x0 + x1) / 2, yb + 0.045, (z0 + z1) / 2); R.add(gl); gl.material.userData.op = 0.55; gl.material.userData.tr = true; FACADE.push(gl.material); }
-  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 21.6, 11.0);
+  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 22.926502, 11.0);
   R.add(meshOf([rf], M.roof));
 }
 
@@ -781,9 +802,26 @@ carPark();
 let GRIDH = null;
 {
   const big = new THREE.Shape([new THREE.Vector2(-60, 60), new THREE.Vector2(90, 60), new THREE.Vector2(90, -90), new THREE.Vector2(-60, -90)]);
-  const f4 = S.foot4[0]; big.holes.push(new THREE.Path([...f4.o].reverse().map(([x, z]) => new THREE.Vector2(x, -z))));
+  // El hueco del terreno es la torre y el tramo de rampa que está fuera de ella.
+  // El resto del sótano queda bajo relleno hasta la calle.
+  const rampSlot = [[-0.5, 0.45], [8.3, 0.45], [8.3, 4.25], [-0.5, 4.25]];
+  big.holes.push(new THREE.Path([...TOWER].reverse().map(([x, z]) => new THREE.Vector2(x, -z))));
+  big.holes.push(new THREE.Path(rampSlot.map(([x, z]) => new THREE.Vector2(x, -z))));
   const gg = new THREE.ShapeGeometry(big); gg.rotateX(-Math.PI / 2);
   const gm = new THREE.Mesh(gg, M.ground); gm.receiveShadow = true; gm.position.y = -0.005; scene.add(gm);
+  // Tapa solo donde el sótano ya está 2,20 m bajo la calle y fuera de la torre.
+  // Encima de la torre el cielo es la losa del piso 1; la rampa alta queda abierta.
+  const lidMat = new THREE.MeshStandardMaterial({ color: 0xc8c6bf, roughness: 0.95, side: THREE.DoubleSide });
+  const lidBoxes = [];
+  const foot = S.lower[0].o;
+  for (let x = -0.2; x < 27.6; x += 0.8) for (let z = -1; z < 26.2; z += 0.8) {
+    const cx = x + 0.4, cz = z + 0.4;
+    if (!inPoly(foot, cx, cz) || inTower(cx, cz)) continue;
+    if (cx < 8.4 && cz > 0.4 && cz < 4.3) continue;
+    if (floorY(cx, cz) + 2.2 > -0.02) continue;
+    lidBoxes.push(boxG(x, x + 0.8, -0.22, 0, z, z + 0.8));
+  }
+  if (lidBoxes.length) { const lidMesh = meshOf(lidBoxes, lidMat); lidMesh.name = 'relleno'; scene.add(lidMesh); }
   const street = new THREE.Mesh(new THREE.PlaneGeometry(9, 70), new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 1 }));
   street.rotation.x = -Math.PI / 2; street.position.set(-5.6, 0.0, 13); street.receiveShadow = true; scene.add(street);
   const sw = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.15, 70), new THREE.MeshStandardMaterial({ color: 0x6d7178, roughness: 1 }));
@@ -1058,7 +1096,7 @@ const floatLbl = [
   ...SV.rooms.map((r) => ({ t: r.plan + ' · ' + r.area.toFixed(2) + ' m²', p: [r.cx, r.fy + 1.2, r.cz], l: 'sot', cls: 'note', only: 'sot' })),
   { t: 'Sótano N-2.96 · 10 carros + 4 motos', p: [22, -1.2, 26.4], l: 'sot', cls: 'note sm', only: 'sot' },
   { t: 'Rampa 13.6 % → N-2.96', p: [26, -1.6, 10.4], l: 'sot', cls: 'note sm', only: 'sot' },
-  { t: 'Volumen punto fijo ≈ (aprox.)', p: [17.6, 21.9, 11], l: 'cub', cls: 'note sm' },
+  { t: 'Volumen punto fijo ≈ (aprox.)', p: [18.926502, 23.226502, 11], l: 'cub', cls: 'note sm' },
 ].map((f) => { const el = document.createElement('div'); el.className = f.cls; el.textContent = f.t; labels.appendChild(el); return { ...f, el }; });
 
 
@@ -1477,7 +1515,7 @@ function autoUpdate(dt) {
   if (A.phase === 'call') { walk(20.15, 10.69, Math.PI / 2, 1.0); if (here && EV.state === 'open') { A.phase = 'enter'; } else if (here && EV.state === 'idle') evCall(FP.lvl); }
   else if (A.phase === 'enter') { if (EV.state === 'open') EV.timer = 3; const done = walk(18.3, 10.69, Math.PI / 2 + 0.0001, 1.0); if (FP.x < 18.6) { const ok = walk(18.3, 10.69, -Math.PI / 2, 0.6); if (ok || A.t > 12) { A.phase = 'ride'; evCall(A.f); } } void done; }
   else if (A.phase === 'ride') { FP.yaw = lerpA(FP.yaw, -Math.PI / 2, Math.min(1, dt * 3)); if (EV.state === 'open' && FLOORS[EV.fi] === A.f) { A.phase = 'exit'; A.t = 0; } }
-    else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(17.6, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
+    else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(18.926502, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
 }
 // ---------- entrar / salir del modo ----------
 function fpEnter() {
@@ -1791,6 +1829,53 @@ function measureAccess() {
   }
   lv('sot').g.add(ACC_G);
 }
+const SOFFIT = LEVY.p1 - 0.2;
+const CLEAR_MIN = 2.20;
+function measureHeadroom() {
+  const ray = new THREE.Raycaster();
+  const dir = new THREE.Vector3(0, 1, 0);
+  const origin = new THREE.Vector3();
+  const targets = [];
+  const drive = (x, z) => (z >= 0.9 && z <= 3.7 && x >= 0.4 && x <= 24) || (x >= 24.3 && x <= 26.9 && z >= 1 && z <= 20.5) || (z >= 17.5 && z <= 20.6 && x >= 16.8 && x <= 27);
+  for (let x = 0.6; x <= 26.8; x += 0.7) for (let z = 1; z <= 20.4; z += 0.7) if (drive(x, z)) targets.push({ id: 'paso', x, z });
+  for (const p of VEH.cars) targets.push({ id: 'plaza ' + p.n, x: p.cx, z: p.cz });
+  for (const m of VEH.motos) targets.push({ id: 'moto ' + m.n, x: m.x, z: m.z });
+  let min = 99, where = null;
+  const rows = [];
+  const worst = [];
+  const meshes = [];
+  scene.updateMatrixWorld(true);
+  const vehicle = (o) => { let p = o; while (p) { if (p === VEH.group || p === CAR.m) return true; p = p.parent; } return false; };
+  const camCone = (o) => o.material && o.material.color && o.material.color.getHex() === C_CAM;
+  scene.traverse((o) => {
+    if (!o.isMesh || !o.visible || o.userData.access || vehicle(o) || camCone(o)) return;
+    if (o.material && o.material.visible === false) return;
+    if (!o.geometry || !o.geometry.attributes || !o.geometry.attributes.position || o.geometry.attributes.position.count < 3 || !o.matrixWorld) return;
+    meshes.push(o);
+  });
+  for (const s of targets) {
+    const y = floorY(s.x, s.z);
+    origin.set(s.x, y + 0.3, s.z);
+    ray.set(origin, dir); ray.far = 12; ray.camera = camera;
+    const hits = ray.intersectObjects(meshes, false);
+    let clear = 99, hitName = 'cielo';
+    for (const h of hits) {
+      if (!h.object.visible || h.point.y < y + 0.45) continue;
+      clear = h.point.y - y; hitName = h.object.name || 'losa';
+      break;
+    }
+    if (inTower(s.x, s.z)) { const slab = SOFFIT - y; if (slab < clear) { clear = slab; hitName = 'losa piso 1'; } }
+    if (clear < min) { min = clear; where = { ...s, y: +y.toFixed(2), clear: +clear.toFixed(2), hit: hitName }; }
+    if (clear < 3) worst.push({ ...s, y: +y.toFixed(2), clear: +clear.toFixed(2), hit: hitName });
+    rows.push({ ...s, clear });
+  }
+  worst.sort((a, b) => a.clear - b.clear);
+  const stalls = {};
+  for (const r of rows) if (r.id !== 'paso') stalls[r.id] = +r.clear.toFixed(2);
+  return { min: +min.toFixed(3), ok: min >= CLEAR_MIN, where, stalls, worst: worst.slice(0, 8) };
+}
 if (QA_MODE) measureAccess();
-if (QA_MODE) window.__app = { THREE, SV, VEH, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); }, access: ACCESS, showAccess: (on) => { ACC_G.visible = !!on; }, driveY, MOUTH_X0 };
+const HEADROOM = QA_MODE ? measureHeadroom() : null;
+if (QA_MODE && HEADROOM) console.log('altura libre mínima', HEADROOM.min, HEADROOM.where);
+if (QA_MODE) window.__app = { THREE, SV, VEH, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); }, access: ACCESS, headroom: HEADROOM, showAccess: (on) => { ACC_G.visible = !!on; }, driveY, MOUTH_X0 };
 document.body.classList.add('ready');

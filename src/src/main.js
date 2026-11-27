@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildAcceso } from './acceso.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -33,7 +34,7 @@ scene.environmentIntensity = 0.45;
 const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 600);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
-controls.maxPolarAngle = Math.PI * 0.495; controls.minDistance = 2; controls.maxDistance = 160;
+controls.maxPolarAngle = Math.PI * 0.495; controls.minDistance = 0.12; controls.maxDistance = 160;
 controls.screenSpacePanning = true;
 
 const HEMI = new THREE.HemisphereLight(0xcfdcff, 0x2a2f36, 0.9); scene.add(HEMI);
@@ -228,7 +229,7 @@ const GT = { leaves: [] };
   // v10: vano del acceso del PDF (cota 3.33 entre caras exteriores de muros) → hojas en el vano libre entre caras interiores z 0.783–3.821.
   // v5: UN SOLO portón de 2 hojas (según render). Hoja izquierda = panel grande con travesaño + panel angosto.
   // Hoja derecha = panel angosto + PUERTA PEATONAL INTEGRADA (con manija y cerradura) que viaja con su hoja.
-  // Jamba fija a la derecha: kiosko URBAN (Galaxy Tab Active5 en carcasa con visera, sobre submarco metálico).
+  // Jamba fija a la derecha: kiosko URBAN (tablet rugerizada en carcasa con visera, sobre submarco metálico).
   // Cortes medidos sobre la imagen del render (768 px): eje central u=0.4975, peatonal u=0.613–0.912, jamba u=0.918–1.
   GT.Z0 = 0.783; GT.Z1 = 3.821; GT.W = GT.Z1 - GT.Z0; GT.H = GT.W / (856 / 630);
   const g = new THREE.Group(); L1.add(g); GT.g = g;
@@ -265,16 +266,11 @@ const GT = { leaves: [] };
   const pedPiv = new THREE.Group(); pedPiv.position.set(0, 0, -pedHd); GT.v2.piv.add(pedPiv);
   pedPiv.add(panelAt(U.p0, U.p1, 0, -1)); hinges(pedPiv, 0.012, 3);
   GT.ped = { piv: pedPiv, w: pedW, hd: pedHd, cur: 0, tgt: 0, name: 'ped', sgn: -1 };
-  // manija de barra vertical (como el render) en ambas caras + cilindro de llave; cerradura de sobreponer adentro
+  // manija de barra vertical (como el render) en ambas caras
   { const zH = -(U.p1 - 0.662) * W, y0 = 0.33 * H, y1 = 0.56 * H; const parts = [];
     for (const s of [-1, 1]) { parts.push(boxG(s * 0.075 - 0.012, s * 0.075 + 0.012, y0, y1, zH - 0.012, zH + 0.012), boxG(Math.min(s * 0.035, s * 0.075), Math.max(s * 0.035, s * 0.075), y0 + 0.03, y0 + 0.055, zH - 0.008, zH + 0.008), boxG(Math.min(s * 0.035, s * 0.075), Math.max(s * 0.035, s * 0.075), y1 - 0.055, y1 - 0.03, zH - 0.008, zH + 0.008)); }
     pedPiv.add(meshOf(parts, hmat));
-    const zl = -(U.p1 - 0.638) * W, yl = 0.443 * H; const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 16), hmat); cyl.rotation.z = Math.PI / 2; cyl.position.set(-0.045, yl, zl); pedPiv.add(cyl);
-    // cerradura fail-secure de sobreponer (cara interior, canto de cierre) + LED de estado
-    const zr = -pedW + 0.09; pedPiv.add(meshOf([boxG(0.035, 0.085, yl - 0.08, yl + 0.08, zr - 0.06, zr + 0.06)], new THREE.MeshStandardMaterial({ color: 0x2c2f33, metalness: 0.5, roughness: 0.4 })));
-    GT.lockLed = new THREE.Mesh(new THREE.SphereGeometry(0.009, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff3b30 })); GT.lockLed.position.set(0.087, yl + 0.05, zr); pedPiv.add(GT.lockLed);
-    // contraplaca en el panel angosto de la hoja derecha
-    GT.v2.piv.add(meshOf([boxG(0.035, 0.075, yl - 0.07, yl + 0.07, -pedHd - pedW - 0.07, -pedHd - pedW + 0.005)], hmat));
+    // v10.2: chapas 3A/3B, cilindros 3C, cerraderos y LED de estado: ver acceso.js (L1–L3)
   }
   // jamba fija (lado lindero)
   g.add(panelAt(U.jb, 1.0, GT.Z0 + U.jb * W, 1));
@@ -296,7 +292,7 @@ const GT = { leaves: [] };
     fmat.color.set(r ? 0x2a2b2e : 0x5a3f27); hmat.color.set(r ? 0x1c1d1f : 0x3a2818);
     signM.material.map = r ? stex8 : texSign; signM.material.emissive.set(r ? 0x000000 : 0x332a20); signM.material.needsUpdate = true;
     bandMat.color.set(r ? 0x3b332d : 0xc9c6bf); ivyS.visible = pot.visible = r;
-    if (GT.kBronze) GT.kBronze.color.set(r ? 0x2e3034 : 0x6b4a2c); };
+    if (GT.kBronze) GT.kBronze.color.set(r ? 0x2e3034 : 0x6b4a2c); if (GT.kParts) for (const m of GT.kParts.frame) if (m.userData.bronze) m.material.color.set(r ? 0x2e3034 : 0x6b4a2c); };
   GT.layout = (hs) => {
     g.scale.y = hs; const top = H * hs + 0.04;
     ivyS.position.y = top - 0.02; pot.scale.set(0.14, 0.16, W + 0.2); pot.position.set(-0.19, top + 0.06, (GT.Z0 + GT.Z1) / 2);
@@ -307,8 +303,8 @@ const GT = { leaves: [] };
     GT.hs = hs; GT.top = top + sH;
   };
   GT.layout(1);
-  // ===== KIOSKO URBAN: Samsung Galaxy Tab Active5 (126.8 × 213.8 × 10.1 mm, vertical) en carcasa metálica con visera =====
-  const kz = GT.Z0 + 0.957 * W, ky = 1.50; GT.kz = kz; GT.ky = ky;
+  // ===== 1 · TABLET DE ACCESO (tablet rugerizada 8", vertical) en 1A marco y carcasa metálica con visera =====
+  const kz = GT.Z0 + 0.957 * W, ky = 1.55; GT.kz = kz; GT.ky = ky;
   { const K = new THREE.Group(); L1.add(K); GT.kiosk = K;
     const steel = new THREE.MeshStandardMaterial({ color: 0x24282d, metalness: 0.7, roughness: 0.38 });
     const bronze = new THREE.MeshStandardMaterial({ color: 0x6b4a2c, metalness: 0.75, roughness: 0.3 }); GT.kBronze = bronze;
@@ -340,9 +336,8 @@ const GT = { leaves: [] };
     for (const s of [-1, 1]) { const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(-0.165, -0.02); sh.lineTo(0, -0.2); sh.closePath(); const cg = new THREE.ExtrudeGeometry(sh, { depth: 0.004, bevelEnabled: false }); const ch = new THREE.Mesh(cg, bronze); ch.position.set(0, 0, s * 0.123 - 0.002); vis.add(ch); }
     // luz frontal (LED cálido bajo la visera) — emisiva (reflector LED real: ver BOM)
     const led = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.006, 0.18), new THREE.MeshBasicMaterial({ color: 0xfff2d6 })); led.position.set(-0.15, -0.025, 0); vis.add(led);
-    // alimentación USB‑C PD: conduit metálico desde la carcasa hacia la jamba (bajo, a la caja ESP32 interior)
-    const cd = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, ky - eh / 2 - 0.35, 10), steel); cd.position.set(-0.05, (ky - eh / 2 + 0.35) / 2, kz + 0.06); K.add(cd);
-    K.add(meshOf([boxG(-0.062, -0.036, 0.31, 0.37, kz + 0.04, kz + 0.08)], steel));
+    // v10.2: la alimentación PoE llega por el ramal 11E desde la caja de paso CP-3 (ver acceso.js)
+    GT.kParts = { tablet: [], frame: [] }; K.traverse((o) => { if (!o.isMesh) return; const isT = o.material === rub || o === scr || o === camD; o.userData.bronze = o.material === bronze; o.material = o.material.clone(); o.userData.uniq = true; (isT ? GT.kParts.tablet : GT.kParts.frame).push(o); });
   }
   GT.setStyle('calado'); // v10: por defecto el calado dorado/bronce (foto); grafito como opción
   // v10: el paso peatonal (0.90 m) va pintado dentro del sótano (sot10.js)
@@ -484,40 +479,22 @@ LV.filter((l) => /^p[2-7]$/.test(l.id)).forEach((l) => {
 const urban = new THREE.Group(); scene.add(urban);
 const C_URB = 0x35d3ff, C_CAM = 0x7cf7c5, C_CAB = 0xffb547;
 const PED_LOCK_Y = () => GT.H * GT.hs * 0.443;
-const MK = [
-  { id: 'kiosk', lv: 'p1', p: [-0.2, 1.95, GT.kz], c: C_URB, t: 'Kiosko URBAN · Galaxy Tab Active5', s: 'Propuesta', loc: 'Jamba fija derecha del portón (junto a la hoja derecha), en submarco metálico atornillado, centro de pantalla ≈1,50 m, hacia la calle; carcasa metálica con visera y luz frontal; alimentación USB‑C PD por conduit. Tablet 126,8 × 213,8 × 10,1 mm en vertical.', bom: [0, 1, 2, 3, 4],
-    why: 'Fase 1: el propietario se acerca, el kiosko reconoce el rostro y libera la puerta peatonal (en el modelo, la pantalla es una simulación ilustrativa). Respaldo: PIN offline y app URBAN. Va en la jamba FIJA para que no se mueva cuando abren las hojas del portón; la visera la protege del sol y la lluvia.' },
-  { id: 'esp', lv: 'sot', p: [0.5, 1.15, 3.76], c: C_URB, t: 'ESP32 en caja con llave', s: 'Propuesta', loc: 'Cara interior del pilar derecho del portón, adentro (alternativa: dentro del edificio, en el acceso).', bom: [11, 12, 13, 14, 16, 17, 19],
-    why: 'Controlador local que acciona la cerradura de la puerta peatonal y lee botón de salida y sensor. Va del lado seguro, en caja IP66 con llave, junto a la fuente de respaldo 12 V.' },
-  { id: 'lock', lv: 'p1', p: [0.09, 2.0, GT.Z0 + 0.625 * GT.W], c: C_URB, t: 'Cerradura fail-secure (puerta peatonal)', s: 'Propuesta', loc: 'Puerta peatonal integrada en la hoja derecha del portón: cerradura de sobreponer en la cara interior, canto de cierre (lado de la manija), con contraplaca en el panel angosto de la misma hoja. LED en el modelo: rojo = enclavada, verde = liberada.', bom: [5, 9, 10, 6],
-    why: 'Sin energía permanece cerrada y abre con llave mecánica. Solo se libera con una orden válida de URBAN (facial, app o PIN). El cierrapuertas asegura que la hoja vuelva y enganche.' },
-  { id: 'rex', lv: 'p1', p: [0.12, 1.2, 3.74], c: C_URB, t: 'Botón de salida', s: 'Propuesta', loc: 'Cara interior de la jamba fija, junto a la puerta peatonal, h≈1.20 m.', bom: [7],
-    why: 'Salida libre desde adentro sin app ni PIN; queda registrada como solicitud de salida.' },
-  { id: 'sens', lv: 'p1', p: [0.1, 1.9, 2.72], c: C_URB, t: 'Sensor de puerta', s: 'Propuesta', loc: 'Cara interior de la puerta peatonal integrada (hoja derecha), lado de la manija.', bom: [8],
-    why: 'Informa puerta abierta, cerrada o forzada para alarmas y bitácora.' },
-  { id: 'c1', lv: 'p1', p: [-0.2, 2.55, 4.0], aim: [-5.2, 0.6, 2.2], c: C_CAM, t: 'C1 · Cámara exterior ingreso', s: 'Propuesta', loc: 'Pilar derecho del portón (exterior), mirando el kiosko, el andén y la entrada de carros.', bom: [25],
-    why: 'Registra quién se acerca desde la calle y usa el kiosko (rostro y evento).' },
-  { id: 'c2', lv: 'sot', p: [6.95, 1.3, 3.7], aim: [0.3, 0.2, 3.1], c: C_CAM, t: 'C2 · Cámara interior (paso peatonal)', s: 'Propuesta', loc: 'Adentro, en la fachada del edificio, mirando el paso peatonal y la puerta.', bom: [26],
-    why: 'Confirma quién entró realmente después de cada apertura.' },
-  { id: 'c3', lv: 'sot', p: [6.95, 1.3, 0.95], aim: [0.0, 0.2, 2.4], c: C_CAM, t: 'C3 · Cámara rampa', s: 'Propuesta', loc: 'Boca de la rampa vehicular, bajo el letrero ED. ALMENDRA de la fachada.', bom: [27],
-    why: 'Registra vehículos que entran y salen por la rampa al sótano.' },
-  { id: 'rack', lv: 'sot', p: [SV.rack.x, SV.rack.y + 0.55, SV.rack.z], c: C_URB, t: 'Cuarto técnico (C. Eléctrico / Telec. 1.81 m²)', s: 'Hecho', s2: 'Propuesta (equipos)', loc: 'Sótano N-1.00, C. ELÉCTRICO / TELEC. (1.35 × 1.34 m libres = 1.81 m², medido en el plano del sótano), al norte del carril de acceso junto a C. ASEO. Rack en el muro del fondo; tablero en el muro oriente (ilustrativos).', bom: [22, 20, 21, 23, 24, 28, 29, 18],
-    why: 'Concentra router VPN, switch PoE, NVR y UPS en un espacio cerrado del sótano. El cuarto existe en el plano; los equipos son propuesta.' },
+const MK = [ // v10.2: los elementos del sistema de acceso (fichas L1–L8) están en acceso.js
   { id: 'door', lv: 'p1', p: [-0.25, 2.9, 2.3], c: 0xc9a77c, t: 'Portón ED. ALMENDRA · 2 hojas (peatonal integrada)', s: 'Aproximado', s2: 'Fase 2: motor del portón', loc: 'Un solo portón en borde de calle bajo el dintel ED.ALMENDRA. Vano del acceso del plano: 3.33 m entre caras exteriores de muros (3.04 m libres); alto por proporción del render (≈2,24 m). Abre en 2 hojas por el eje central (izq. ≈1,51 m, der. ≈1,28 m; la peatonal de ≈0,91 m va dentro de la hoja derecha); la puerta peatonal va dentro de la hoja derecha; jamba fija a la derecha con el kiosko. Medidas por tomar en sitio.', bom: [43, 44],
     why: 'Es la MISMA puerta: para carros abren solo las 2 hojas (la peatonal permanece cerrada y se mueve con su hoja); para personas abre solo la puerta peatonal integrada, con URBAN (facial, app o PIN). Motor y control del vehicular: fase 2.' },
 ];
-const MAJOR = new Set(['kiosk', 'rack', 'c1', 'door']);
+const MAJOR = new Set(['door']);
 // v6: trazado ortogonal (cada tramo sigue un solo eje: muro, piso enterrado o cielo raso), sin diagonales en el aire
 // v10: kiosko → jamba → ESP32 (cara interior del muro sur del acceso) → por el muro hasta la losa → bajo la losa (N+1.40) → C. ELÉCTRICO / TELEC.
 const CABLE = [
   ['p1', 0.06, 1.3, GT.kz], ['p1', 0.14, 1.3, GT.kz], ['sot', 0.14, 1.3, 3.76], ['sot', 0.5, 1.3, 3.76], ['sot', 9.0, 1.3, 3.76], ['sot', 9.0, 1.40, 3.76],
   ['sot', 9.0, 1.40, 0.9], ['sot', 11.6, 1.40, 0.9], ['sot', 11.6, 1.40, -0.25], ['sot', 11.6, SV.rack.y + 1.4, -0.25],
 ];
-const haloMat = (c) => new THREE.SpriteMaterial({ map: texHalo, color: c, transparent: true, sizeAttenuation: false, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending });
+const haloMat = (c) => new THREE.SpriteMaterial({ map: texHalo, color: c, transparent: true, sizeAttenuation: false, depthTest: true, depthWrite: false, blending: THREE.AdditiveBlending });
 const labels = $('#labels');
 MK.forEach((m) => {
   const g = new THREE.Group(); g.position.set(...m.p);
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), new THREE.MeshBasicMaterial({ color: m.c, depthTest: false, transparent: true }));
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), new THREE.MeshBasicMaterial({ color: m.c, depthTest: true, transparent: true }));
   core.renderOrder = 20; g.add(core);
   const halo = new THREE.Sprite(haloMat(m.c)); halo.scale.setScalar(0.05); halo.renderOrder = 19; g.add(halo);
   const hit = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); hit.userData.mk = m; g.add(hit);
@@ -551,11 +528,11 @@ const cableMat = new THREE.ShaderMaterial({
   transparent: true, depthTest: false, depthWrite: false,
 });
 let cableMesh = null; const cableLabel = document.createElement('div'); cableLabel.className = 'tag cab'; cableLabel.innerHTML = '<i></i><span>Ruta de cable · PROPUESTA — medir en sitio</span>';
-cableLabel.onclick = () => openPanel(CAB_MK); labels.appendChild(cableLabel);
+cableLabel.onclick = () => openPanel(CAB_MK);
 const CAB_MK = { t: 'Ruta de cable (propuesta)', s: 'Propuesta', c: C_CAB, loc: 'Kiosko (jamba del portón) → caja ESP32 en el pilar → ducto enterrado bajo el paso peatonal → pasamuro al sótano → cielo raso de C. Útil 1 y 2 (validar) → cuarto técnico. Recorrido ≈15 m (estimado sobre el modelo); con holguras ≈18–20 m de cable. Trazado indicativo: medir en sitio.', bom: [30, 31, 32, 33, 34, 35, 36, 37],
   why: 'UTP Cat 6 exterior para datos/PoE y 2×18 AWG para cerradura, sensor y botón, en conduit PVC enterrado bajo el paso y EMT dentro del sótano.' };
 function cablePts() { return CABLE.map(([l, x, y, z]) => new THREE.Vector3(x, y + lv(l).g.position.y, z)); }
-function rebuildCable() {
+function rebuildCable() { CAB_MK.mid = new THREE.Vector3(); return; // v10.2: canalización real por tipo en acceso.js (se elimina la ruta naranja)
   const pts = cablePts(); const path = new THREE.CurvePath(); let L = 0;
   for (let i = 0; i < pts.length - 1; i++) { path.add(new THREE.LineCurve3(pts[i], pts[i + 1])); L += pts[i].distanceTo(pts[i + 1]); }
   if (cableMesh) { cableMesh.geometry.dispose(); urban.remove(cableMesh); }
@@ -606,7 +583,7 @@ $('#approxClose').onclick = () => $('#approx').classList.remove('show');
 const panel = $('#panel');
 function chip(s) { const c = s.startsWith('Hecho') ? 'ok' : s.startsWith('Aprox') ? 'ap' : 'pr'; return `<span class="chip ${c}">${s}</span>`; }
 function openPanel(m) {
-  const rows = (m.bom || []).map((i) => S.bom[i]).map((b) => `<div class="bom"><div class="bt">${b.it}<span>×${b.q}</span></div><div class="bm">${b.m}</div><div class="bp">${b.st === 'H' ? fmt(b.p) + ' <small>c/u · precio verificado</small>' : b.st === 'E' ? '<small>Estimado — sin precio verificado</small>' : '<small>Por cotizar</small>'}</div></div>`).join('');
+  const rows = ''; // v10.2: sin precios ni marcas
   panel.innerHTML = `<button class="x" aria-label="Cerrar">×</button><div class="ph" style="--c:#${m.c.toString(16).padStart(6, '0')}"><i></i>${m.t}</div>
   <div class="chips">${chip(m.s)}${m.s2 ? chip(m.s2) : ''}</div>
   <h4>Qué es / por qué</h4><p>${m.why}</p><h4>Ubicación</h4><p>${m.loc}</p>
@@ -652,12 +629,7 @@ function goView(k, instant) {
 document.querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => goView(b.dataset.view)));
 
 // ---------- flows ----------
-const FLOWS = {
-  rostro: { n: 'Con internet · rostro', steps: [['kiosk', 'El residente se para frente al kiosko: la tablet capta el rostro.'], ['rack', 'La solicitud viaja por la red del edificio (switch → router) a la plataforma URBAN, que valida.'], ['esp', 'La autorización llega al ESP32 por la red local.'], ['lock', 'El relé del ESP32 da el pulso a la cerradura: la puerta abre.'], ['sens', 'El sensor confirma apertura y cierre; C1 y C2 graban el evento en el NVR.']] },
-  app: { n: 'Con internet · app', steps: [['door', 'El residente pide la apertura desde la app URBAN en su celular.'], ['rack', 'La orden llega por internet al router del edificio.'], ['esp', 'El router la entrega al ESP32.'], ['lock', 'Cerradura abre (pulso).'], ['c2', 'Sensor y cámaras dejan registro del ingreso.']] },
-  pin: { n: 'Sin internet · PIN', steps: [['kiosk', 'Sin internet, el kiosko pide un PIN.'], ['esp', 'Validación en la red local del edificio (lógica exacta a confirmar en el firmware URBAN).'], ['lock', 'Cerradura abre.'], ['rack', 'El evento queda en registro local; sincronización al volver internet (a confirmar).']] },
-  luz: { n: 'Sin luz · UPS / batería / llave', steps: [['rack', 'Corte de energía: la UPS del rack mantiene router, switch y NVR.'], ['esp', 'La fuente con batería 12 V mantiene ESP32, cerradura y kiosko (USB-C PD).'], ['lock', 'Si la batería se agota, la cerradura fail-secure queda CERRADA y abre con llave mecánica.'], ['rex', 'Salida desde adentro: botón de salida (con energía) o herraje mecánico (validar en sitio).']] },
-};
+const FLOWS = {};
 const dot = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false })); dot.renderOrder = 30;
 const dotHalo = new THREE.Sprite(haloMat(0xffffff)); dotHalo.scale.setScalar(0.08); dot.add(dotHalo); dot.visible = false; scene.add(dot);
 const cap = $('#caption');
@@ -699,7 +671,7 @@ canvas.addEventListener('pointermove', (e) => {
 let down = null;
 canvas.addEventListener('pointerdown', (e) => { down = [e.clientX, e.clientY]; });
 canvas.addEventListener('pointerup', (e) => {
-  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return; setNdc(e); ray.setFromCamera(ndc, camera);
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return; if (FP.on) return; if (ACC && ACC.clickAt(e)) return; setNdc(e); ray.setFromCamera(ndc, camera);
   const hits = ray.intersectObjects(MK.filter((m) => visibleObj(m.g)).map((m) => m.hit), false);
   if (hits.length) { openPanel(hits[0].object.userData.mk); return; }
   const ah = ray.intersectObjects(aptBoxes.filter((b) => b.userData.lv.g.visible), false)[0];
@@ -715,7 +687,7 @@ const floatLbl = [
 
 // ================= portón: animación =================
 // ================= portón v5: 2 hojas + peatonal integrada; kiosko facial (fase 1, simulación) =================
-const KS = { st: 'idle', t: 0, src: 'face', armed: true, passed: false, lock: true, dirty: true, msgT: 0 };
+const KS = { req: false, st: 'idle', t: 0, src: 'face', armed: true, passed: false, lock: true, dirty: true, msgT: 0 };
 function pedCycle(src) { // abre la peatonal con cierre automático (cierrapuertas) y re-enclavamiento
   if (GT.v1.cur > 0.02 || GT.v2.cur > 0.02 || GT.v1.tgt || GT.v2.tgt) { KS.st = 'vehopen'; KS.t = 0; KS.dirty = true; return false; }
   KS.src = src; KS.st = 'ok'; KS.t = 0; KS.passed = false; KS.dirty = true; KS.lock = false; sfx('relay'); return true;
@@ -796,7 +768,7 @@ function kioskUpdate(dt) {
   if (N.d > 1.8) KS.armed = true;
   const inWay = FP.on && FP.x > -0.9 && FP.x < 2.1 && FP.z > GT.Z0 + GT.U.p0 * GT.W - 0.1 && FP.z < GT.Z0 + GT.U.p1 * GT.W + 0.3;
   switch (KS.st) {
-    case 'idle': if (N.look && KS.armed) { KS.st = 'scan'; KS.t = 0; } break;
+    case 'idle': if (N.look && KS.armed && KS.req) { KS.req = false; KS.st = 'scan'; KS.t = 0; } break; // v10.2.1: el reconocimiento solo inicia cuando el usuario lo pide (tecla F)
     case 'scan': if (!N.look && KS.t < 1.6) { KS.st = 'idle'; KS.t = 0; } else if (KS.t >= 2.4) { KS.armed = false; if (pedCycle('face')) welcome(); } break;
     case 'ok': if (KS.t >= 0.45) { GT.ped.tgt = 1; KS.st = 'open'; KS.t = 0; } break;
     case 'open': if (FP.on && FP.x > 1.6) KS.passed = true;
@@ -819,7 +791,7 @@ function kioskPrompt() {
     if (s === 'ok' || s === 'open') return KS.src === 'face' ? '<span class="kp ok">✓ Bienvenido, propietario · relé ESP32 → cerradura liberada · pasa por la puerta peatonal</span>' : '<span class="kp ok">✓ Puerta peatonal abierta</span>';
     if (s === 'vehopen') return '<span class="kp">Portón vehicular abierto: la peatonal permanece cerrada dentro de su hoja</span>';
     if (s === 'closing' || s === 'done') return '<span class="kp">Puerta cerrándose · cerradura fail‑secure se re‑enclava</span>';
-    if (N.d < 1.2) return '<span class="kp">Mira la pantalla del kiosko para iniciar el reconocimiento facial</span>';
+    if (N.d < 1.2) return '<span class="kp">Mira la pantalla y pulsa <b>F</b> para iniciar el reconocimiento facial (simulado) · <b>E</b> ficha</span>';
     return '<span class="kp">Acércate al kiosko (jamba derecha, ≈1,5 m) para reconocimiento facial</span>';
   }
   if (FP.x > 0 && FP.x < 5.5 && (s === 'open' || s === 'closing' || s === 'done')) return '<span class="kp ok">Bienvenido a Ed. Almendra · la puerta se cierra sola detrás de ti</span>';
@@ -827,8 +799,7 @@ function kioskPrompt() {
 }
 function setGateH(k) {
   GT.layout(k === 'std' ? 2.6 / GT.H : 1);
-  const lk = MK.find((m) => m.id === 'lock'); lk.g.position.y = Math.max(1.0, PED_LOCK_Y());
-  const sn = MK.find((m) => m.id === 'sens'); sn.g.position.y = Math.min(2.3, GT.H * GT.hs - 0.15);
+  if (ACC) ACC.onLayout();
 }
 // ================= RECORRIDO EN PRIMERA PERSONA (v3: tipo videojuego) =================
 const FP = { on: false, x: -5.4, z: 4.4, y: 0, yaw: -Math.PI / 2, pitch: 0, mode: 'ground', floor: null, lvl: 'p1', keys: {}, joy: { x: 0, y: 0 }, prevCut: null, bob: 0, auto: null, focus: null, inCab: false, room: null, spd: 0 };
@@ -910,16 +881,19 @@ function findFocus() {
   const consider = (o, kind, px, pz, lab) => { const dx = px - FP.x, dz = pz - FP.z, d = Math.hypot(dx, dz); if (d > 1.9) return; const dot = (dx * fx + dz * fz) / (d || 1); if (d > 0.8 && dot < 0.55) return; const sc = d * (1.6 - dot); if (sc < bs) { bs = sc; best = { o, kind, lab }; } };
   if (E && Math.abs(FP.y - E.y) < 1.2) { for (const d of E.doors) consider(d, 'door', d.cx, d.cz); if (E.bal) consider(E.bal, 'bal', E.bal.cx, E.bal.cz); }
   if (FP.lvl === 'sot') for (const d of SV.doors) if (Math.abs(FP.y - d.fy) < 0.7) consider(d, 'door', d.cx, d.cz);
+  { const En = LEV.p1 && LEV.p1.ent; if (En && FP.x > 5.0 && FP.x < 10.8 && Math.abs(FP.y) < 0.6) consider(En, 'ent', En.cx, En.cz); }
   if (FP.lvl === 'p1' && FP.x < 3.2 && Math.abs(FP.y) < 0.4) { const pz0 = GT.Z0 + GT.U.p0 * GT.W - 0.4; if (FP.z > pz0 && FP.z < GT.Z1 + 0.8) best = { kind: FP.x > 0 ? 'rex' : 'ped' }; else if (FP.z < pz0 && FP.z > GT.Z0 - 1) best = { kind: 'veh' }; }
   return best;
 }
 function interact(f = FP.focus) {
   if (FP.auto) return;
+  if (ACC && !FP.inCab && FP.accF) { ACC.select(FP.accF); lastHud = ''; return; } // v10.2: ficha del elemento del sistema de acceso
   if (FP.inCab) { const k = panelKeyAtCenter(); if (k) { pressKey(k); return; } if (EV.state === 'open' || EV.state === 'opening') evClose(); else evOpen(); return; }
   if (nearElev()) { evRequest(FP.lvl, 'land'); return; }
   if (!f) return;
   if (f.kind === 'door') { f.o.tgt = f.o.tgt ? 0 : 1; f.o.manual = performance.now(); sfx('door'); }
   else if (f.kind === 'bal') { f.o.tgt = f.o.tgt ? 0 : 1; sfx('slide'); }
+  else if (f.kind === 'ent') { f.o.tgt = f.o.tgt ? 0 : 1; sfx('slide'); }
   else if (f.kind === 'ped') { if (KS.st === 'idle') pedCycle('app'); }
   else if (f.kind === 'rex') { if (KS.st === 'idle' || KS.st === 'done') pedCycle('rex'); }
   else if (f.kind === 'veh') openVeh(!GT.v1.tgt);
@@ -979,14 +953,14 @@ function doorsUpdate(dt) {
   for (const id of FLOORS) { const E = LEV[id]; if (!E || !E.int.visible) continue;
     const pl = FP.on && Math.abs(FP.y - E.y) < 1.0;
     for (const d of E.doors) {
-      if (pl && !d.tgt && (!d.manual || now - d.manual > 4000)) { const dd = Math.hypot(FP.x - d.cx, FP.z - d.cz); if (dd < 0.95) { const fx = -Math.sin(FP.yaw), fz = -Math.cos(FP.yaw); if (((d.cx - FP.x) * fx + (d.cz - FP.z) * fz) / (dd || 1) > 0.2 || dd < 0.5) { d.tgt = 1; sfx('door'); } } }
+      // v10.2.1: NINGUNA puerta se abre sola por cercanía: solo con E o clic (interact)
       const goal = d.tgt * d.max; if (Math.abs(d.a - goal) > 1e-3) { d.set(d.a + Math.sign(goal - d.a) * Math.min(Math.abs(goal - d.a), dt * 2.4)); MOV.t = performance.now(); }
     }
     if (E.bal) { if (Math.abs(E.bal.a - E.bal.tgt) > 1e-3) E.bal.set(E.bal.a + Math.sign(E.bal.tgt - E.bal.a) * Math.min(Math.abs(E.bal.tgt - E.bal.a), dt * 1.2)); }
     if (id === 'sot') for (const d of SV.doors) { const pl2 = FP.on && Math.abs(FP.y - d.fy) < 0.7;
-      if (pl2 && !d.tgt && (!d.manual || now - d.manual > 4000)) { const dd = Math.hypot(FP.x - d.cx, FP.z - d.cz); if (dd < 0.95) { const fx = -Math.sin(FP.yaw), fz = -Math.cos(FP.yaw); if (((d.cx - FP.x) * fx + (d.cz - FP.z) * fz) / (dd || 1) > 0.2 || dd < 0.5) { d.tgt = 1; sfx('door'); } } }
+      // v10.2.1: sin apertura por cercanía
       const goal = d.tgt * d.max; if (Math.abs(d.a - goal) > 1e-3) d.set(d.a + Math.sign(goal - d.a) * Math.min(Math.abs(goal - d.a), dt * 2.4)); }
-    if (E.ent) { const want = pl && FP.x > 5.2 && FP.x < 10.5 && FP.z > 3.9 && FP.z < 6.9 ? 1 : 0; if (Math.abs(E.ent.a - want) > 1e-3) E.ent.set(E.ent.a + Math.sign(want - E.ent.a) * Math.min(Math.abs(want - E.ent.a), dt * 1.6)); }
+    if (E.ent) { const want = E.ent.tgt ? 1 : 0; /* v10.2.1: la puerta del lobby solo abre con E o clic */ if (Math.abs(E.ent.a - want) > 1e-3) E.ent.set(E.ent.a + Math.sign(want - E.ent.a) * Math.min(Math.abs(want - E.ent.a), dt * 1.6)); }
   }
 }
 // ---------- sonido (WebAudio, silenciado por defecto) ----------
@@ -1063,9 +1037,10 @@ function fpPose(x, z, yaw, pitch, y) { FP.auto = null; FP.x = x; FP.z = z; FP.ya
 let lastVis = '';
 function fpVis(force) {
   const lvl = FP.lvl; const i = FLOORS.indexOf(lvl); const nearCore = FP.x > 16 && FP.x < 25 && FP.z > 8 && FP.z < 13.2;
-  const key = lvl + nearCore + (FP.inCab ? 'c' : ''); if (!force && key === lastVis) return; lastVis = key;
+  const inStair = FP.x >= STR.x0 - 0.7 && FP.x <= STR.xl + 0.7 && FP.z >= STR.z0 - 0.7 && FP.z <= STR.z1 + 0.7; // v10.2.1: en la caja de escalera se ven los niveles vecinos (antes, al cruzar de nivel se ocultaba el piso de arriba/abajo → muros cortados)
+  const key = lvl + nearCore + inStair + (FP.inCab ? 'c' : ''); if (!force && key === lastVis) return; lastVis = key;
   LV.forEach((l) => { l.g.visible = l.on; }); shadowDirty();
-  FLOORS.forEach((id, k) => { const E = LEV[id]; const on = k === i || k === i + 1 || (nearCore && k === i - 1) || (FP.inCab && Math.abs(k - i) <= 1);
+  FLOORS.forEach((id, k) => { const E = LEV[id]; const ii = i < 0 ? 0 : i; const on = k === i || k === i + 1 || (nearCore && k === i - 1) || (FP.inCab && Math.abs(k - i) <= 1) || (inStair && Math.abs(k - ii) <= 2);
     E.int.visible = on; if (E.ceil) E.ceil.visible = on; const fu = E.int.getObjectByName('fur'); if (fu) fu.visible = k === i; }); // v7: amoblado solo del piso actual (rendimiento)
   FPC.sot.visible = lvl === 'sot';
   if (GT.blk) GT.blk.forEach((m) => { m.visible = !(lvl === 'sot' || (FP.x > 0 && lvl === 'p1') || LEV.p1.int.visible); }); // v7: el volumen esquemático del piso 1 tapaba el hueco de escalera visto desde p2
@@ -1097,8 +1072,10 @@ function fpHud() {
   if (FP.auto) pr = '<span class="auto">Recorrido automático…</span>';
   else if (FP.inCab) { pr = EV.state === 'moving' ? (EV.dir > 0 ? '▲ Subiendo' : '▼ Bajando') + ' · piso ' + EV.curLabel + (EV.target ? ' → ' + FLABEL[EV.target] : '') : 'Elige el piso: mira la botonera y <b>E</b>/clic, o teclas <b>1–7</b> · <b>0</b> = Sótano · <b>O</b> abrir · <b>C</b> cerrar'; act = EV.state === 'open' || EV.state === 'opening' ? 'Cerrar' : 'Abrir'; ek = 'cab'; }
   else if (nearElev()) { const here = evHere(FP.lvl); pr = here && EV.door > 0.6 ? 'Puertas abiertas · <b>camina</b> hacia la cabina y elige el piso adentro' : EV.target === FP.lvl || EV.q.includes(FP.lvl) ? 'Llamada registrada · la cabina viene (piso ' + EV.curLabel + ')' + (FP.hint ? ' · entra y elige ' + FLABEL[FP.hint] : '') : '<b>E</b> Llamar ascensor'; act = here && EV.door > 0.6 ? 'Mantener' : 'Llamar'; ek = 'land'; }
-  else if (f) { if (f.kind === 'door') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta · ${doorLabel(f.o, FP.lvl)}`; } else if (f.kind === 'bal') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta‑ventana del balcón`; } else if (f.kind === 'ped') { act = 'App'; pr = 'Acércate al kiosko para reconocimiento facial · <b>E</b> abrir con la app URBAN (simulado) · <b>V</b> portón vehicular'; } else if (f.kind === 'rex') { act = 'Salir'; pr = '<b>E</b> Botón de salida · abrir puerta peatonal'; } else if (f.kind === 'veh') { act = 'Portón'; pr = '<b>V</b> Abrir portón vehicular · abre en 2 hojas, la peatonal queda cerrada (motor: fase 2)'; } }
+  else if (f) { if (f.kind === 'door') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta · ${doorLabel(f.o, FP.lvl)}`; } else if (f.kind === 'bal') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta‑ventana del balcón`; } else if (f.kind === 'ent') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta de vidrio del lobby`; } else if (f.kind === 'ped') { act = 'App'; pr = 'Acércate al kiosko para reconocimiento facial · <b>E</b> abrir con la app URBAN (simulado) · <b>V</b> portón vehicular'; } else if (f.kind === 'rex') { act = 'Salir'; pr = '<b>E</b> Botón de salida · abrir puerta peatonal'; } else if (f.kind === 'veh') { act = 'Portón'; pr = '<b>V</b> Abrir portón vehicular · abre en 2 hojas, la peatonal queda cerrada (motor: fase 2)'; } }
   const kp = kioskPrompt(); if (kp && !FP.inCab) pr = kp;
+  if (FP.accF && !FP.inCab && !FP.auto) { const nm = ACC.name(FP.accF); pr = `<span class="kp acc"><b>E</b> Ver ficha · <i>${FP.accF}</i> ${nm}</span>` + (pr ? '<br>' + pr : ''); act = 'Ficha'; }
+  if (ACC && ACC.S.sel) pr += '<br><span class="kp">Q · cerrar ficha</span>';
   const key = a + b + pr + act + ek + EV.state + EV.curLabel + EV.target + EV.q.join() + FP.lvl;
   if (key === lastHud) return; lastHud = key;
   hud.where.textContent = a; hud.sub.textContent = b; hud.prompt.innerHTML = pr;
@@ -1133,7 +1110,7 @@ function autoUpdate(dt) {
 }
 // ---------- entrar / salir del modo ----------
 function fpEnter() {
-  if (FP.on) return; if (st.plan) planCam(false); FP.on = true; FP.prevCut = st.cut; stopFlow(); closePanel(); tween = null;
+  if (FP.on) return; if (st.plan) planCam(false); FP.on = true; FP.prevCut = st.cut; stopFlow(); closePanel(); tween = null; if (ACC) ACC.routeStop();
   if (st.explode) { st.explode = 0; $('#explode').value = 0; applyExplode(); }
   controls.enabled = false; camera.near = 0.05; camera.fov = innerWidth < innerHeight ? 75 : 68; camera.updateProjectionMatrix();
   document.body.classList.add('fp'); $('#bFP').classList.add('on'); $('#bFP').textContent = 'Salir del recorrido';
@@ -1183,7 +1160,7 @@ function fpUpdate(dt) {
   const shake = EV.state === 'moving' && FP.inCab ? Math.sin(performance.now() * 0.05) * 0.0015 : 0;
   const rx = Math.cos(FP.yaw), rz = -Math.sin(FP.yaw);
   camera.position.set(FP.x + rx * bobX, FP.y + EYE + bobY + shake, FP.z + rz * bobX); camera.rotation.order = 'YXZ'; camera.rotation.set(FP.pitch, FP.yaw, 0);
-  FP.focus = findFocus(); if (FP.inCab !== FPL.wasCab) { FPL.wasCab = FP.inCab; FPL.t = 0; } fpLights(dt); if (FP.inCab) FPL.pts[0].position.y = EV.y + 2.15; fpHud();
+  FP.focus = findFocus(); if (ACC && ((loop.af = (loop.af || 0) + 1) % 3 === 0)) FP.accF = FP.inCab ? null : ACC.fpFocus(); if (FP.inCab !== FPL.wasCab) { FPL.wasCab = FP.inCab; FPL.t = 0; } fpLights(dt); if (FP.inCab) FPL.pts[0].position.y = EV.y + 2.15; fpHud();
   const showU = st.urban && FP.mode !== 'floor' && !FP.inCab && !nearElev() && kioskNear().d > 2.2 && !['scan', 'ok'].includes(KS.st); if (urban.visible !== showU) { urban.visible = showU; MK.forEach((m) => { m.g.visible = showU; }); }
   document.body.classList.toggle('neargate', FP.lvl === 'p1' && FP.x < 4 && Math.abs(FP.y) < 0.5);
 }
@@ -1191,7 +1168,9 @@ function fpUpdate(dt) {
 const KEYF = { Digit0: 'sot', Numpad0: 'sot', KeyB: 'sot', Digit1: 'p2', Digit2: 'p3', Digit3: 'p4', Digit4: 'p5', Digit5: 'p6', Digit6: 'p7', Numpad1: 'p2', Numpad2: 'p3', Numpad3: 'p4', Numpad4: 'p5', Numpad5: 'p6', Numpad6: 'p7' }; // v10: teclas = número de piso visible
 addEventListener('keydown', (e) => { if (!FP.on) return; FP.keys[e.code] = true;
   if (e.code === 'KeyE' && !e.repeat) interact();
+  if (e.code === 'KeyQ' && ACC) { ACC.select(null); lastHud = ''; }
   if (e.code === 'KeyV') openVeh(!GT.v1.tgt);
+  if (e.code === 'KeyF' && !e.repeat) { const N = kioskNear(); if (N.d < 1.8 && KS.st === 'idle') { KS.req = true; KS.armed = true; } }
   if (KEYF[e.code] && (FP.inCab || nearElev())) goFloor(KEYF[e.code]);
   if (e.code === 'KeyO' && (FP.inCab || evHere(FP.lvl))) evOpen(); if (e.code === 'KeyC' && (FP.inCab || evHere(FP.lvl))) evClose();
   if (e.code === 'KeyM') $('#snd').click();
@@ -1215,7 +1194,7 @@ addEventListener('pointermove', (e) => {
 addEventListener('pointerup', (e) => { if (!FP.on || !look || e.pointerId !== look.id) return;
   if (look.moved < 6) { if (e.pointerType === 'mouse' && canvas.requestPointerLock) { try { canvas.requestPointerLock(); } catch (_) {} } else { // toque: botonera de cabina o interacción
     const r = canvas.getBoundingClientRect(); rayC.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera); rayC.far = 2.4;
-    const h = FP.inCab ? rayC.intersectObject(EV.panelMesh)[0] : null; if (h && h.uv) { const k = EV.keyAt(h.uv); if (k) pressKey(k); } } }
+    const h = FP.inCab ? rayC.intersectObject(EV.panelMesh)[0] : null; if (h && h.uv) { const k = EV.keyAt(h.uv); if (k) pressKey(k); } else if (ACC && !FP.inCab) ACC.clickAt(e); } }
   look = null; });
 {
   const joy = $('#joy'), knob = $('#joy i'); let jid = null, c0 = null;
@@ -1344,6 +1323,22 @@ const GL_SOFT = /swiftshader|llvmpipe|software|basic render/i.test(GLR);
 function showGLR() { const el = $('#glR'); if (el && !el._ok) { el._ok = 1; el.textContent = (GL_SOFT ? '⚠ render por software · ' : '') + GLR.replace(/^ANGLE \((.*)\)$/, '$1'); el.title = GLR + (GL_SOFT ? ' — Chrome no está usando la GPU: activa “Usar aceleración por hardware” y actualiza el driver' : ''); if (GL_SOFT) el.style.color = '#ffb547'; } } showGLR();
 addEventListener('resize', resize); resize(); setQuality(QUAL.mode);
 $('#qSel') && ($('#qSel').onchange = (e) => setQuality(e.target.value));
+// ================= v10.2 · SISTEMA DE ACCESO (todos los elementos de las láminas L1–L8, interactivos) =================
+function openElecDoors() { for (const d of SV.doors) if (d.svc && /ELÉC|ELEC/i.test(d.label || '')) { d.tgt = 1; d.manual = performance.now() + 6e5; } }
+function flyTo(p, t, kind) {
+  if (FP.on) fpExit();
+  if (st.plan) planCam(false); if (st.cut) { st.cut = null; cutSel.value = ''; } if (st.explode) { st.explode = 0; $('#explode').value = 0; applyExplode(); }
+  if (!st.urban) { st.urban = true; $('#tUrban').checked = true; } applyVis();
+  if (kind === 'room') openElecDoors();
+  tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: new THREE.Vector3(...p), t1: new THREE.Vector3(...t), s: performance.now(), d: 1200 };
+  document.querySelectorAll('[data-view]').forEach((b) => b.classList.remove('on'));
+}
+const ACC = buildAcceso({ scene, camera, canvas, lv, GT, $, place, visibleObj, KS, pedCycle: (s) => { if (KS.st === 'idle' || KS.st === 'done') pedCycle(s); }, openElecDoors, flyTo,
+  urbanOn: () => st.urban && !st.plan, planOn: () => st.plan, fpOn: () => FP.on, hoverOwn: () => {}, beforeRoute: () => { closePanel(); }, onSelect: () => { lastHud = ''; } });
+$('#accIdxBtn').onclick = () => ACC.openIdx();
+document.querySelectorAll('[data-route]').forEach((b) => (b.onclick = () => ACC.routeStart(b.dataset.route)));
+$('#tCab').onchange = (e) => ACC.setXray(e.target.checked); $('#tLab').onchange = (e) => ACC.setLabels(e.target.checked); $('#tCone').onchange = (e) => ACC.setCones(e.target.checked);
+$('#fpFicha') && ($('#fpFicha').onclick = () => ACC.openIdx());
 goView('general', true); applyVis();
 const clock = new THREE.Clock();
 function loop(now) {
@@ -1355,7 +1350,7 @@ function loop(now) {
   evUpdate(dt); // v7: primero la cabina, luego el jugador (que viaja dentro) → sin desfase de un cuadro
   if (FP.on) fpUpdate(dt); else controls.update();
   doorsUpdate(dt);
-  gateUpdate(dt); kioskUpdate(dt); carUpdate(dt);
+  gateUpdate(dt); kioskUpdate(dt); carUpdate(dt); if (ACC) ACC.update(dt);
   if (now - MOV.t < 350 && (loop.n = (loop.n || 0) + 1) % 3 === 0) shadowDirty(); // sombras: solo mientras algo se mueve, 1 de cada 3 cuadros
   cableMat.uniforms.t.value = t;
   MK.forEach((m, i) => { const s = 0.75 + 0.25 * Math.sin(t * 3 + i); m.halo.scale.setScalar((m.el.classList.contains('hl') || m.el.classList.contains('sel') ? 0.09 : 0.05) * s); });
@@ -1365,7 +1360,6 @@ function loop(now) {
   if (FP.on && now - (loop.mini || 0) > 80) { loop.mini = now; drawMini(); }
   const wp = WP0; const kd = FP.on ? kioskNear().d : 99; loop.lab = !loop.lab; if (loop.lab && !tween && FP.on) return; // etiquetas a ~30 Hz en el recorrido
   MK.forEach((m) => { m.g.getWorldPosition(wp); const far = camera.position.distanceTo(wp) > 16 && (isMobile ? !['kiosk', 'rack'].includes(m.id) : !MAJOR.has(m.id)) && !m.el.classList.contains('hl') && !m.el.classList.contains('sel'); m.el.classList.toggle('min', far); const fpOk = !FP.on || (FP.mode !== 'floor' && camera.position.distanceTo(wp) < (FP.mode === 'ground' ? 8 : 14)); wp.y += 0.22; place(m.el, wp, fpOk && st.urban && visibleObj(m.g)); });
-  place(cableLabel, CAB_MK.mid, !FP.on && st.urban && !st.plan && lv('sot').g.visible && lv('p1').g.visible);
   declutter();
   const cl = !FP.on && st.cut && /^p[2-7]$/.test(st.cut) ? lv(st.cut) : null;
   aptLbl.forEach(({ a, el }) => { if (!cl) return hideEl(el); const tx = 'APTO ' + (FLN(cl.id) * 100 + a.n); if (el._t !== tx) { el._t = tx; el.textContent = tx; } wp.set((a.x0 + a.x1) / 2, cl.y + cl.g.position.y + 1.2, (a.z0 + a.z1) / 2); place(el, wp, true); });
@@ -1393,5 +1387,5 @@ function contactQA() {
     out.push({ id: 'moto M' + mo.n, wheels: w, maxAbs: Math.max(...w.map((q) => Math.abs(q.gap))), ok: w.every((q) => Math.abs(q.gap) <= 0.01) }); }
   return out;
 }
-window.__app = { THREE, SV, VEH, SOT, SD, SL, sotY, contactQA, planCam, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); } };
+window.__app = { ACC, flyTo, openElecDoors, THREE, SV, VEH, SOT, SD, SL, sotY, contactQA, planCam, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); } };
 document.body.classList.add('ready');

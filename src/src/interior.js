@@ -117,7 +117,7 @@ export function buildWorld(ctx) {
     tileG: std({ map: T8.tileG, roughness: 0.3, aoMap: aoTex, aoMapIntensity: 1 }),
     tileL: std({ map: T8.tileL, roughness: 0.22, aoMap: aoTex, aoMapIntensity: 1 }),
     tileB: std({ map: T8.tileB, roughness: 0.55, aoMap: aoTex, aoMapIntensity: 1 }),
-    stairD: std({ color: 0x2b2c2e, roughness: 0.55, metalness: 0.3 }),
+    stairD: std({ color: 0x5b5e63, roughness: 0.8, metalness: 0 }), // v10.2.1: grafito claro sin metal (antes 0x2b2c2e metálico: se veía negro puro)
     cove: new THREE.MeshBasicMaterial({ color: 0xfff1d8 }),
     art: T8.art.map((t) => std({ map: t, roughness: 0.6 })),
     artF: std({ color: 0x1c1c1d, roughness: 0.45, metalness: 0.2 }),
@@ -175,17 +175,19 @@ export function buildWorld(ctx) {
     const capG = mergeGeometries(I.caps.map((p) => { const g = new THREE.ShapeGeometry(shapeOf(p)); g.rotateX(-Math.PI / 2); g.translate(0, H + 0.002, 0); return g.index ? g.toNonIndexed() : g; }));
     TIP.meshes.push(mesh(capG, MI.cap, false, false));
     // ventanas interiores (hacia hall / patios) — vidrio + marco; las de fachada usan la piel
-    const gB = new GB(), aB = new GB(), sillB = new GB();
+    const gB = new GB(), gHB = new GB(), aB = new GB(), sillB = new GB(); // v10.2: gHB = vidrio esmerilado de ventanas altas interiores (ropas → hall)
     for (const w of I.wins) {
       if (w.code === 'V-7' || w.code === 'V-8') continue;
       const ax = (w.x1 - w.x0) > (w.z1 - w.z0); const mx = (w.x0 + w.x1) / 2, mz = (w.z0 + w.z1) / 2;
       if (!w.ext) {
-        if (ax) { gB.box(w.x0, w.x1, w.sill, w.head, mz - 0.006, mz + 0.006, white); aB.box(w.x0, w.x1, w.sill, w.sill + 0.04, mz - 0.03, mz + 0.03, white); aB.box(w.x0, w.x1, w.head - 0.04, w.head, mz - 0.03, mz + 0.03, white); for (const x of [w.x0, mx, w.x1 - 0.04]) aB.box(x, x + 0.04, w.sill, w.head, mz - 0.03, mz + 0.03, white); }
-        else { gB.box(mx - 0.006, mx + 0.006, w.sill, w.head, w.z0, w.z1, white); aB.box(mx - 0.03, mx + 0.03, w.sill, w.sill + 0.04, w.z0, w.z1, white); aB.box(mx - 0.03, mx + 0.03, w.head - 0.04, w.head, w.z0, w.z1, white); for (const z of [w.z0, mz, w.z1 - 0.04]) aB.box(mx - 0.03, mx + 0.03, w.sill, w.head, z, z + 0.04, white); }
+        const GG = w.sill >= 1.5 ? gHB : gB;
+        if (ax) { GG.box(w.x0, w.x1, w.sill, w.head, mz - 0.006, mz + 0.006, white); aB.box(w.x0, w.x1, w.sill, w.sill + 0.04, mz - 0.03, mz + 0.03, white); aB.box(w.x0, w.x1, w.head - 0.04, w.head, mz - 0.03, mz + 0.03, white); for (const x of [w.x0, mx, w.x1 - 0.04]) aB.box(x, x + 0.04, w.sill, w.head, mz - 0.03, mz + 0.03, white); }
+        else { GG.box(mx - 0.006, mx + 0.006, w.sill, w.head, w.z0, w.z1, white); aB.box(mx - 0.03, mx + 0.03, w.sill, w.sill + 0.04, w.z0, w.z1, white); aB.box(mx - 0.03, mx + 0.03, w.head - 0.04, w.head, w.z0, w.z1, white); for (const z of [w.z0, mz, w.z1 - 0.04]) aB.box(mx - 0.03, mx + 0.03, w.sill, w.head, z, z + 0.04, white); }
       }
       if (w.sill > 0.3) { if (ax) sillB.box(w.x0 - 0.03, w.x1 + 0.03, w.sill, w.sill + 0.025, w.z0 - 0.02, w.z1 + 0.02, C('#e7e3dc')); else sillB.box(w.x0 - 0.02, w.x1 + 0.02, w.sill, w.sill + 0.025, w.z0 - 0.03, w.z1 + 0.03, C('#e7e3dc')); }
     }
     if (gB.p.length) TIP.meshes.push(mesh(gB.geo(), MI.glass, false));
+    if (gHB.p.length) TIP.meshes.push(mesh(gHB.geo(), new THREE.MeshStandardMaterial({ color: 0xe9eef0, roughness: 0.55, metalness: 0, transparent: true, opacity: 0.82 }), false));
     if (aB.p.length) TIP.meshes.push(mesh(aB.geo(), MI.alu));
     TIP.meshes.push(mesh(sillB.geo(), MI.gloss));
     // pisos por tipo de recinto + hall
@@ -402,7 +404,7 @@ export function buildWorld(ctx) {
     // losa inclinada bajo cada tramo (intradós)
     const soffit = (xa, ya, xb, yb, z0, z1) => { const n = [-(yb - ya), (xb - xa), 0]; const L = Math.hypot(n[0], n[1]); n[0] /= L; n[1] /= L; B.quad([xa, ya, z0], [xb, yb, z0], [xb, yb, z1], [xa, ya, z1], [-n[0], -n[1], 0], tc);
       B.quad([xa, ya, z0], [xb, yb, z0], [xb, yb + 0.1, z0], [xa, ya + 0.1, z0], [0, 0, -1], tc); B.quad([xa, ya, z1], [xb, yb, z1], [xb, yb + 0.1, z1], [xa, ya + 0.1, z1], [0, 0, 1], tc); }; // v8: 0,10 (no invade la huella clara)
-    { const B0 = B; B = D; soffit(ST.x0, P.a - 0.16, ST.x1, P.m - 0.16, ST.z0, ST.zm - 0.03); soffit(ST.x1, P.m - 0.16, ST.x0, P.b - 0.16 - P.hr, ST.zm + 0.03, ST.z1); B = B0; }
+    { soffit(ST.x0, P.a - 0.16, ST.x1, P.m - 0.16, ST.z0, ST.zm - 0.03); soffit(ST.x1, P.m - 0.16, ST.x0, P.b - 0.16 - P.hr, ST.zm + 0.03, ST.z1); } // v10.2.1: intradós en concreto claro (antes grafito: enormes volúmenes negros)
     // pasamanos en el ojo de la escalera (eje z = zm) + balaustres anclados a cada huella
     const hy = 0.9; const p0 = [ST.x0, P.a + P.hr + hy, ST.zm - 0.05], p1 = [ST.x1, P.m + hy, ST.zm - 0.05], q0 = [ST.x1, P.m + hy, ST.zm + 0.05], q1 = [ST.x0, P.b - P.hr + hy, ST.zm + 0.05];
     Rl.bar(p0, p1, 0.022, rc); Rl.bar(q0, q1, 0.022, rc); Rl.bar(p1, q0, 0.022, rc);

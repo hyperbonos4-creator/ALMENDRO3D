@@ -221,24 +221,24 @@ export function buildSotano(ctx) {
   for (const d of doorDefs) { const piv = new THREE.Group(); piv.position.set(d.hx, A, d.hz); G.add(piv);
     const lg = box(d.dir > 0 ? 0.01 : -d.w + 0.01, d.dir > 0 ? d.w - 0.01 : -0.01, 0.01, DH, -0.02, 0.02); const leaf = mesh(lg, MAT.door); piv.add(leaf);
     piv.add(mesh(box(d.dir > 0 ? d.w - 0.12 : -d.w + 0.06, d.dir > 0 ? d.w - 0.06 : -d.w + 0.12, 1.0, 1.03, -0.045, 0.045), MAT.galv, false));
-    const sg = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(0.44, d.w - 0.08), 0.12), new THREE.MeshBasicMaterial({ map: textTex([{ t: d.label, s: 30, w: 800, c: '#f4efe6' }], { w: 400, h: 108, y0: 30, bg: '#1d1f23', r: 8 }) }));
-    sg.position.set(d.dir > 0 ? d.w / 2 : -d.w / 2, 1.6, -d.open * 0.021); if (d.open > 0) sg.rotation.y = Math.PI; piv.add(sg);
+    if (doorDefs.findIndex((q) => q.id === d.id) === doorDefs.indexOf(d)) { const sg = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(0.44, d.w - 0.08), 0.12), new THREE.MeshBasicMaterial({ map: textTex([{ t: d.label, s: 30, w: 800, c: '#f4efe6' }], { w: 400, h: 108, y0: 30, bg: '#1d1f23', r: 8 }) }));
+    sg.position.set(d.dir > 0 ? d.w / 2 : -d.w / 2, 1.6, -d.open * 0.021); if (d.open > 0) sg.rotation.y = Math.PI; piv.add(sg); }
     const D = { cx: d.hx + d.dir * d.w / 2, cz: d.hz, fy: A, tgt: 0, a: 0, max: 1.45, manual: 0, svc: true, label: d.label, piv,
       set(a) { this.a = a; piv.rotation.y = -d.dir * d.open * a; },
       seg() { const ang = piv.rotation.y; return [d.hx, d.hz, d.hx + d.dir * d.w * Math.cos(ang), d.hz - d.dir * d.w * Math.sin(ang)]; } };
     OUT.doors.push(D); }
-  // dotación ilustrativa: rack URBAN + tablero (C. ELÉCTRICO), poceta (C. ASEO), estanterías (C. ÚTIL), medidores de agua
-  { const dark = st(0x1b1d20, { metalness: 0.4, roughness: 0.5 }), tb = st(0xcfd3d6, { metalness: 0.35, roughness: 0.5 });
-    G.add(merged([box(11.42, 11.98, A, A + 1.4, -0.85, -0.25)], dark));
-    G.add(merged([box(12.2, 12.345, A + 0.9, A + 1.7, -0.6, 0.0)], tb));
-    { const t = textTex([{ t: 'URBAN · RACK', s: 34, w: 800, c: '#2bd4ff' }, { t: 'router · PoE · NVR', s: 22, w: 600, c: '#cfe7f5' }], { w: 400, h: 96, y0: 10, bg: '#11161c', r: 8 }); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.1), new THREE.MeshBasicMaterial({ map: t })); m.position.set(11.7, A + 1.28, -0.248); G.add(m); }
-    { const t = textTex([{ t: 'TABLERO', s: 34, w: 800, c: '#1d1f23' }, { t: 'servicios comunes', s: 22, w: 600, c: '#444' }], { w: 320, h: 96, y0: 12, bg: '#f2c230', r: 6 }); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.1), new THREE.MeshBasicMaterial({ map: t })); m.position.set(12.198, A + 1.55, -0.3); m.rotation.y = -Math.PI / 2; G.add(m); }
+  // dotación ilustrativa: C. ASEO, C. ÚTIL y medidores. v10.2: el rack y los equipos del sistema de acceso se modelan en acceso.js
+  // (rack 19" abierto con sus unidades, fuente 12 V, breaker, DPS, toma); aquí solo queda el tablero eléctrico EXISTENTE del edificio.
+  { const tb = st(0xb9bec4, { metalness: 0.45, roughness: 0.45 }), tbd = st(0x9aa0a7, { metalness: 0.5, roughness: 0.4 });
+    G.add(merged([box(12.23, 12.345, A + 0.9, A + 1.7, -0.62, -0.02)], tb)); // gabinete del tablero existente (muro oriente)
+    G.add(merged([box(12.222, 12.232, A + 0.93, A + 1.67, -0.6, -0.04), box(12.214, 12.222, A + 1.25, A + 1.35, -0.1, -0.07)], tbd)); // puerta + manija
+    { const t = textTex([{ t: 'TABLERO EXISTENTE', s: 30, w: 800, c: '#1d1f23' }, { t: 'servicios comunes', s: 22, w: 600, c: '#333' }], { w: 320, h: 96, y0: 12, bg: '#f2c230', r: 6 }); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.078), new THREE.MeshBasicMaterial({ map: t })); m.position.set(12.2125, A + 1.55, -0.32); m.rotation.y = -Math.PI / 2; G.add(m); OUT.tabSign = m; }
     G.add(merged([box(9.7, 10.3, A, A + 0.5, -0.84, -0.42), box(10.35, 10.86, A, A + 1.6, -0.84, -0.5)], st(0xe8e6e1)));
     const sh = []; for (const [x0, x1] of [[16.85, 17.85], [18.1, 19.2]]) { for (const y of [0.05, 0.5, 0.95, 1.4]) sh.push(box(x0, x1, A + y, A + y + 0.025, 9.25, 9.64)); for (const x of [x0, x1 - 0.03]) for (const z of [9.25, 9.61]) sh.push(box(x, x + 0.03, A, A + 1.5, z, z + 0.03)); }
     G.add(merged(sh, st(0x7c848c, { metalness: 0.6, roughness: 0.45 })));
     const md = []; for (let x = 16.95; x < 19.0; x += 0.42) md.push(box(x, x + 0.3, A + 0.5, A + 0.9, 11.693, 11.86)); md.push(box(16.8, 19.2, A + 0.32, A + 0.38, 11.70, 11.76)); G.add(merged(md, st(0x2f6fb0, { roughness: 0.5 })));
-    OUT.segs.push(...segRect(11.42, 11.98, -0.85, -0.25), ...segRect(9.7, 10.86, -0.84, -0.42), [16.85, 9.25, 19.2, 9.25], [16.8, 11.86, 19.2, 11.86]);
-    OUT.rack = { x: 11.7, y: A, z: -0.55 }; }
+    OUT.segs.push(...segRect(11.1, 11.7, -0.862, -0.412), ...segRect(9.7, 10.86, -0.84, -0.42), [16.85, 9.25, 19.2, 9.25], [16.8, 11.86, 19.2, 11.86]);
+    OUT.rack = { x: 11.4, y: A, z: -0.64 }; }
   // pozo (.44 en el PDF) y registro junto a la escalera: rejillas a ras de piso
   { const gr = st(0x4a4e53, { metalness: 0.6, roughness: 0.5 }); const fr = st(0x9a9893);
     for (const [x0, x1, z0, z1] of [[13.336, 13.935, 4.6, 6.014], [21.924, 22.725, 8.616, 9.075]]) { const fy = floorY((x0 + x1) / 2, (z0 + z1) / 2); G.add(merged([box(x0, x1, fy - 0.04, fy + 0.004, z0, z1)], fr, false));

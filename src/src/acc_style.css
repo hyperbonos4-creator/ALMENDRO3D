@@ -1,0 +1,47 @@
+/* ===== v10.2 · fichas del sistema de acceso (mismo estilo que acceso_interactivo.html) ===== */
+#ficha{--navy:#0a1f3c;--navy2:#13335e;--amber:#f2a900;--new:#b4231a;position:fixed;right:14px;top:14px;bottom:92px;width:392px;max-width:calc(100vw - 28px);overflow:auto;z-index:40;background:#fff;color:#1d2430;border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.45);transform:translateX(125%);transition:transform .3s cubic-bezier(.2,.8,.2,1);font:13px/1.45 "Segoe UI",Helvetica,Arial,sans-serif}
+#ficha.show{transform:none}
+#ficha .phead{display:flex;gap:12px;align-items:center;background:var(--navy);color:#fff;padding:14px 44px 14px 14px;position:sticky;top:0;z-index:2}
+#ficha .pid{flex:none;min-width:46px;height:46px;padding:0 6px;border-radius:23px;border:3px solid var(--amber);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;background:var(--navy2)}
+#ficha h2{font-size:16px;line-height:1.2;margin:0}#ficha .phead small{opacity:.75;font-size:11px}
+#ficha .pclose{position:absolute;right:10px;top:10px;background:none;border:0;color:#fff;font-size:24px;cursor:pointer}
+#ficha .badges{display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 0}
+#ficha .bd{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid}
+#ficha .bd.D{color:#1d6b2a;border-color:#1d6b2a;background:#e7f4e9}#ficha .bd.T{color:#2a4f8a;border-color:#2a4f8a;background:#e8eef8}#ficha .bd.H{color:#8a5a00;border-color:#c98a00;background:#fff4d6}#ficha .bd.F{color:#9a1d12;border-color:#b4231a;background:#fde9e7}
+#ficha .stn{margin:8px 14px 0;font-size:11.5px;color:#555;font-style:italic}
+#ficha .nuevo{margin:10px 14px 0;border:2px solid var(--new);border-radius:8px;padding:8px 10px;background:#fdf1ef;color:#5a120c;font-size:12.5px}
+#ficha .nuevo b{display:block;color:var(--new);text-transform:uppercase;font-size:11px;letter-spacing:.08em;margin-bottom:2px}
+#ficha .psec{padding:10px 14px 0}#ficha .psec h4{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--navy2);margin:0 0 4px;border-bottom:1px solid #e3e7ee;padding-bottom:3px}
+#ficha .psec p,#ficha .psec li{font-size:12.5px}#ficha .psec ul{padding-left:18px}
+#ficha table.cx{width:100%;border-collapse:collapse;font-size:12px}#ficha table.cx td{border-bottom:1px solid #eef1f5;padding:3px 4px;vertical-align:top}#ficha table.cx td:first-child{font-weight:700;color:var(--navy);white-space:nowrap;width:30%}
+#ficha .mn{background:#eef6ff;border-left:3px solid #35a3ff;padding:6px 8px;border-radius:4px}
+#ficha .rt{display:inline-block;width:22px;height:6px;border-radius:3px;margin-right:6px;vertical-align:middle}#ficha .rt.data{background:#2a8a2a}#ficha .rt.power{background:#555}#ficha .rt.wires{background:linear-gradient(90deg,#d40000 50%,#ff8c00 50%)}
+#ficha .chips{display:flex;gap:5px;flex-wrap:wrap}#ficha .chip,#accRoute .chip{font:700 11px "Segoe UI",Arial;border:1px solid var(--navy2,#13335e);background:#fff;color:#13335e;border-radius:12px;padding:2px 8px;cursor:pointer}
+#ficha .chip:hover{background:#13335e;color:#fff}
+#ficha .pfoot{display:flex;gap:6px;flex-wrap:wrap;padding:12px 14px 4px}#ficha .pfoot button{font:600 12px "Segoe UI",Arial;border-radius:8px;padding:6px 10px;cursor:pointer;border:1px solid #13335e;background:#fff;color:#13335e}
+#ficha .pfoot .act{background:var(--amber);border-color:#c98a00;color:#1d1400}#ficha .pfoot .ver{background:#13335e;color:#fff}
+#ficha .fine{font-size:10.5px;color:#777;padding:8px 14px 14px}
+body.fp #ficha{top:70px;bottom:auto;max-height:calc(100vh - 170px);width:360px}
+#labels .accb{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:4px;margin:-11px 0 0 -11px;padding:0 7px 0 0;height:22px;border-radius:11px;border:2px solid #f2a900;background:rgba(10,31,60,.92);color:#fff;font:600 11px "Segoe UI",Arial;cursor:pointer;white-space:nowrap;max-width:180px;overflow:hidden}
+#labels .accb b{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#f2a900;color:#0a1f3c;font-size:10.5px}
+#labels .accb span{overflow:hidden;text-overflow:ellipsis;opacity:.92}#labels .accb.cab{border-color:#2fb84a}#labels .accb.cab b{background:#2fb84a;color:#fff}
+#labels .accb.new{border-style:dashed}#labels .accb.new b{background:#b4231a;color:#fff}
+#labels .accb.rel{border-color:#35d3ff;box-shadow:0 0 0 2px rgba(53,211,255,.35)}#labels .accb.sel,#labels .accb.hov{border-color:#fff;box-shadow:0 0 0 3px rgba(242,169,0,.6);z-index:3}
+#accIdx{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);opacity:0;pointer-events:none;width:min(720px,94vw);max-height:84vh;overflow:auto;z-index:45;background:#fff;color:#1d2430;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);transition:.2s;font:13px "Segoe UI",Arial}
+#accIdx.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}#accIdx .ih{position:sticky;top:0;background:#0a1f3c;color:#fff;padding:12px 44px 12px 14px;display:flex;flex-direction:column}#accIdx .ih span{font-size:11px;opacity:.75}
+#accIdx .x{position:absolute;right:10px;top:8px;background:none;border:0;color:#fff;font-size:24px;cursor:pointer}#accIdx .ib{padding:6px 14px 14px;columns:2 300px;column-gap:18px}
+#accIdx h4{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#13335e;margin:10px 0 4px;break-after:avoid}
+#accIdx .ir{display:flex;gap:8px;width:100%;text-align:left;border:0;background:none;padding:3px 4px;border-radius:6px;cursor:pointer;font:12.5px "Segoe UI",Arial;color:#1d2430;break-inside:avoid}#accIdx .ir:hover{background:#eef3fb}
+#accIdx .ir i{font-style:normal;font-weight:800;min-width:42px;color:#0a1f3c}#accIdx .ir em{font-style:normal;color:#b4231a;font-weight:700;font-size:10.5px}#accIdx .ir small{color:#888}
+#accIdx .hy{font-size:11.5px;color:#555;margin:2px 0;break-inside:avoid}
+#accRoute{position:fixed;left:196px;bottom:96px;width:min(430px,92vw);z-index:41;background:#fff;color:#1d2430;border-radius:12px;box-shadow:0 16px 44px rgba(0,0,0,.45);transform:translateY(140%);transition:.3s;font:13px "Segoe UI",Arial;overflow:hidden}
+#accRoute.show{transform:none}#accRoute .rh{background:#0a1f3c;color:#fff;padding:9px 40px 9px 12px;position:relative}#accRoute .x{position:absolute;right:8px;top:4px;background:none;border:0;color:#fff;font-size:22px;cursor:pointer}
+#accRoute .rs{padding:8px 12px 0;font-size:11px;color:#666;display:flex;gap:8px;align-items:center}#accRoute .tg{font-weight:700;border-radius:9px;padding:1px 7px;font-size:10.5px}
+#accRoute .tg.new{background:#fde9e7;color:#b4231a;border:1px solid #b4231a}#accRoute .tg.ex{background:#e7f4e9;color:#1d6b2a;border:1px solid #1d6b2a}#accRoute .tg.h{background:#fff4d6;color:#8a5a00;border:1px solid #c98a00}
+#accRoute h3{font-size:15px;padding:4px 12px 0;color:#0a1f3c}#accRoute p{padding:3px 12px 0;font-size:12.5px}
+#accRoute .rc{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:10px 12px}#accRoute .rc>button{font:600 12px "Segoe UI",Arial;border:1px solid #13335e;background:#13335e;color:#fff;border-radius:8px;padding:5px 10px;cursor:pointer}
+#accRoute .rc span{display:flex;gap:4px;flex-wrap:wrap}#accRoute .rsc{display:flex;gap:4px;flex-wrap:wrap;padding:0 12px 10px}#accRoute .rsc button{font:600 11px "Segoe UI",Arial;border:1px solid #c8d0dc;background:#f4f6f9;border-radius:8px;padding:3px 8px;cursor:pointer}#accRoute .rsc .on{background:#f2a900;border-color:#c98a00}
+#accRoute .phone{margin:8px 12px 0;width:150px;border:6px solid #111;border-radius:18px;background:#0a1f3c;color:#fff;padding:8px;text-align:center;float:right}
+#accRoute .phone .pt{font-size:11px;font-weight:700}#accRoute .phone .pv{height:62px;margin:6px 0;border-radius:6px;background:linear-gradient(180deg,#2d4b72,#13335e)}#accRoute .phone .pb{background:#1db954;border-radius:14px;padding:4px;font-weight:700;font-size:12px}#accRoute .phone small{display:block;font-size:9px;opacity:.7;margin-top:4px}
+#fpPrompt .kp.acc{background:rgba(10,31,60,.9);border:1px solid #f2a900}#fpPrompt .kp.acc i{font-style:normal;color:#f2a900;font-weight:800}
+@media (max-width:760px){#ficha{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:62vh;transform:translateY(120%)}#ficha.show{transform:none}#accRoute{left:8px;bottom:70px}}

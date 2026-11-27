@@ -310,13 +310,15 @@ export function buildFur7({ I, T, R, pipRing, T8, skin = [] }) {
         const dx = (so.b[0] + so.b[2]) / 2 - cx, dz = (so.b[1] + so.b[3]) / 2 - cz; side = Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 'x0' : 'x1') : (dz > 0 ? 'z0' : 'z1'); }
       const { f, w, d } = frameOf(b, side); tvUnit(f, w, Math.min(d, 0.75), free); }
     else if (k === 'meson' || k === 'mueble_cocina') kitchenRuns.push(it);
-    else if (k === 'lavadero') { const side = bestWall(b, false); const { f, w, d } = frameOf(b, side); const W = w - 0.012, D = d - 0.006; // holgura: sin caras coplanares con los muros
+    else if (k === 'lavadero') { const side = it.wall || bestWall(b, false); const { f, w, d } = frameOf(b, side); const W = w - 0.012, D = d - 0.006; // holgura: sin caras coplanares con los muros
       f.bx('lacW', -W / 2, W / 2, 0.08, 0.82, 0, D - 0.02, false).bx('lacG', -W / 2 + 0.01, W / 2 - 0.01, 0, 0.08, 0, D - 0.06, false);
       f.bx('steel', -W / 2, W / 2, 0.82, 0.86, 0, D, false); f.bx('blackM', -W / 2 + 0.06, W / 2 - 0.06, 0.861, 0.863, 0.06, D - 0.05, false);
-      f.tube('chrome', [0, 0.86, 0.04], [0, 1.1, 0.04], 0.012, true).tube('chrome', [0, 1.1, 0.04], [0, 1.1, 0.18], 0.011, true);
+      // v10.2: llave de pared (muro de respaldo, h 1.05) con caño corto sobre la poceta; antes era un tubo vertical desde el borde que se veía flotando
+      f.bx('chrome', -0.035, 0.035, 1.015, 1.085, 0, 0.012, true).tube('chrome', [0, 1.05, 0.012], [0, 1.05, 0.15], 0.011, true).tube('chrome', [0, 1.05, 0.15], [0, 1.0, 0.17], 0.01, true);
+      f.tube('chrome', [-0.02, 1.08, 0.04], [0.02, 1.12, 0.04], 0.006, true);
       const pa = f.w(-W / 2, 0), pb = f.w(W / 2, D); coll.push([Math.min(pa[0], pb[0]) + 0.02, Math.min(pa[1], pb[1]) + 0.02, Math.max(pa[0], pb[0]) - 0.02, Math.max(pa[1], pb[1]) - 0.02]); }
     // v10.1: aparatos del plano (antes se extraían como columnas de muro a toda altura)
-    else if (k === 'lavadora') { const side = backSide(b); const { f, w, d } = frameOf(b, side); const W = Math.min(w, 0.62) - 0.02, D = Math.min(d, 0.62) - 0.03;
+    else if (k === 'lavadora') { const side = it.wall || backSide(b); const { f, w, d } = frameOf(b, side); const W = Math.min(w, 0.62) - 0.02, D = Math.min(d, 0.62) - 0.03;
       f.rb('lacW', -W / 2, W / 2, 0.02, 0.85, 0.03, D, 0.02); // cuerpo blanco de carga frontal (≈0.85 m)
       f.bx('lacG', -W / 2 + 0.03, W / 2 - 0.03, 0.0, 0.03, 0.06, D - 0.04, false); // zócalo
       f.bx('blackM', -W / 2 + 0.04, W / 2 - 0.04, 0.74, 0.82, D, D + 0.004, true); // panel de mando

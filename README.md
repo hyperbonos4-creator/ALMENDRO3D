@@ -50,6 +50,8 @@ Las cabeceras HSTS, CSP, caché y `robots.txt` viven en el host. La recomendaci�
 
 `v9` (sobre `main` f0782f0): portón dorado/bronce por defecto (grafito en *Estilo*), sendero peatonal pintado portón → escalera/ascensor, muros del acceso y fondo de motos ajustados al PDF, hueco del terreno corregido bajo la torre. Ver `docs/QA_REPORT_v9.md`.
 
+`v10`: se elimina el lobby (ingreso directo al parqueadero; escalera y ascensor suben al piso 1). El sótano se reconstruye con las cotas exactas del vector del plano nuevo; cada llanta apoya en el piso real (QA automática ≤ 1 cm). Nueva vista *Planta sótano (plano)* con cotas. Portón dorado/bronce por defecto y paso peatonal pintado de 0,90 m se conservan de v8.1. Ver `docs/QA_REPORT_v10.md`.
+
 ## Licencia
 
 No hay una elegida. El campo `license` de un `package.json` de plantilla no cuenta: este repositorio no adopta ISC ni ninguna otra. La elige el propietario.

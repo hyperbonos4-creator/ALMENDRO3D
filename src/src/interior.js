@@ -1,4 +1,4 @@
-// Interiores fieles a PL_A002 (muros/vanos/puertas/ventanas/mobiliario del vector del PDF).
+// Interiores fieles a PL_A002 (muros/vanos/puertas/ventanas/mobiliario del vector del PDF), lobby aproximado del piso 1,
 // escaleras caminables y ascensor (pozo/cabina/puertas) — todo procedural, sin red.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -7,14 +7,12 @@ import { buildFur7 } from './fur7.js';
 import { tropicalGeo, plantMats } from './style8.js';
 
 export const H = 2.5, DOORH = 2.1, H1 = 2.5; // v4: piso 1 en N+1.00 (PL_A006) → altura libre 2.50
-// Sin piso esquemático. El piso 1 es el sótano más un entrepiso: N−2.96 + 2.50 de altura libre + 0.20 de losa = N−0.26.
-// Los pisos 2 a 6 suben de a 2.70 m. No queda un nivel vacío en el selector.
-// La rasante mas alta bajo la torre es floorY(7.84, 0.85) = -0.073498.
-// El bajo teorico es -0.073498 + 2.20 = 2.126502. El borde modelado de la losa
-// Bajo = -0.073498 + 2.20 = 2.126502. Piso 1 = bajo + 0.20 = 2.326502.
-export const LEVY = { sot: -2.96, p1: 2.326502, p2: 5.026502, p3: 7.726502, p4: 10.426502, p5: 13.126502, p6: 15.826502 };
-export const FLOORS = ['sot', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6'];
-export const FLABEL = { sot: 'S', p1: '1', p2: '2', p3: '3', p4: '4', p5: '5', p6: '6' };
+// v10: se elimina el nivel reservado para lobby. Sótano N-1.00 (plataforma del punto fijo), calle N±0.00 (p1 = nivel de calle, sin piso),
+// piso 1 de apartamentos (id interno p2) en N+1.70 y entrepiso típico 2.70 → p2..p7 = pisos 1..6.
+export const LEVY = { sot: -1.0, p1: 0.0, p2: 1.7, p3: 4.4, p4: 7.1, p5: 9.8, p6: 12.5, p7: 15.2 };
+export const FLOORS = ['sot', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
+export const FLABEL = { sot: 'S', p1: 'C', p2: '1', p3: '2', p4: '3', p5: '4', p6: '5', p7: '6' };
+export const FLN = (id) => (id === 'sot' || id === 'p1' ? 0 : +id.slice(1) - 1); // número de piso visible
 
 // ---------- geometría con color por vértice y UV mundo (triplanar simple) ----------
 class GB {
@@ -293,7 +291,7 @@ export function buildWorld(ctx) {
   const APTTYPE = { '01': 'Tipo 1', '02': 'Tipo 1', '03': 'Tipo 2', '04': 'Tipo 3' };
   const aptOfDoor = (d) => { const r = R.get(d.ra)?.apt ? R.get(d.ra) : R.get(d.rb); return r?.apt; };
   function plaques(levelId, parent) {
-    const fl = +levelId.slice(1);
+    const fl = FLN(levelId);
     for (const d of I.doors.filter((q) => q.entry)) {
       const apt = aptOfDoor(d); if (!apt) continue;
       const t = textTex([{ t: String(fl * 100 + APTN[apt]), s: 88, w: 700, c: '#f4efe6' }, { t: 'APTO · ' + APTTYPE[apt].toUpperCase(), s: 26, w: 600, c: '#c9a77c', ls: 3 }], { w: 300, h: 200, y0: 22, bg: '#1d1f23', r: 14 });
@@ -325,7 +323,7 @@ export function buildWorld(ctx) {
     sl.add(mesh(SB.geo(), MI.alu), mesh(SG.geo(), MI.glass, false)); parent.add(sl);
     // baranda de vidrio en el borde del balcón
     const bx = Math.min(...BAL.o.map((p) => p[0])) + 0.03, bz0 = Math.min(...BAL.o.map((p) => p[1])), bz1 = Math.max(...BAL.o.map((p) => p[1]));
-    // Fotos: parales blancos, 4 cables y pasamanos plano amarillo-oro (el video pide cobre; mandan las fotos).
+    // v8 (ref_02/ref_03): parales redondos blancos, 5 cables de acero y pasamanos plano amarillo.
     // Van en el grupo exterior del nivel (no en el interior) para que el balcón se vea también desde la vista orbital.
     const ext = new THREE.Group(); ext.name = 'balExt'; ext.position.y = LEVY[levelId]; lv(levelId).g.add(ext); const parent0 = parent; parent = ext;
     // vano V-7 visto desde afuera (solo cuando el interior está oculto): vidrio oscuro + marco negro
@@ -335,8 +333,8 @@ export function buildWorld(ctx) {
     { const n = Math.max(2, Math.round((bz1 - bz0) / 1.05)); const posts = [];
       for (let i = 0; i <= n; i++) { const z = bz0 + 0.04 + (bz1 - bz0 - 0.08) * i / n; const c = new THREE.CylinderGeometry(0.021, 0.021, 0.985, 14); c.translate(bx, 0.4925, z); posts.push(c.toNonIndexed()); }
       parent.add(mesh(mergeGeometries(posts), MI.wpost));
-      const CB = new GB(); for (const y of [0.22, 0.40, 0.58, 0.76]) CB.box(bx - 0.003, bx + 0.003, y - 0.003, y + 0.003, bz0 + 0.02, bz1 - 0.02, C('#c9ced3'));
-      CB.box(bx - 0.035, bx + 0.035, 0.985, 1.015, bz0, bz1, C('#e0b04a')); parent.add(mesh(CB.geo(), MI.railVC)); // 4 cables + pasamanos amarillo-oro (fotos)
+      const CB = new GB(); for (const y of [0.16, 0.31, 0.46, 0.61, 0.76]) CB.box(bx - 0.003, bx + 0.003, y - 0.003, y + 0.003, bz0 + 0.02, bz1 - 0.02, C('#c9ced3'));
+      CB.box(bx - 0.035, bx + 0.035, 0.985, 1.015, bz0, bz1, C('#e0a526')); parent.add(mesh(CB.geo(), MI.railVC)); // cables + pasamanos amarillo en una sola malla
       // matera con planta tropical y silla blanca (ilustrativas, como en los renders)
       const px = bx + 0.3, pz = bz0 + 0.32, PB = new GB(1, 1), oct = (r) => [...Array(10)].map((_, i) => [px + r * Math.cos(i * Math.PI / 5), pz + r * Math.sin(i * Math.PI / 5)]);
       PB.prism(oct(0.15), 0, 0.12, C('#d68f4f')); PB.prism(oct(0.152), 0.12, 0.2, C('#f1ece2')); PB.prism(oct(0.154), 0.2, 0.3, C('#2f6b5a')); PB.prism(oct(0.14), 0.3, 0.31, C('#3a2c20'));
@@ -357,10 +355,10 @@ export function buildWorld(ctx) {
 
   // ---------- señalización de hall/escalera por piso ----------
   function hallSigns(levelId, parent) {
-    const fl = levelId === 'p1' ? 1 : levelId === 'sot' ? 0 : +levelId.slice(1); const y0 = LEVY[levelId] - LEVY[levelId];
+    const fl = FLN(levelId); const y0 = LEVY[levelId] - LEVY[levelId];
     const name = levelId === 'sot' ? 'SÓTANO' : 'PISO ' + fl;
     const add = (tex, w, h, x, y, z, nx, nz) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.1, transparent: true })); m.position.set(x, y0 + y, z); m.lookAt(x + nx, y0 + y, z + nz); parent.add(m); return m; };
-    if (/^p[1-6]$/.test(levelId)) {
+    if (/^p[2-7]$/.test(levelId)) {
       const t = textTex([{ t: String(fl), s: 150, w: 300, c: '#f4efe6' }, { t: 'PISO', s: 34, w: 600, c: '#c9a77c', ls: 10 }, { t: `APTOS ${fl}01 · ${fl}02 · ${fl}03 · ${fl}04`, s: 24, w: 500, c: '#d8d2c6', ls: 2 }], { w: 400, h: 330, y0: 14, bg: '#1d1f23', r: 18 });
       add(t, 0.48, 0.4, 21.92, 1.35, 8.705, 0, 1); // muro norte de la franja superior del hall, entre las ventanas altas
       const d1 = textTex([{ t: `← ${fl}04   ·   ${fl}03 ↑`, s: 40, w: 600, c: '#f4efe6' }], { w: 512, h: 72, bg: '#1d1f23', r: 10 });
@@ -369,7 +367,7 @@ export function buildWorld(ctx) {
       add(d2, 0.42, 0.085, 21.92, 1.85, 8.705, 0, 1);
     }
     // escalera
-    const up = levelId === 'p6' ? 'Cubierta: fuera del recorrido' : `↑ ${levelId === 'sot' ? 'Piso 1' : 'Piso ' + (fl + 1)}`;
+    const up = levelId === 'p7' ? 'Cubierta: fuera del recorrido' : `↑ ${levelId === 'sot' ? 'Piso 1' : 'Piso ' + (fl + 1)}`;
     const dn = levelId === 'sot' ? '' : `↓ ${fl === 1 ? 'Sótano' : 'Piso ' + (fl - 1)}`;
     const ts = textTex([{ t: 'ESCALERA · ' + name, s: 34, w: 700, c: '#f4efe6', ls: 2 }, { t: up + (dn ? '    ' + dn : ''), s: 28, w: 500, c: '#c9a77c' }], { w: 600, h: 110, y0: 8, bg: '#1d1f23', r: 12 });
     add(ts, 0.62, 0.115, 21.0, 2.2, 9.71, 0, 1);
@@ -379,39 +377,32 @@ export function buildWorld(ctx) {
   }
 
   // ====================== ESCALERA EN U (PL_A002: 2 tramos × 7 huellas 0,30 + descanso 1,00) ======================
-  const ST = I.stair;
-  // Misma planta en U (tramo de 2.10 m). El numero de huellas cabe en ese largo.
-  // 16 contrahuellas entre pisos de 2.70 m (0.16875 m). Del sotano al piso 1,
-  // 5.3015 m en 30 contrahuellas iguales de 0.1767 m, huella 0.15 m.
-  function stairPair(a, b, nRiser = 16) {
-    const nt = nRiser / 2 - 1;
-    const tw = (ST.x1 - ST.x0) / nt;
-    const hr = (b - a) / nRiser;
-    return { a, b, hr, m: a + (nRiser / 2) * hr, nt, tw };
+  const ST = I.stair; const NT = 7, TW = 0.3;
+  function stairPair(a, b) { // y(a) → y(b), 16 contrahuellas
+    const hr = (b - a) / 16, m = a + 8 * hr; return { a, b, hr, m };
   }
-  function stairY(P, x, z) {
-    const NT = P.nt, TW = P.tw;
+  function stairY(P, x, z) { // altura de pisada en la escalera del par P (o null)
     if (x < ST.x0 || x > ST.xl || z < ST.z0 || z > ST.z1) return null;
     if (x >= ST.x1) return P.m;
     if (z < ST.zm) { const k = Math.min(NT, Math.floor((x - ST.x0) / TW) + 1); return P.a + k * P.hr; }
     const kk = Math.min(NT, Math.floor((ST.x1 - x) / TW) + 1); return P.m + kk * P.hr;
   }
   function stairGeo(P) {
-    const B = new GB(1.2, 1.2); const Rl = new GB(), tc = C('#d8d6d0'), rc = C('#1a1a1a'), D = new GB(), sc = C('#333333');
-    // Huella abierta: concreto claro de 5 cm en la cota de la planta (7 × 0,30 m) y zanca de acero #333.
-    // La escalera sigue siendo la U del plano, no la zanca única del video.
-    const TT = 0.05, NT = P.nt, TW = P.tw;
-    for (let k = 1; k <= NT; k++) { const xa = ST.x0 + (k - 1) * TW, xb = xa + TW, y = P.a + k * P.hr; B.box(xa, xb + 0.015, y - TT, y, ST.z0, ST.zm - 0.04, tc); }
-    B.box(ST.x1, ST.xl, P.m - TT, P.m, ST.z0, ST.z1, tc);
-    for (let kk = 1; kk <= NT; kk++) { const xb = ST.x1 - (kk - 1) * TW, xa = xb - TW, y = P.m + kk * P.hr; B.box(xa - 0.015, xb, y - TT, y, ST.zm + 0.04, ST.z1, tc); }
-    const yA0 = P.a + P.hr - 0.1, yA1 = P.m - 0.1, yB1 = P.b - P.hr - 0.1;
-    D.bar([ST.x0, yA0, ST.z0 + 0.08], [ST.x1, yA1, ST.z0 + 0.08], 0.042, sc);
-    D.bar([ST.x0, yA0, ST.zm - 0.1], [ST.x1, yA1, ST.zm - 0.1], 0.042, sc);
-    D.bar([ST.x1, yA1, ST.zm + 0.1], [ST.x0 + TW, yB1, ST.zm + 0.1], 0.042, sc);
-    D.bar([ST.x1, yA1, ST.z1 - 0.08], [ST.x0 + TW, yB1, ST.z1 - 0.08], 0.042, sc);
-    D.bar([ST.x1, P.m - 0.1, ST.z0 + 0.08], [ST.xl - 0.05, P.m - 0.1, ST.z0 + 0.08], 0.042, sc);
-    D.bar([ST.x1, P.m - 0.1, ST.z1 - 0.08], [ST.xl - 0.05, P.m - 0.1, ST.z1 - 0.08], 0.042, sc);
-    D.bar([ST.xl - 0.06, P.m - 0.1, ST.z0 + 0.08], [ST.xl - 0.06, P.m - 0.1, ST.z1 - 0.08], 0.042, sc);
+    let B = new GB(1.2, 1.2); const Rl = new GB(), tc = C('#ffffff'), rc = C('#ffffff'), D = new GB(), dc = C('#ffffff');
+    // v8: huella de concreto claro (5 cm, con nariz) sobre cuerpo grafito; la contrahuella queda retrasada 3 cm (ref_04/ref_10).
+    // El volumen total de cada escalón es el mismo de v7 (sin huecos): cuerpo desplazado 3 cm + relleno bajo la nariz siguiente.
+    const TT = 0.05, SB = 0.03;
+    D.box(ST.x0 + 0.002, ST.x0 + SB, P.a - 0.16, P.a - 0.002, ST.z0 + 0.002, ST.zm - 0.03, dc);
+    for (let k = 1; k <= NT; k++) { const xa = ST.x0 + (k - 1) * TW, xb = xa + TW, y = P.a + k * P.hr; B.box(xa, xb, y - TT, y, ST.z0, ST.zm - 0.03, tc);
+      D.box(xa + SB, xb + SB, y - P.hr - 0.16, y - TT, ST.z0 + 0.002, ST.zm - 0.03, dc); D.box(xb, xb + SB, y - TT, y, ST.z0 + 0.002, ST.zm - 0.03, dc); }
+    B.box(ST.x1, ST.xl, P.m - TT, P.m, ST.z0, ST.z1, tc); D.box(ST.x1 + SB, ST.xl, P.m - 0.16, P.m - TT, ST.z0 + 0.002, ST.zm - 0.03, dc); D.box(ST.x1, ST.xl, P.m - 0.16, P.m - TT, ST.zm - 0.03, ST.z1, dc);
+    D.box(ST.x1 - SB, ST.x1, P.m - 0.16, P.m, ST.zm + 0.03, ST.z1, dc);
+    for (let kk = 1; kk <= NT; kk++) { const xb = ST.x1 - (kk - 1) * TW, xa = xb - TW, y = P.m + kk * P.hr; B.box(xa, xb, y - TT, y, ST.zm + 0.03, ST.z1, tc);
+      D.box(xa - SB, xb - SB, y - P.hr - 0.16, y - TT, ST.zm + 0.03, ST.z1, dc); if (kk < NT) D.box(xa - SB, xa, y - TT, y, ST.zm + 0.03, ST.z1, dc); }
+    // losa inclinada bajo cada tramo (intradós)
+    const soffit = (xa, ya, xb, yb, z0, z1) => { const n = [-(yb - ya), (xb - xa), 0]; const L = Math.hypot(n[0], n[1]); n[0] /= L; n[1] /= L; B.quad([xa, ya, z0], [xb, yb, z0], [xb, yb, z1], [xa, ya, z1], [-n[0], -n[1], 0], tc);
+      B.quad([xa, ya, z0], [xb, yb, z0], [xb, yb + 0.1, z0], [xa, ya + 0.1, z0], [0, 0, -1], tc); B.quad([xa, ya, z1], [xb, yb, z1], [xb, yb + 0.1, z1], [xa, ya + 0.1, z1], [0, 0, 1], tc); }; // v8: 0,10 (no invade la huella clara)
+    { const B0 = B; B = D; soffit(ST.x0, P.a - 0.16, ST.x1, P.m - 0.16, ST.z0, ST.zm - 0.03); soffit(ST.x1, P.m - 0.16, ST.x0, P.b - 0.16 - P.hr, ST.zm + 0.03, ST.z1); B = B0; }
     // pasamanos en el ojo de la escalera (eje z = zm) + balaustres anclados a cada huella
     const hy = 0.9; const p0 = [ST.x0, P.a + P.hr + hy, ST.zm - 0.05], p1 = [ST.x1, P.m + hy, ST.zm - 0.05], q0 = [ST.x1, P.m + hy, ST.zm + 0.05], q1 = [ST.x0, P.b - P.hr + hy, ST.zm + 0.05];
     Rl.bar(p0, p1, 0.022, rc); Rl.bar(q0, q1, 0.022, rc); Rl.bar(p1, q0, 0.022, rc);
@@ -445,17 +436,17 @@ export function buildWorld(ctx) {
     for (const [z, xa, xb] of (top ? [[ST.z0 - 0.02, ST.x0, ST.xl], [ST.z1, ST.x0, ST.x1]] : [[ST.z1, ST.x0, ST.x1]])) { G.box(xa, xb, y0 + 0.05, y0 + 1.0, z - 0.006, z + 0.006, w); B.box(xa, xb, y0 + 1.0, y0 + 1.05, z - 0.025, z + 0.025, w); for (let x = xa; x <= xb + 0.01; x += (xb - xa) / 3) B.box(x - 0.02, x + 0.02, y0, y0 + 1.0, z - 0.02, z + 0.02, w); }
     parent.add(mesh(B.geo(), MI.rail), mesh(G.geo(), MI.glass, false));
   }
-  const PAIRS = []; for (let i = 0; i < FLOORS.length - 1; i++) { const lo = FLOORS[i], hi = FLOORS[i + 1]; PAIRS.push({ lo, hi, ...stairPair(LEVY[lo], LEVY[hi], lo === 'sot' ? 30 : 16) }); }
+  const PAIRS = []; for (let i = 0; i < FLOORS.length - 1; i++) PAIRS.push({ lo: FLOORS[i], hi: FLOORS[i + 1], ...stairPair(LEVY[FLOORS[i]], LEVY[FLOORS[i + 1]]) });
 
   // ====================== ASCENSOR (v7: cabina física, pozo con revestimiento, puertas de piso en cada nivel) ======================
   const SH = I.shaft, CB = I.cab, ED = I.edoor; // pozo 2.45×1.70; cabina; vano de puerta x 19.207–19.355, z 10.192–11.192
   const CI = { x0: CB[0] + 0.06, x1: 19.13, z0: SH[1] + 0.1, z1: SH[3] - 0.1 }; // v7: holgura de 6 cm con el pozo para el revestimiento
   const HC = 2.3; // altura libre de cabina
   const EZC = (ED[2] + ED[3]) / 2, EHW = (ED[3] - ED[2]) / 2 - 0.02; // centro y semiancho libre del vano (con retornos de 2 cm)
-  const EV = { y: LEVY.p1, fi: 1, target: null, q: [], state: 'idle', door: 0, timer: 0, t: 0, dur: 0, y0: 0, y1: 0, dir: 0, v: 0, curLabel: '1' };
+  const EV = { y: LEVY.p2, fi: 1, target: null, q: [], state: 'idle', door: 0, timer: 0, t: 0, dur: 0, y0: 0, y1: 0, dir: 0, v: 0, curLabel: '1' };
   const MV = {
     sat: std({ vertexColors: true, metalness: 0.6, roughness: 0.36 }), // acero satinado (sin textura rayada → sin moiré)
-    door: std({ color: 0xd5d8dc, metalness: 0.78, roughness: 0.28 }), // acero inoxidable cepillado
+    door: std({ color: 0xc3c8cd, metalness: 0.62, roughness: 0.32 }),
     matte: std({ vertexColors: true, roughness: 0.85 }),
     shaft: std({ color: 0x8c8e8f, roughness: 0.95 }),
     led: new THREE.MeshBasicMaterial({ color: 0xfff7ea, toneMapped: false }),
@@ -468,7 +459,7 @@ export function buildWorld(ctx) {
   const indMat = new THREE.MeshBasicMaterial({ map: indT, toneMapped: false });
   // botonera de cabina (textura dinámica; las teclas se detectan por UV con el raycaster)
   const panC = document.createElement('canvas'); panC.width = 256; panC.height = 704; const panT = new THREE.CanvasTexture(panC); panT.colorSpace = THREE.SRGBColorSpace;
-  const KEYS = [['p6', 0, 0], ['p5', 1, 0], ['p4', 0, 1], ['p3', 1, 1], ['p2', 0, 2], ['p1', 1, 2], ['sot', 0, 3], ['open', 1, 3], ['close', 0, 4]];
+  const KEYS = [['p7', 0, 0], ['p6', 1, 0], ['p5', 0, 1], ['p4', 1, 1], ['p3', 0, 2], ['p2', 1, 2], ['sot', 0, 3], ['open', 0, 4], ['close', 1, 4]];
   const keyRect = (c, r) => [40 + c * 100, 120 + r * 104, 76, 76];
   EV.drawPanel = (lit) => { const g = panC.getContext('2d'); const gr = g.createLinearGradient(0, 0, 256, 0); gr.addColorStop(0, '#8f969c'); gr.addColorStop(0.5, '#cfd4d8'); gr.addColorStop(1, '#8f969c'); g.fillStyle = gr; g.fillRect(0, 0, 256, 704);
     g.fillStyle = '#07090c'; g.fillRect(36, 18, 184, 76); g.fillStyle = '#ff5a36'; g.font = '700 52px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -536,7 +527,7 @@ export function buildWorld(ctx) {
     if (i === FLOORS.length - 1) Sh.box(SH[0] + e, ED[0] - e, yTop, yTop + 0.1, SH[1] + e, SH[3] - e, k); // losa de sala de máquinas
     g.add(mesh(Sh.geo(), MV.shaft, false, true));
     // marco (retornos que cubren el espesor del muro, arquitrabe a ras de la cara del hall), umbral y botonera
-    const F = new GB(), cS = C('#1a1a1a'), cD = C('#3a3e43'), xa = ED[0] - 0.002, xb = ED[1], ja = 0.09;
+    const F = new GB(), cS = C('#c4c9ce'), cD = C('#3a3e43'), xa = ED[0] - 0.002, xb = ED[1], ja = 0.09;
     F.box(xa, xb, 0, DOORH, ED[2] - 0.0, ED[2] + 0.02, cS); F.box(xa, xb, 0, DOORH, ED[3] - 0.02, ED[3], cS); F.box(xa, xb, DOORH, DOORH + 0.02, ED[2], ED[3], cS);
     F.box(xb, xb + 0.018, 0, DOORH + 0.02 + ja, ED[2] - ja, ED[2] + 0.02, cS); F.box(xb, xb + 0.018, 0, DOORH + 0.02 + ja, ED[3] - 0.02, ED[3] + ja, cS); F.box(xb, xb + 0.018, DOORH + 0.02, DOORH + 0.02 + ja, ED[2] - ja, ED[3] + ja, cS);
     F.box(xa, xb + 0.03, -0.01, 0.004, ED[2] + 0.02, ED[3] - 0.02, cD); // umbral de aluminio
@@ -560,20 +551,53 @@ export function buildWorld(ctx) {
   };
   EV.setCallLamp = (id, on) => { const Ld = LAND[id]; if (Ld) Ld.bm.color.set(on ? 0xffb547 : 0xd8dde2); };
 
+  // ====================== PISO 1: lobby aproximado (plancha 1/6 faltante) ======================
+  function lobby(parent) {
+    const B = new GB(1.5, 1.5); const col = C('#eeece8');
+    const wallsG = mergeGeometries(I.f1walls.map((p) => { const g = new THREE.ExtrudeGeometry(shapeOf(p), { depth: H1, bevelEnabled: false, curveSegments: 1 }); g.rotateX(-Math.PI / 2); g.clearGroups(); return g.index ? g.toNonIndexed() : g; }));
+    const pc = wallsG.attributes.position.count; const cc = new Float32Array(pc * 3); for (let i = 0; i < pc; i++) { cc[i * 3] = col.r; cc[i * 3 + 1] = col.g; cc[i * 3 + 2] = col.b; } wallsG.setAttribute('color', new THREE.BufferAttribute(cc, 3));
+    const uv = wallsG.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 1.5, uv.getY(i) / 1.5);
+    parent.add(mesh(wallsG, MI.plaster));
+    const fg = floorGeo(I.lobby, 0.006, T8.tileL, null); parent.add(mesh(fg, std({ map: T8.tileL, roughness: 0.22 }), false)); // v8: porcelanato claro como el hall de los renders
+    // puerta automática de vidrio (acceso desde el paso peatonal)
+    const x = 7.86; const F = new GB(), Gf = new GB(), w = C('#ffffff');
+    F.box(x - 0.04, x + 0.04, 2.3, 2.42, 4.069, 6.413, w); for (const z of [4.069, 4.7, 6.1, 6.373]) F.box(x - 0.04, x + 0.04, 0, 2.3, z, z + 0.04, w); F.box(x - 0.04, x + 0.04, 2.42, H1, 4.069, 6.413, C('#d9d6cf'));
+    Gf.box(x - 0.006, x + 0.006, 0, 2.3, 4.109, 4.7, w); Gf.box(x - 0.006, x + 0.006, 0, 2.3, 6.14, 6.373, w);
+    parent.add(mesh(F.geo(), MI.alu), mesh(Gf.geo(), MI.glass, false));
+    const pL = new GB(), pR = new GB(); pL.box(x + 0.01, x + 0.03, 0.02, 2.29, 4.74, 5.42, w); pR.box(x + 0.01, x + 0.03, 0.02, 2.29, 5.38, 6.06, w);
+    const gL = mesh(pL.geo(), MI.glass, false), gR = mesh(pR.geo(), MI.glass, false); gL.userData.dyn = gR.userData.dyn = true; parent.add(gL, gR);
+    const ent = { g: [gL, gR], a: 0, cx: x, cz: 5.4 };
+    ent.set = (a) => { ent.a = a; gL.position.z = -0.62 * a; gR.position.z = 0.62 * a; };
+    ent.seg = () => (ent.a > 0.85 ? null : [x + 0.02, 4.7, x + 0.02, 6.1]);
+    // letreros
+    const t = textTex([{ t: 'EDIFICIO ALMENDRA', s: 46, w: 700, c: '#f4efe6', ls: 6 }, { t: 'LOBBY · PISO 1', s: 26, w: 600, c: '#c9a77c', ls: 6 }], { w: 640, h: 130, y0: 12, bg: '#1d1f23', r: 14 });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.284), new THREE.MeshStandardMaterial({ map: t, roughness: 0.4 })); m.position.set(17.88, 2.1, 5.24); m.rotation.y = -Math.PI / 2; parent.add(m);
+    const t2 = textTex([{ t: 'Piso 1 · distribución sin plano', s: 30, w: 700, c: '#ffd59a' }, { t: '(plancha 1/6 faltante: muros del lobby aproximados)', s: 22, w: 500, c: '#e8e2d6' }], { w: 640, h: 96, y0: 10, bg: 'rgba(29,31,35,0.92)', r: 12 });
+    for (const [px, pz, ry] of [[12.3, 6.405, Math.PI], [12.3, 4.077, 0], [16.745, 7.6, Math.PI / 2], [17.905, 7.6, -Math.PI / 2]]) { const q = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.135), new THREE.MeshBasicMaterial({ map: t2, transparent: true })); q.position.set(px, 1.6, pz); q.rotation.y = ry; parent.add(q); }
+    // cielo raso del lobby y luminarias
+    /* v7: cielo raso sin cubrir el hueco de la escalera (antes I.lobbyAll tapaba la vista al subir) */ const cg = floorGeo(I.lobby, H1 - 0.005, null, null); const ce = mesh(cg, MI.ceil, true, true); parent.add(ce);
+    const lg = []; for (const [lx, lz] of [[9.5, 5.24], [11.8, 5.24], [14.1, 5.24], [16.4, 5.24], [17.3, 7.6], [20.4, 10.7], [20.5, 9.2], [22.3, 12.2]]) { const c = new THREE.CircleGeometry(0.14, 20); c.rotateX(Math.PI / 2); c.translate(lx, H1 - 0.012, lz); lg.push(c.toNonIndexed()); }
+    parent.add(mesh(mergeGeometries(lg), MI.lamp, false, false));
+    // buzones (ilustrativo)
+    const Bx = new GB(); Bx.box(16.62, 16.745, 0.9, 1.6, 4.6, 6.1, C('#3b3d42')); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) Bx.box(16.6, 16.62, 0.95 + j * 0.16, 1.07 + j * 0.16, 4.65 + i * 0.36, 4.97 + i * 0.36, C('#9aa0a6'));
+    parent.add(mesh(Bx.geo(), MI.furn));
+    return { ent, ceil: ce };
+  }
 
   // ====================== ensamblar por nivel ======================
   const LEV = {};
   for (const id of FLOORS) {
     const l = lv(id); const int = new THREE.Group(); int.name = 'int_' + id; int.position.y = LEVY[id]; l.g.add(int);
     const E = { id, int, doors: [], y: LEVY[id] };
-    if (/^p[1-6]$/.test(id)) {
+    if (/^p[2-7]$/.test(id)) {
       TIP.meshes.forEach((m) => { const c = new THREE.Mesh(m.geometry, m.material); c.castShadow = m.castShadow; c.receiveShadow = m.receiveShadow; int.add(c); });
       { const fg = new THREE.Group(); fg.name = 'fur'; int.add(fg); FUR.meshes.forEach((m) => { const c = new THREE.Mesh(m.geometry, m.material); c.castShadow = m.castShadow; c.receiveShadow = m.receiveShadow; c.userData = { ...m.userData }; fg.add(c); FUR.register(c); }); }
       signs.forEach((s) => int.add(s.clone()));
       const fr = mesh(DOORFRAME, MI.frame); int.add(fr);
-      E.doors = makeDoors(id, int); plaques(id, int); E.bal = balcony(id, int); hallSigns(id, int); landing(id, int); stairGuards(int, 0, id === 'p6');
+      E.doors = makeDoors(id, int); plaques(id, int); E.bal = balcony(id, int); hallSigns(id, int); landing(id, int); stairGuards(int, 0, id === 'p7');
       E.ceil = new THREE.Group(); E.ceil.add(mesh(TIP.ceil, MI.ceil, true, true), mesh(TIP.lamps, MI.lamp, false, false)); if (TIP.cove) E.ceil.add(mesh(TIP.cove, MI.cove, false, false)); E.ceil.visible = false; int.add(E.ceil);
-    } else if (id === 'sot') { hallSigns(id, int); landing(id, int); stairEncl(int, LEVY.p1 - LEVY.sot - 0.2); const g = new THREE.Group(); int.add(g); stairGuards(g, 0); g.children.forEach((c) => { c.visible = true; }); }
+    } else if (id === 'p1') { const r = lobby(int); E.ent = r.ent; E.ceil = r.ceil; E.ceil.visible = false; hallSigns(id, int); landing(id, int); stairGuards(int, 0); stairEncl(int, LEVY.p2 - LEVY.p1 - 0.2); }
+    else if (id === 'sot') { hallSigns(id, int); landing(id, int); /* v10: el cerramiento de la caja lo construye sot10.js */ const g = new THREE.Group(); int.add(g); stairGuards(g, 0); g.children.forEach((c) => { c.visible = true; }); }
     // escalera hacia el nivel superior (pertenece a este nivel)
     const P = PAIRS.find((p) => p.lo === id); if (P) stairGeo(P).forEach((m) => { m.position.y = -LEVY[id]; int.add(m); });
     LEV[id] = E;
@@ -582,7 +606,7 @@ export function buildWorld(ctx) {
   {
     const t = textTex([{ t: 'ACCESO A CUBIERTA', s: 34, w: 700, c: '#f4efe6', ls: 3 }, { t: 'fuera del recorrido', s: 26, w: 500, c: '#c9a77c' }], { w: 512, h: 100, y0: 10, bg: '#1d1f23', r: 10 });
     const B = new GB(), w = C('#ffffff'); B.box(ST.x0 - 0.02, ST.x0 + 0.02, 0, 1.0, ST.z0, ST.zm, w); B.box(ST.x0 - 0.03, ST.x0 + 0.03, 1.0, 1.05, ST.z0, ST.zm, w);
-    LEV.p6.int.add(mesh(B.geo(), MI.rail)); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.098), new THREE.MeshBasicMaterial({ map: t })); m.position.set(ST.x0 - 0.035, 0.8, (ST.z0 + ST.zm) / 2); m.rotation.y = -Math.PI / 2; LEV.p6.int.add(m);
+    LEV.p7.int.add(mesh(B.geo(), MI.rail)); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.098), new THREE.MeshBasicMaterial({ map: t })); m.position.set(ST.x0 - 0.035, 0.8, (ST.z0 + ST.zm) / 2); m.rotation.y = -Math.PI / 2; LEV.p7.int.add(m);
     const B2 = new GB(); B2.box(ST.x0 - 0.02, ST.x0 + 0.02, 0, 1.0, ST.zm, ST.z1, w); LEV.sot.int.add(mesh(B2.geo(), MI.rail));
   }
 
@@ -599,13 +623,13 @@ export function buildWorld(ctx) {
     if (s[0] > ST.x1 - 0.01 && Math.abs(s[1] - ST.z1) < 0.02 && Math.abs(s[3] - ST.z1) < 0.02) continue;
     const w = C('#ffffff'); const ax = Math.abs(s[2] - s[0]) > Math.abs(s[3] - s[1]); const [a0, a1] = ax ? [Math.min(s[0], s[2]), Math.max(s[0], s[2])] : [Math.min(s[1], s[3]), Math.max(s[1], s[3])];
     if (ax) { vG.box(a0, a1, 0.05, 1.0, mz - 0.006, mz + 0.006, w); vB.box(a0, a1, 1.0, 1.05, mz - 0.025, mz + 0.025, w); } else { vG.box(mx - 0.006, mx + 0.006, 0.05, 1.0, a0, a1, w); vB.box(mx - 0.025, mx + 0.025, 1.0, 1.05, a0, a1, w); } }
-  if (vB.p.length) for (const id of ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']) { LEV[id].int.add(mesh(vB.geo(), MI.rail), mesh(vG.geo(), MI.glass, false)); }
+  if (vB.p.length) for (const id of ['p2', 'p3', 'p4', 'p5', 'p6', 'p7']) { LEV[id].int.add(mesh(vB.geo(), MI.rail), mesh(vG.geo(), MI.glass, false)); }
   const elevSegs = [[SH[0], CI.z0, SH[2], CI.z0], [SH[0], CI.z1, SH[2], CI.z1], [SH[0], SH[1], SH[0], SH[3]], [CI.x0, SH[1], CI.x0, SH[3]]];
   return {
     MI, LEV, EV, cab, EXT, PAIRS, stairY, ST, CI, ED, SH, CB, LAND, roomSign,
     seg: { tip: [...faceSegs, ...winSegs, ...skinSegs, ...furSegs, ...balSegs, ...voidSegs], stair: stairSegs, elev: elevSegs,
       p1: [...segsOfPolys(I.f1walls), ...voidSegs], sotExtra: [] },
-    walk: { tip: [...I.slab, BAL], p1: [...I.slab, BAL] },
+    walk: { tip: [...I.slab, BAL], p1: I.lobby },
     TIP, FUR, rooms: I.rooms,
   };
 }

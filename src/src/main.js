@@ -3,11 +3,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeTextures } from './tex.js';
-import { buildWorld, LEVY, FLOORS, FLABEL, pipH } from './interior.js';
+import { buildWorld, LEVY, FLOORS, FLABEL, FLN, pipH } from './interior.js';
+import { buildSotano, floorY as sotY, inSot, inOuter, SL, SPOTS as SOT_SPOTS, DEMO_SPOT, fitPose, MOTOS, wheelLocal } from './sot10.js';
+import { SD } from './sot10data.js';
 import { carParts, motoParts, vehicleMaterials, mergeVehicles, CAR_TYPES } from './vehicles.js';
 import { textTex } from './tex.js';
 import { makeTex8, gateTexture, signTexture, facadeModel, buildFacadeFloor, segBox, plantMats, tropicalGeo, ivyGeo, worldUV } from './style8.js';
-import { floorY, SPOTS as NEW_SPOTS, MOTO_Z as NEW_MOTO_Z, MOTO_X, WALLS, COLS, ROOMS, emtCenterline, PULL_BOXES, EMT_OD, CLEAR_H } from './sotanoPlan.js';
 
 const S = window.__SCENE__, TEX = window.__TEX__;
 const $ = (q) => document.querySelector(q);
@@ -16,32 +17,8 @@ const fmt = (n) => n == null ? '—' : 'COP ' + n.toLocaleString('es-CO');
 
 // ---------- renderer / scene ----------
 const canvas = $('#c');
-function glFallback(msg) {
-  let el = document.getElementById('gl-fallback');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'gl-fallback';
-    el.setAttribute('role', 'alert');
-    el.style.cssText = 'position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:24px;background:#07090d;color:#e8edf3;font:16px/1.45 system-ui,Segoe UI,sans-serif';
-    document.body.appendChild(el);
-  }
-  el.innerHTML = `<div style="max-width:520px"><h2 style="font-size:20px;margin-bottom:10px">No se pudo mostrar el modelo 3D</h2><p>${msg}</p><p style="margin-top:12px"><button type="button" onclick="location.reload()" style="background:#35d3ff;color:#061018;border:0;border-radius:8px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer">Recargar</button></p></div>`;
-}
-let renderer;
-let glLost = false;
-try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-  if (!renderer.getContext()) throw new Error('sin contexto');
-} catch (err) {
-  glFallback('Este navegador no tiene WebGL disponible, o la aceleración gráfica está desactivada. Prueba con Chrome o Edge actualizado, activa la aceleración por hardware y recarga la página.');
-  throw err;
-}
-canvas.addEventListener('webglcontextlost', (ev) => {
-  ev.preventDefault();
-  glLost = true;
-  glFallback('Se perdió el contexto gráfico: la GPU dejó de responder. Recarga la página para volver a ver el edificio.');
-}, false);
-canvas.addEventListener('webglcontextrestored', () => { location.reload(); }, false);
+// v6: sin preserveDrawingBuffer (costoso); resolución limitada y adaptable (ver QUAL)
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -100,8 +77,6 @@ const texAsph = canvasTex(256, 256, (g, w, h) => {
 const loader = new THREE.TextureLoader();
 const texDoor = loader.load(TEX.door); texDoor.colorSpace = THREE.SRGBColorSpace; texDoor.anisotropy = 8;
 const texSign = loader.load(TEX.sign); texSign.colorSpace = THREE.SRGBColorSpace; texSign.anisotropy = 8;
-const texPuerta = loader.load(TEX.puerta); texPuerta.colorSpace = THREE.SRGBColorSpace; texPuerta.anisotropy = 8;
-const texLetrero = loader.load(TEX.letrero); texLetrero.colorSpace = THREE.SRGBColorSpace; texLetrero.anisotropy = 8;
 
 // ---------- materials (cuadro de materiales PL_A006) ----------
 const M = {
@@ -116,7 +91,6 @@ const M = {
   drip: new THREE.MeshStandardMaterial({ color: 0xcfcac0, roughness: 0.6 }),             // 9 cortagoteras
   roof: new THREE.MeshStandardMaterial({ color: 0xffffff, map: texRoof, metalness: 0.4, roughness: 0.5 }), // 10 cubierta termoacústica
   conc: new THREE.MeshStandardMaterial({ color: 0x9c9a94, roughness: 0.95 }),
-  park: new THREE.MeshStandardMaterial({ color: 0x8c8c8c, roughness: 0.92 }),
   asph: new THREE.MeshStandardMaterial({ color: 0xffffff, map: texAsph, roughness: 0.95 }),
   f1: new THREE.MeshStandardMaterial({ color: 0xffffff, map: texHatch, roughness: 0.9, transparent: true, opacity: 0.86 }),
   ground: new THREE.MeshStandardMaterial({ color: 0x1b2027, roughness: 1 }),
@@ -128,7 +102,7 @@ texRoof.repeat.set(2, 1);
 const T8 = makeTex8();
 const st8 = (c, map, r = 0.9, o = {}) => new THREE.MeshStandardMaterial({ color: c, map, roughness: r, ...o });
 const F8 = {
-  render: st8(0xa69382, T8.stucco, 0.88),   // marco moca/taupe #A69382 (fotos y PL_A006, café)
+  render: st8(0xa9845c, T8.stucco, 0.88),   // revoque café/caramelo (marcos, pilastras, antepecho)
   grey: st8(0xb5b1aa, T8.rough, 0.95),      // gris texturizado (graniplast)
   wood: st8(0xffdfa6, T8.slats, 0.72, { normalMap: T8.slatsN, normalScale: new THREE.Vector2(1.1, 1.1) }),      // listones de madera clara (pino)
   woodD: st8(0xffdfa6, T8.slats, 0.72, { normalMap: T8.slatsN, normalScale: new THREE.Vector2(1.1, 1.1) }),      // listones más oscuros del costado azul (ref_01)
@@ -142,8 +116,8 @@ const F8 = {
   stuccoVC: st8(0xffffff, T8.stucco, 0.87, { vertexColors: true }), // v8: revoques fundidos con color por vértice
   slatVC: st8(0xffffff, T8.slats, 0.71, { vertexColors: true, normalMap: T8.slatsN, normalScale: new THREE.Vector2(1.1, 1.1) }),    // v8: listones claros + oscuros fundidos
 };
-M.alu.color.set(0x1a1a1a); M.alu.metalness = 0.55; M.alu.roughness = 0.4; // perfilería negra #1A1A1A
-M.glass.color.set(0x9eb8c9); M.glass.metalness = 0.55; M.glass.roughness = 0.08; M.glass.opacity = 0.55; // vidrio levemente azulado y reflectivo (fotos)
+M.alu.color.set(0x1b1c1e); M.alu.metalness = 0.55; M.alu.roughness = 0.4; // v8: perfilería negra
+M.glass.color.set(0x2d3236); M.glass.metalness = 0.9; M.glass.roughness = 0.06; M.glass.opacity = 0.74;
 M.rglass = new THREE.MeshStandardMaterial({ color: 0xdfe9ec, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide });
 M.slab.color.set(0xd2d0ca);
 M.conc.map = T8.concFloor; M.conc.color.set(0xffffff); M.conc.roughness = 0.82;
@@ -179,19 +153,18 @@ function normOf(p) { const dx = p.b[0] - p.a[0], dz = p.b[1] - p.a[1], L = Math.
 
 // ---------- levels ----------
 const LV = [
-  { id: 'sot', name: 'Sótano', y: -2.96, k: -1.6 },
-  ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + n, y: 2.326502 + i * 2.7, k: i })),
-  { id: 'cub', name: 'Cubierta', y: 18.926502, k: 6 },
+  { id: 'sot', name: 'Sótano', y: -1.0, k: -1.6 },              // v10: plataforma N-1.00 / nivel bajo N-2.16
+  { id: 'p1', name: 'Calle y acceso', y: 0.0, k: 0 },            // v10: N±0.00 (ya no existe el piso de lobby)
+  ...[2, 3, 4, 5, 6, 7].map((n, i) => ({ id: 'p' + n, name: 'Piso ' + (n - 1), y: 1.7 + i * 2.7, k: i + 1 })),
+  { id: 'cub', name: 'Cubierta', y: 18.3, k: 7 },
 ];
 const root = new THREE.Group(); scene.add(root);
 LV.forEach((l) => { l.g = new THREE.Group(); l.g.name = l.id; root.add(l.g); l.on = true; });
 const lv = (id) => LV.find((l) => l.id === id);
 const I = window.__INT__;
-// La escalera del plano nuevo arranca 2 m más cerca del ascensor y cae dentro del hall.
-I.stair = { ...I.stair, x0: 19.36, x1: 21.46, xl: 22.46 };
 const W = buildWorld({ I, S, lv, T: makeTextures(), M, isMobile, T8 });
 scene.add(W.cab);
-const CORE_HOLES = [[[19.36, 9.69], [22.46, 9.69], [22.46, 11.69], [19.36, 11.69]], [[16.755, 9.841], [19.207, 9.841], [19.207, 11.541], [16.755, 11.541]]];
+const CORE_HOLES = [[[21.36, 9.69], [24.46, 9.69], [24.46, 11.69], [21.36, 11.69]], [[16.755, 9.841], [19.207, 9.841], [19.207, 11.541], [16.755, 11.541]]];
 const withHoles = (polys) => polys.map((p) => ({ o: p.o, h: [...(p.h || []), ...CORE_HOLES] }));
 
 // ---------- typical floor (shared geometry, 2–7) ----------
@@ -236,7 +209,7 @@ function solidSkin(solids, f) {
 }
 const TF = typicalFloor(); void solidSkin;
 const FMOD = facadeModel(S);
-LV.filter((l) => /^p[1-6]$/.test(l.id)).forEach((l) => { const c = TF.clone(); c.position.y = l.y; c.add(buildFacadeFloor(FMOD, l.y, F8)); l.g.add(c);
+LV.filter((l) => /^p[2-7]$/.test(l.id)).forEach((l) => { const c = TF.clone(); c.position.y = l.y; c.add(buildFacadeFloor(FMOD, l.y, F8)); l.g.add(c);
   // borde de losa del balcón empotrado (frente abierto, x = 6.864) en gris claro
   c.add(meshOf([segBox([6.864, 3.969], [0, -1], [-1, 0], 0, 3.251, -0.2, 0.0, -0.036, 0.04)], F8.recess)); // hasta el borde de la losa del balcón (x = 6.90)
   // jardineras colgantes en el borde del corredor hacia la ranura del punto fijo (ref_05/ref_10)
@@ -247,23 +220,17 @@ LV.filter((l) => /^p[1-6]$/.test(l.id)).forEach((l) => { const c = TF.clone(); c
     TF.userData.plantG = [pgm, mergeGeometries(ivy)]; }
   const [pg, ig] = TF.userData.plantG; const pm = new THREE.Mesh(pg, F8.stuccoVC); pm.castShadow = true; c.add(pm); const im = new THREE.Mesh(ig, PM8.ivy); im.castShadow = true; c.add(im); });
 
-// ---------- Piso 1 (esquemático) ----------
-// (v7, sin uso en v9: no hay lobby) escalones heredados
-const STEPS = { x0: 6.084, x1: 7.884, z0: 4.07, z1: 6.41, n: 6 };
-function stepY(x) { const k = Math.min(STEPS.n, Math.max(0, Math.floor((x - STEPS.x0) / 0.3) + 1)); return (k / STEPS.n) * LEVY.p1; }
+// ---------- v10: nivel de calle N±0.00 (sin lobby): portón vehicular con peatonal integrada + kiosko URBAN ----------
 const GT = { leaves: [] };
 {
   const L1 = lv('p1').g;
-  GT.blk = [];
-  texHatch.repeat.set(0.5, 0.5);
   // ================= PORTÓN COMPLETO EN BORDE DE CALLE (x = 0) =================
-  // Cubre todo el acceso: franja de rampa (3.33 m) + franja peatonal, del muro norte de la rampa (z≈0.64) al lindero (z≈6.74).
+  // v10: vano del acceso del PDF (cota 3.33 entre caras exteriores de muros) → hojas en el vano libre entre caras interiores z 0.783–3.821.
   // v5: UN SOLO portón de 2 hojas (según render). Hoja izquierda = panel grande con travesaño + panel angosto.
   // Hoja derecha = panel angosto + PUERTA PEATONAL INTEGRADA (con manija y cerradura) que viaja con su hoja.
   // Jamba fija a la derecha: kiosko URBAN (Galaxy Tab Active5 en carcasa con visera, sobre submarco metálico).
   // Cortes medidos sobre la imagen del render (768 px): eje central u=0.4975, peatonal u=0.613–0.912, jamba u=0.918–1.
-  // 3,33 m es el ancho exterior del acceso (el plano lo acota así). El vano libre queda entre los muros.
-  GT.Z0 = 0.63; GT.Z1 = 3.96; GT.W = GT.Z1 - GT.Z0; GT.H = Math.max(2.6, GT.W / (856 / 630));
+  GT.Z0 = 0.783; GT.Z1 = 3.821; GT.W = GT.Z1 - GT.Z0; GT.H = GT.W / (856 / 630);
   const g = new THREE.Group(); L1.add(g); GT.g = g;
   const gmat = new THREE.MeshStandardMaterial({ map: texDoor, metalness: 0.55, roughness: 0.42, color: 0xffffff, side: THREE.DoubleSide });
   const fmat = new THREE.MeshStandardMaterial({ color: 0x5a3f27, metalness: 0.6, roughness: 0.4 });
@@ -322,24 +289,17 @@ const GT = { leaves: [] };
   // v8: estilo del video/renders → hojas grafito con riostras en X, franja oscura con letras blancas y plantas colgantes
   const gtex8 = gateTexture(U), stex8 = signTexture('ED. ALMENDRA');
   const ivyS = new THREE.Mesh(mergeGeometries([ivyGeo([-0.272, GT.Z0 + 0.05], [-0.272, GT.Z1 - 0.05], 0.13, 0.42), ivyGeo([-0.235, GT.Z0 + 0.3], [-0.235, GT.Z1 - 0.3], 0.15, 0.3)]), PM8.ivy); L1.add(ivyS);
-  const pot = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), bandMat.clone()); L1.add(pot); pot.castShadow = true;
-  const gatePlant = new THREE.Mesh(tropicalGeo(-1.2, 0.42, GT.Z0 - 0.15, 0.85, 0.7, 0.4), PM8.trop); gatePlant.castShadow = true; L1.add(gatePlant); GT.gatePlant = gatePlant;
-  GT.style = 'foto';
-  GT.setStyle = (k) => { GT.style = k; const foto = k === 'foto', r = k === 'render';
-    gmat.map = foto ? texPuerta : r ? gtex8 : texDoor; gmat.color.set(0xffffff);
-    gmat.metalness = foto ? 0.42 : r ? 0.45 : 0.55; gmat.roughness = foto ? 0.48 : r ? 0.5 : 0.42; gmat.needsUpdate = true;
-    fmat.color.set(foto ? 0x8c6239 : r ? 0x2a2b2e : 0x5a3f27); hmat.color.set(foto ? 0x5c4328 : r ? 0x1c1d1f : 0x3a2818);
-    signM.material.map = foto ? texLetrero : r ? stex8 : texSign; signM.material.emissive.set(0x000000); signM.material.roughness = foto ? 0.82 : 0.6; signM.material.metalness = foto ? 0.05 : 0;
-    signM.material.needsUpdate = true;
-    bandMat.color.set(foto ? 0xd5d2cb : r ? 0x3b332d : 0xc9c6bf); ivyS.visible = r; pot.visible = foto || r;
-    if (gatePlant) gatePlant.visible = foto;
-    if (GT.kBronze) GT.kBronze.color.set(foto ? 0x8c6239 : r ? 0x2e3034 : 0x6b4a2c);
-    if (GT.layout) GT.layout(GT.hs || 1); };
+  const pot = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), bandMat); L1.add(pot); pot.castShadow = true;
+  GT.style = 'render';
+  GT.setStyle = (k) => { GT.style = k; const r = k === 'render';
+    gmat.map = r ? gtex8 : texDoor; gmat.metalness = r ? 0.45 : 0.55; gmat.roughness = r ? 0.5 : 0.42; gmat.needsUpdate = true;
+    fmat.color.set(r ? 0x2a2b2e : 0x5a3f27); hmat.color.set(r ? 0x1c1d1f : 0x3a2818);
+    signM.material.map = r ? stex8 : texSign; signM.material.emissive.set(r ? 0x000000 : 0x332a20); signM.material.needsUpdate = true;
+    bandMat.color.set(r ? 0x3b332d : 0xc9c6bf); ivyS.visible = pot.visible = r;
+    if (GT.kBronze) GT.kBronze.color.set(r ? 0x2e3034 : 0x6b4a2c); };
   GT.layout = (hs) => {
     g.scale.y = hs; const top = H * hs + 0.04;
-    ivyS.position.y = top - 0.02;
-    if (GT.style === 'foto') { pot.scale.set(0.85, 0.42, 0.7); pot.position.set(-1.25, 0.21, GT.Z0 - 0.2); pot.material.color.set(0xf4f1ea); }
-    else { pot.scale.set(0.14, 0.16, W + 0.2); pot.position.set(-0.19, top + 0.06, (GT.Z0 + GT.Z1) / 2); pot.material.color.set(bandMat.color); }
+    ivyS.position.y = top - 0.02; pot.scale.set(0.14, 0.16, W + 0.2); pot.position.set(-0.19, top + 0.06, (GT.Z0 + GT.Z1) / 2);
     signM.position.set(-0.13, top + sH / 2, (GT.Z0 + GT.Z1) / 2);
     band.scale.set(0.24, sH, W + 0.3); band.position.set(0, top + sH / 2, (GT.Z0 + GT.Z1) / 2);
     postA.scale.set(0.24, top + sH, 0.15); postA.position.set(0, (top + sH) / 2, GT.Z0 - 0.075);
@@ -384,354 +344,20 @@ const GT = { leaves: [] };
     const cd = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, ky - eh / 2 - 0.35, 10), steel); cd.position.set(-0.05, (ky - eh / 2 + 0.35) / 2, kz + 0.06); K.add(cd);
     K.add(meshOf([boxG(-0.062, -0.036, 0.31, 0.37, kz + 0.04, kz + 0.08)], steel));
   }
-  GT.setStyle('foto');
-  // El portón de bronce queda en el acceso oeste, a nivel de calle, abriendo hacia la rampa y el núcleo.
+  GT.setStyle('calado'); // v10: por defecto el calado dorado/bronce (foto); grafito como opción
+  // v10: el paso peatonal (0.90 m) va pintado dentro del sótano (sot10.js)
 }
 
-// ---------- Sótano nuevo: acceso oeste → pasillo oriente 13,6 % hacia el sur → pasillo sur ----------
-const RAMP = { x1: 24.2, s1: 0.016, s2: 0.136, deck: floorY(12, 2), low: -2.96, lz0: 12.6 };
-const rampY = (x) => floorY(Math.max(0, x), 2.1);
-const onRamp = (x, z) => x >= -0.2 && x <= 27.4 && z >= 0.3 && z <= 21.2 && floorY(x, z) > -2.9;
-const laneY = (z) => floorY(26, z);
-function surfaceGeo(polys, fy) {
-  const gs = polys.map((p) => { const g = new THREE.ShapeGeometry(shapeOf(p)); g.rotateX(-Math.PI / 2); const pos = g.attributes.position;
-    for (let i = 0; i < pos.count; i++) pos.setY(i, fy(pos.getX(i), pos.getZ(i))); g.computeVertexNormals(); return g.index ? g.toNonIndexed() : g; });
-  return mergeGeometries(gs);
-}
-function skirt(pts, fy, yb) { // pared vertical bajo un borde de rampa
-  const v = []; for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1]; const ya = fy(ax, az), yb2 = fy(bx, bz);
-    v.push(ax, yb, az, bx, yb, bz, bx, yb2, bz, ax, yb, az, bx, yb2, bz, ax, ya, az); }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals(); return g;
-}
-// ---------- v4: vehículos procedurales en las plazas medidas de PL_A004 ----------
+// ---------- v10: SÓTANO reconstruido con la geometría exacta del vector del PDF (módulo sot10.js) ----------
 const VMAT = vehicleMaterials(); VMAT.trim.side = THREE.DoubleSide; VMAT.rim.side = THREE.DoubleSide; VMAT.tyre.side = THREE.DoubleSide;
-function carMesh(color, type = 'sedan', lit = false) { const G = mergeVehicles([{ parts: carParts(type, color), m: new THREE.Matrix4() }], VMAT); if (lit) G.children.forEach((m) => { if (m.material === VMAT.lightF) { m.material = VMAT.lightF.clone(); m.material.emissiveIntensity = 1.4; } }); return G; }
-// Plazas del plano nuevo. aisle 'n'/'s' = el pasillo está en z bajo/alto. axis 'x' = plaza en paralelo (el largo va en x).
-const SPOTS = NEW_SPOTS;
-const MOTO_Z = NEW_MOTO_Z;
-const MOTO_C = [0x141414, 0x9b1c1c, 0x1c3e88, 0xe6e6e6];
-// ===== v6: RAMPA VEHICULAR = un solo sólido continuo de concreto (PL_A004: 21,79 m, 10,9 % promedio) =====
-// Borde norte según el vector (band1) y cara del muro; borde sur z = 3.97 (muro de cuartos / antepecho).
-const rampN = (x) => 0.7;
-const RAMP_S = 3.9;
-const APRON = 2.6;
-const SV_CEIL = LEVY.p1 - 0.2;
-const MOUTH_X0 = 8.0;
-function driveY(x, z) { return floorY(x, z); }
-function buildRamp(B) {
-  const tc = document.createElement('canvas'); tc.width = tc.height = 256; const g = tc.getContext('2d');
-  g.fillStyle = '#a19e96'; g.fillRect(0, 0, 256, 256);
-  const id = g.getImageData(0, 0, 256, 256); for (let i = 0; i < id.data.length; i += 4) { const n = (Math.random() - 0.5) * 18; id.data[i] += n; id.data[i + 1] += n; id.data[i + 2] += n; } g.putImageData(id, 0, 0);
-  for (let x = 0; x < 256; x += 32) { g.fillStyle = 'rgba(78,76,72,.45)'; g.fillRect(x, 0, 4, 256); }
-  const tex = new THREE.CanvasTexture(tc); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
-  const grid = (x0, x1, z0, z1, nx, nz) => {
-    const P = [], UV = [], IDX = [];
-    for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) {
-      const x = x0 + (x1 - x0) * i / nx, z = z0 + (z1 - z0) * j / nz;
-      P.push(x, floorY(x, z) + 0.012, z); UV.push(x, z);
-    }
-    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
-      const a = i * (nz + 1) + j, b = a + nz + 1; IDX.push(a, a + 1, b, a + 1, b + 1, b);
-    }
-    const top = new THREE.BufferGeometry(); top.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); top.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); top.setIndex(IDX); top.computeVertexNormals();
-    const tm = new THREE.Mesh(top, mat); tm.receiveShadow = true; B.add(tm); return tm;
-  };
-  // Acceso oeste (sin bordillo delante de la plaza 1) y pasillo oriente, sin muro que cierre las bocas.
-  RAMPG.top = grid(0.2, 24.2, 0.85, 3.85, 28, 4);
-  grid(22.4, 27.15, 0.5, 20.9, 6, 24);
-  grid(16.6, 27.15, 17.25, 20.9, 12, 4);
-}
-const RAMPG = {};
-
-const DEMO_SPOT = 3;
-const SOT8 = { rail: [], planters: [] };
-const floorAt = (x, z) => floorY(x, z);
-function meshExtent(parts) {
-  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
-  for (const [k, gs] of Object.entries(parts)) {
-    if (k === 'wheels') continue;
-    for (const g of gs) {
-      const a = g.attributes.position;
-      for (let i = 0; i < a.count; i++) {
-        const x = a.getX(i), z = a.getZ(i);
-        if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z;
-      }
-    }
-  }
-  return { x0, x1, z0, z1, L: x1 - x0, W: z1 - z0 };
-}
-const CAR_EXT = Object.fromEntries(Object.keys(CAR_TYPES).map((t) => [t, meshExtent(carParts(t, 0xffffff))]));
-const MOTO_EXT = meshExtent(motoParts(0xffffff));
-// Holgura dentro de la línea de la plaza: 0,22 m del lado del pasillo (detrás del bordillo) y 0,08 m del muro.
-const AISLE_IN = 0.22, BACK_IN = 0.18, SIDE_IN = 0.08;
-const VEH = { cars: [], motos: [] };
-I.sotx.cols_in = COLS;
-I.sotx.walls_in = WALLS;
-I.sotx.walls_out = [];
-I.sotx.rooms = ROOMS;
-{
-  const foot = { o: [[0.12, 0.78], [9.91, 0.77], [12.61, 0.63], [20.81, 0.15], [27.45, 0.43], [27.27, 26.07], [17.02, 25.45], [16.46, 12.04], [16.79, 6.26], [8.12, 6.55], [8.05, 3.95], [0.12, 3.82]], h: [] };
-  S.lower = [foot]; S.deck = [foot]; S.band1 = [foot]; S.lane2 = []; S.foot4 = [foot];
-}
-const COL_RECTS = I.sotx.cols_in.map((c) => {
-  const xs = c.o.map((q) => q[0]), zs = c.o.map((q) => q[1]);
-  return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
-});
-SPOTS.forEach((p) => {
-  const ex = CAR_EXT[p.t];
-  const along = p.axis === 'x' ? (p.r[1] - p.r[0]) : (p.r[3] - p.r[2]);
-  const across = p.axis === 'x' ? (p.r[3] - p.r[2]) : (p.r[1] - p.r[0]);
-  const sc = Math.min(1, (along - AISLE_IN - BACK_IN) / ex.L, (across - 2 * SIDE_IN) / ex.W);
-  let cx = (p.r[0] + p.r[1]) / 2;
-  let cz = (p.r[2] + p.r[3]) / 2;
-  if (p.axis === 'x') {
-    p.f = p.nose < 0 ? -1 : 1;
-    p.yaw = p.nose < 0 ? Math.PI : 0;
-    const noseX = p.nose < 0 ? p.r[0] + 0.28 : p.r[1] - 0.28;
-    cx = p.nose < 0 ? noseX + ex.x1 * sc : noseX - ex.x1 * sc;
-    const aisleZ = p.aisle === 'n' ? p.r[2] : p.r[3];
-    const halfW = Math.max(Math.abs(ex.z0), Math.abs(ex.z1)) * sc;
-    cz = p.aisle === 'n' ? aisleZ + 0.22 + halfW : aisleZ - 0.22 - halfW;
-    p.noseZ = cz; p.tailZ = cz;
-    p.xMin = Math.min(cx - ex.L * sc / 2, cx + ex.L * sc / 2);
-    p.xMax = Math.max(cx - ex.L * sc / 2, cx + ex.L * sc / 2);
-    p.zMin = cz - halfW; p.zMax = cz + halfW;
-  } else {
-    p.f = p.aisle === 's' ? 1 : -1;
-    p.yaw = p.f < 0 ? Math.PI / 2 : -Math.PI / 2;
-    cz = p.f < 0 ? p.r[2] + AISLE_IN + ex.x1 * sc : p.r[3] - AISLE_IN - ex.x1 * sc;
-    const zOf = (lx) => (p.f < 0 ? cz - lx * sc : cz + lx * sc);
-    p.noseZ = zOf(ex.x1); p.tailZ = zOf(ex.x0);
-    p.zMin = Math.min(p.noseZ, p.tailZ); p.zMax = Math.max(p.noseZ, p.tailZ);
-    const xSign = p.f < 0 ? 1 : -1;
-    p.xMin = Math.min(cx + xSign * ex.z0 * sc, cx + xSign * ex.z1 * sc);
-    p.xMax = Math.max(cx + xSign * ex.z0 * sc, cx + xSign * ex.z1 * sc);
-  }
-  p.sc = sc; p.ex = ex; p.cx = cx; p.cz = cz; p.y = floorY(cx, cz);
-  // Si una columna de eje (está en el plano) muerde la carrocería, se corre el carro dentro de la celda.
-  const half = (p.xMax - p.xMin) / 2;
-  for (const c of COL_RECTS) {
-    if (c.z1 < p.zMin + 0.05 || c.z0 > p.zMax - 0.05) continue;
-    if (c.x1 < p.xMin + 0.02 || c.x0 > p.xMax - 0.02) continue;
-    const lo = p.r[0] + half + 0.04, hi = p.r[1] - half - 0.04;
-    const nx = c.x0 < cx ? Math.min(hi, c.x1 + half + 0.06) : Math.max(lo, c.x0 - half - 0.06);
-    if (nx >= lo && nx <= hi && Math.abs(nx - cx) > 0.005) {
-      const d = nx - cx; cx = nx; p.xMin += d; p.xMax += d;
-    }
-  }
-  p.cx = cx;
-  p.L = p.zMax - p.zMin; p.Wd = p.xMax - p.xMin;
-  VEH.cars.push(p);
-});
-MOTO_Z.forEach(([z0, z1], i) => {
-  const xA = MOTO_X[0], xB = MOTO_X[1], depth = xB - xA, width = z1 - z0;
-  const sc = Math.min(1, (depth - 0.10) / MOTO_EXT.L, (width - 0.06) / MOTO_EXT.W);
-  const x = (xA + xB) / 2, z = (z0 + z1) / 2;
-  // giro de 180°: local (x,z) → mundo (−x, −z)
-  const xs = [x - MOTO_EXT.x0 * sc, x - MOTO_EXT.x1 * sc], zs = [z - MOTO_EXT.z0 * sc, z - MOTO_EXT.z1 * sc];
-  VEH.motos.push({ n: i + 1, x, z, y: RAMP.low, c: MOTO_C[i], sc, z0, z1, xMin: Math.min(...xs), xMax: Math.max(...xs), zMin: Math.min(...zs), zMax: Math.max(...zs) });
-});
-// pintura del piso y señalización con funciones simples
-function decalGeo(pts, fy, dy = 0.014) { const sh = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z))); const g = new THREE.ShapeGeometry(sh); g.rotateX(-Math.PI / 2); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, fy(p.getX(i), p.getZ(i)) + dy); g.computeVertexNormals(); return g.index ? g.toNonIndexed() : g; }
-const paintMat = new THREE.MeshStandardMaterial({ color: 0xf1f1ee, roughness: 0.7, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
-function inPoly(poly, x, z) {
-  let n = 0;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i][0], zi = poly[i][1], xj = poly[j][0], zj = poly[j][1];
-    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / ((zj - zi) || 1e-9) + xi) n++;
-  }
-  return n % 2 === 1;
-}
-const TOWER = S.foot2[0].o;
-const inTower = (x, z) => inPoly(TOWER, x, z);
-{
-  const B = lv('sot').g, y0 = RAMP.low, yd = RAMP.deck, CEIL = LEVY.p1 - 0.2;
-  const sotWall = new THREE.MeshStandardMaterial({ color: 0xf2f1ee, map: T8.concTie, roughness: 0.9 }); M.sotWall = sotWall; // v8: concreto a la vista con pasatubos (ref_04/ref_10)
-  B.add(meshOf([extrude(S.lower, y0 - 0.25, 0.25)], M.park));
-  if (I.sotx.walls_in.length) {
-    const geos = I.sotx.walls_in.flatMap((w) => {
-      const o = w.o;
-      const a = [(o[0][0] + o[3][0]) / 2, (o[0][1] + o[3][1]) / 2];
-      const b = [(o[1][0] + o[2][0]) / 2, (o[1][1] + o[2][1]) / 2];
-      const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1;
-      const n = Math.max(1, Math.ceil(L / 1.2));
-      const bits = [];
-      for (let i = 0; i < n; i++) {
-        const t0 = i / n, t1 = (i + 1) / n;
-        const p = [a[0] + dx * t0, a[1] + dz * t0], q = [a[0] + dx * t1, a[1] + dz * t1];
-        const top = inTower((p[0] + q[0]) / 2, (p[1] + q[1]) / 2) ? CEIL : 0.08;
-        bits.push(seg(p, q, y0, top, 0.16, 0));
-      }
-      return bits;
-    });
-    B.add(meshOf(geos, sotWall));
-  }
-  if (I.sotx.walls_out.length) B.add(meshOf([extrude(I.sotx.walls_out, y0, -0.2 - y0)], M.side));
-  if (I.sotx.cols_in.length) {
-    const cg = I.sotx.cols_in.map((c) => {
-      const xs = c.o.map((p) => p[0]), zs = c.o.map((p) => p[1]);
-      const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
-      const top = inTower(cx, cz) ? CEIL : 0.08;
-      return boxG(Math.min(...xs), Math.max(...xs), y0, top, Math.min(...zs), Math.max(...zs));
-    });
-    B.add(meshOf(cg, new THREE.MeshStandardMaterial({ color: 0xe6e5e1, map: T8.concTie, roughness: 0.9 })));
-  }
-  buildRamp(B);
-  // Losa de piso continua y sin luz propia: el corte cenital no puede quedar negro.
-  {
-    const ring = S.lower[0].o;
-    const inside = (x, z) => { let n = 0; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, zi] = ring[i], [xj, zj] = ring[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / ((zj - zi) || 1e-9) + xi) n++; } return n % 2 === 1; };
-    const pos = [], ix = [], xA = -0.2, xB = 27.8, zA = -1.0, zB = 26.4, s = 0.55;
-    const nx = Math.ceil((xB - xA) / s), nz = Math.ceil((zB - zA) / s), id = new Map();
-    const vid = (i, j) => { const k = i + ',' + j; if (id.has(k)) return id.get(k); const x = xA + i * s, z = zA + j * s; const v = pos.length / 3; id.set(k, v); pos.push(x, floorY(x, z) + 0.012, z); return v; };
-    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
-      if (!inside(xA + (i + 0.5) * s, zA + (j + 0.5) * s)) continue;
-      const a = vid(i, j), b = vid(i + 1, j), c = vid(i + 1, j + 1), d = vid(i, j + 1);
-      ix.push(a, b, c, a, c, d);
-    }
-    const fg = new THREE.BufferGeometry();
-    fg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    fg.setIndex(ix); fg.computeVertexNormals();
-    const floor = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ color: 0xc9c7c0, side: THREE.DoubleSide }));
-    floor.name = 'sot-floor'; B.add(floor);
-  }
-  texAsph.repeat.set(0.15, 0.15);
-  // Flechas del plano nuevo: acceso al oriente, pasillo 2.64 m al sur (13.6 %), pasillo 3.76 m al oriente.
-  const AR = [
-    [[[4.2, 2.05], [4.2, 2.28], [8.4, 2.28], [8.4, 2.05]], (x, z) => floorY(x, z)],
-    [[[8.4, 1.85], [8.4, 2.48], [9.3, 2.16]], (x, z) => floorY(x, z)],
-    [[[25.85, 6.2], [26.08, 6.2], [26.08, 12.4], [25.85, 12.4]], (x, z) => floorY(x, z)],
-    [[[25.55, 12.4], [26.38, 12.4], [25.96, 13.5]], (x, z) => floorY(x, z)],
-    [[[18.2, 18.95], [18.2, 19.18], [23.2, 19.18], [23.2, 18.95]], () => RAMP.low],
-    [[[23.2, 18.75], [23.2, 19.38], [24.3, 19.06]], () => RAMP.low],
-  ];
-  B.add(meshOf(AR.map(([p, f]) => decalGeo(p, f, 0.02)), paintMat, false));
-  const txt = (t, w, h) => new THREE.MeshStandardMaterial({ map: textTex([{ t, s: 92, w: 700, c: '#f3f3f0' }], { w: 640, h: 128, y0: 6 }), transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -3 });
-  { const g = new THREE.PlaneGeometry(1.5, 0.3); g.rotateX(-Math.PI / 2); g.translate(6.2, floorY(6.2, 2.4) + 0.03, 2.55); B.add(new THREE.Mesh(g, txt('pend. %'))); }
-  { const g = new THREE.PlaneGeometry(1.5, 0.3); g.rotateX(-Math.PI / 2); g.rotateY(Math.PI / 2); g.translate(26.35, floorY(26.35, 11) + 0.03, 11.2); B.add(new THREE.Mesh(g, txt('pend. 13.6%'))); }
-  // ===== v9: SENDERO PEATONAL portón → parqueadero → escalera/ascensor (solo pintura: no reduce carriles ni cajones del PDF) =====
-  { const PW = 0.9, ofs = 0.012, SEG = [[[0.15, 3.36], [19.95, 3.36]], [[19.95, 3.36], [19.95, 9.62]]];
-    const strip = (a, b, w, off, y0) => { const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, nx = -uz, nz = ux, n = Math.max(1, Math.ceil(L / 0.4)), pos = [];
-      const P = (t, s) => { const x = a[0] + ux * t + nx * s, z = a[1] + uz * t + nz * s; return [x, floorY(x, z) + y0, z]; };
-      for (let k = 0; k < n; k++) { const t0 = L * k / n, t1 = L * (k + 1) / n; const p00 = P(t0, off - w / 2), p01 = P(t0, off + w / 2), p10 = P(t1, off - w / 2), p11 = P(t1, off + w / 2); pos.push(...p00, ...p01, ...p11, ...p00, ...p11, ...p10); }
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); const nn = g.attributes.normal; for (let q = 0; q < nn.count; q++) if (nn.getY(q) < 0) { g.index = null; } 
-      return g; };
-    const fixUp = (g) => { const p = g.attributes.position; for (let q = 0; q < p.count; q += 3) { const ay = p.getY(q), by = p.getY(q + 1), cy = p.getY(q + 2); const ax = p.getX(q), az = p.getZ(q), bx = p.getX(q + 1), bz = p.getZ(q + 1), cx = p.getX(q + 2), cz = p.getZ(q + 2); const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az); if (ny < 0) { p.setXYZ(q + 1, cx, cy, cz); p.setXYZ(q + 2, bx, by, bz); } } g.computeVertexNormals(); return g; };
-    const fill = [], edge = [];
-    SEG.forEach(([a, b], i) => { const ext = i === 0 ? [a, [b[0] + PW / 2, b[1]]] : [[a[0], a[1] - PW / 2], b]; fill.push(fixUp(strip(ext[0], ext[1], PW, 0, ofs))); for (const s of [-1, 1]) edge.push(fixUp(strip(ext[0], ext[1], 0.1, s * (PW / 2 + 0.05), ofs + 0.002))); });
-    const pmat = new THREE.MeshStandardMaterial({ color: 0x8f9a93, roughness: 0.32, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); // concreto pulido gris verdoso
-    const emat = new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.55, emissive: 0x2a1e00, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }); // pintura de tráfico amarilla
-    const pf = meshOf(fill, pmat, false); pf.name = 'sendero_peatonal'; B.add(pf); B.add(meshOf(edge, emat, false));
-    const ic = document.createElement('canvas'); ic.width = ic.height = 256; { const g = ic.getContext('2d'); g.strokeStyle = g.fillStyle = '#f6f6f2'; g.lineCap = 'round'; g.lineWidth = 22;
-      g.beginPath(); g.arc(138, 46, 22, 0, 6.3); g.fill(); g.beginPath(); g.moveTo(128, 82); g.lineTo(112, 150); g.stroke(); g.beginPath(); g.moveTo(112, 150); g.lineTo(80, 222); g.stroke(); g.beginPath(); g.moveTo(112, 150); g.lineTo(150, 186); g.lineTo(156, 232); g.stroke();
-      g.beginPath(); g.moveTo(126, 96); g.lineTo(84, 128); g.stroke(); g.beginPath(); g.moveTo(126, 96); g.lineTo(166, 130); g.stroke(); }
-    const it = new THREE.CanvasTexture(ic); it.colorSpace = THREE.SRGBColorSpace; it.anisotropy = 8;
-    const imat = new THREE.MeshStandardMaterial({ map: it, transparent: true, alphaTest: 0.3, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
-    const icons = [];
-    SEG.forEach(([a, b]) => { const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), yaw = Math.atan2(-dz, dx);
-      for (let t = 1.6; t < L - 0.8; t += 4.0) { const x = a[0] + dx / L * t, z = a[1] + dz / L * t; const g = new THREE.PlaneGeometry(0.62, 0.62); g.rotateX(-Math.PI / 2); g.rotateY(yaw - Math.PI / 2); g.translate(x, floorY(x, z) + ofs + 0.004, z); icons.push(g.toNonIndexed()); } });
-    B.add(meshOf(icons, imat, false));
-    { const g = new THREE.PlaneGeometry(1.6, 0.32); g.rotateX(-Math.PI / 2); g.rotateY(Math.PI / 2); g.translate(19.95, floorY(19.95, 9.1) + ofs + 0.004, 9.1); B.add(new THREE.Mesh(g, txt('ESCALERA · ASCENSOR'))); }
-    window.__SENDERO__ = { ancho: PW, tramos: SEG, piso: 'concreto pulido gris verdoso + bordes amarillos + pictogramas cada 4 m' };
-  }
-  // Líneas de plaza: solo los lados, no cruzan la boca.
-  const YC = [];
-  for (const p of SPOTS) {
-    const [x0, x1, z0, z1] = p.r;
-    if (p.axis === 'x') { YC.push([x0, z0, x0 + 0.06, z1], [x1 - 0.06, z0, x1, z1]); }
-    else {
-      const zb = p.aisle === 'n' ? z1 - 0.06 : z0;
-      const zt = p.aisle === 'n' ? z1 : z0 + 0.06;
-      YC.push([x0, zb, x1, zt], [x0, z0, x0 + 0.06, z1], [x1 - 0.06, z0, x1, z1]);
-    }
-  }
-  B.add(meshOf(YC.map(([a, b, c, d]) => { const fy = floorY((a + c) / 2, (b + d) / 2); return boxG(Math.min(a, c), Math.max(a, c), fy + 0.01, fy + 0.03, Math.min(b, d), Math.max(b, d)); }), M.yellow));
-  // números de plaza: pintados en el piso (como en el plano) y placa colgante sobre la cabecera
-  const numMat = (t, bg) => new THREE.MeshStandardMaterial({ map: textTex([{ t, s: 150, w: 800, c: bg ? '#1d1f23' : '#f3f3f0' }], { w: 256, h: 256, y0: 30, bg: bg || undefined, r: bg ? 28 : 0 }), transparent: !bg, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3 });
-  const ring = []; const numG = [];
-  for (const p of VEH.cars) {
-    const zn = p.f < 0 ? p.r[3] - 0.55 : p.r[2] + 0.55; const g = new THREE.PlaneGeometry(0.62, 0.62); g.rotateX(-Math.PI / 2); if (p.f > 0) g.rotateY(Math.PI); g.translate(p.cx, p.y + 0.016, zn); B.add(new THREE.Mesh(g, numMat(String(p.n))));
-    const rg = new THREE.RingGeometry(0.33, 0.37, 32); rg.rotateX(-Math.PI / 2); rg.translate(p.cx, p.y + 0.015, zn); ring.push(rg.index ? rg.toNonIndexed() : rg);
-    const zh = p.f < 0 ? p.r[2] + 0.35 : p.r[3] - 0.35; const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), numMat(String(p.n), '#f2c230')); pl.position.set(p.cx, Math.min(CEIL - 0.45, p.y + 2.3), zh); if (p.f > 0) pl.rotation.y = Math.PI; B.add(pl);
-    numG.push(boxG(p.cx - 0.008, p.cx + 0.008, Math.min(CEIL - 0.45, p.y + 2.3) + 0.21, CEIL, zh - 0.008, zh + 0.008));
-  }
-  for (const m of VEH.motos) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32), numMat('M' + m.n, '#f2c230')); pl.position.set(16.62, m.y + 1.55, m.z); pl.rotation.y = Math.PI / 2; B.add(pl); }
-  B.add(meshOf(ring, paintMat, false)); B.add(meshOf(numG, M.alu, false));
-  // líneas blancas de las plazas de motos (divisiones 1.12 m del plano)
-  B.add(meshOf([12.69, 13.81, 14.93, 16.05, 17.19].map((z) => boxG(16.62, 19.2, y0 + 0.005, y0 + 0.012, z - 0.04, z + 0.04)), paintMat, false));
-  // franjas de seguridad en columnas del parqueadero (ilustrativo)
-  const texHaz = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#f2c230'; g.fillRect(0, 0, w, h); g.fillStyle = '#1b1c1e'; for (let i = -w; i < w * 2; i += 32) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 16, 0); g.lineTo(i + 16 + h, h); g.lineTo(i + h, h); g.fill(); } }, true); texHaz.repeat.set(3, 1.6);
-  const haz = []; for (const c of I.sotx.cols_in) { const xs = c.o.map((p) => p[0]), zs = c.o.map((p) => p[1]); const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2; if (cx < 16.3 && cz < 6.8) continue; if (!pip(S.foot4, cx, cz)) continue;
-    const fy = floorAt(cx, cz); haz.push(boxG(Math.min(...xs) - 0.012, Math.max(...xs) + 0.012, fy, fy + 0.9, Math.min(...zs) - 0.012, Math.max(...zs) + 0.012)); }
-  if (haz.length) B.add(meshOf(haz, new THREE.MeshStandardMaterial({ map: texHaz, roughness: 0.7 })));
-  // medidores de agua (3 cajas en el muro sur del ascensor, PL_A004 "medidores agua")
-  B.add(meshOf([[17.103, 17.789], [17.809, 18.483], [18.503, 19.177]].map(([a, b]) => boxG(a, b, y0 + 0.75, y0 + 1.35, 11.74, 11.94)), new THREE.MeshStandardMaterial({ color: 0xd9dcdf, metalness: 0.3, roughness: 0.5 })));
-  { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.16), new THREE.MeshBasicMaterial({ map: textTex([{ t: 'MEDIDORES DE AGUA', s: 40, w: 700, c: '#1d1f23' }], { w: 512, h: 72, y0: 6, bg: '#eef0f2', r: 8 }) })); m.position.set(18.14, y0 + 1.5, 11.70); B.add(m); }
-  // luminarias LED del parqueadero (ilustrativas) en el cielo raso
-  // v8: plafones LED redondos de sobreponer (ref_04/ref_10) en lugar de regletas
-  const tubes = [], rims = []; for (const [x, z] of [[18.1, 6.1], [23.1, 6.1], [20.6, 5.0], [20.6, 10.0], [26.0, 8.0], [26.0, 11.0], [26.0, 14.0], [18.0, 15.0], [22.6, 15.0], [20.0, 19.2], [24.0, 19.2], [19.5, 23.2], [24.5, 23.2], [22.0, 23.2], [14.5, 2.3], [9.5, 2.3]]) {
-    const d = new THREE.CylinderGeometry(0.15, 0.15, 0.012, 28); d.translate(x, CEIL - 0.036, z); tubes.push(d.toNonIndexed());
-    const r = new THREE.CylinderGeometry(0.175, 0.17, 0.03, 28); r.translate(x, CEIL - 0.015, z); rims.push(r.toNonIndexed()); }
-  const tm = meshOf(tubes, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e8, emissiveIntensity: 1.25 }), false); B.add(tm);
-  B.add(meshOf(rims, new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.5 }), false));
-  // v8: topellantas amarillos (dos bloques por celda), detrás de la llanta que queda contra el final de la celda
-  { const ws = []; for (const p of VEH.cars) {
-      if (p.axis === 'x') continue;
-      const za = p.f < 0 ? p.r[3] - 0.16 : p.r[2] + 0.04, zb = p.f < 0 ? p.r[3] - 0.04 : p.r[2] + 0.16;
-      const fy = floorY(p.cx, (za + zb) / 2);
-      const g = new THREE.BoxGeometry(Math.min(1.7, p.r[1] - p.r[0] - 0.35), 0.1, zb - za);
-      const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) if (pp.getY(i) > 0) pp.setZ(i, pp.getZ(i) * 0.55);
-      g.translate(p.cx, fy + 0.05, (za + zb) / 2); g.computeVertexNormals(); ws.push(g.toNonIndexed()); }
-    if (ws.length) B.add(meshOf(ws, M.yellow)); }
-  // carros y motos: geometría fusionada por material (≈9 llamadas de dibujo para todos)
-  const list = []; const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
-  for (const p of VEH.cars) { if (p.n === DEMO_SPOT) continue; q.setFromAxisAngle(up, p.yaw); list.push({ parts: carParts(p.t, p.c), m: new THREE.Matrix4().compose(new THREE.Vector3(p.cx, p.y, p.cz), q.clone(), new THREE.Vector3(p.sc, p.sc, p.sc)) }); }
-  for (const m of VEH.motos) { q.setFromAxisAngle(up, Math.PI); list.push({ parts: motoParts(m.c), m: new THREE.Matrix4().compose(new THREE.Vector3(m.x, m.y, m.z), q.clone(), new THREE.Vector3(m.sc, m.sc, m.sc)) }); }
-  const VG = mergeVehicles(list, VMAT); VG.name = 'vehiculos'; B.add(VG); VEH.group = VG;
-}
-// ---------- v4: cuartos de servicio bajo la rampa (PL_A004, vector) ----------
-const SV = { rooms: ROOMS, doors: [], ceil: LEVY.p1 - 0.2, segs: [] };
-{
-  const B = lv('sot').g, CEIL = SV.ceil;
-  for (const r of SV.rooms) {
-    const xs = r.poly.o.map((q) => q[0]), zs = r.poly.o.map((q) => q[1]);
-    r.cx = (Math.min(...xs) + Math.max(...xs)) / 2; r.cz = (Math.min(...zs) + Math.max(...zs)) / 2;
-    r.fy = floorY(r.cx, Math.max(...zs) + 0.3); r.clear = Math.max(2.05, CEIL - r.fy);
-  }
-  SV.at = (x, z) => SV.rooms.find((r) => pip([r.poly], x, z)) || null;
-  const fl = [], tile = [];
-  for (const r of SV.rooms) { fl.push(extrude([r.poly], r.fy - 0.08, 0.08)); }
-  if (fl.length) B.add(meshOf(fl, M.conc));
-  const metal = new THREE.MeshStandardMaterial({ color: 0x8d949c, metalness: 0.45, roughness: 0.45 });
-  for (const r of SV.rooms) {
-    const xs = r.poly.o.map((q) => q[0]), zs = r.poly.o.map((q) => q[1]);
-    const x0 = Math.min(...xs), x1 = Math.max(...xs), z1 = Math.max(...zs);
-    const w = Math.min(0.9, (x1 - x0) * 0.55), dh = Math.min(2.05, r.clear - 0.1);
-    const hx = r.cx - w / 2;
-    const piv = new THREE.Group(); piv.position.set(hx, r.fy, z1); B.add(piv);
-    const lg = new THREE.BoxGeometry(w, dh, 0.04); lg.translate(w / 2, dh / 2, 0); piv.add(new THREE.Mesh(lg, metal));
-    const D = { svc: true, room: r.id, label: r.name, piv, hx, hz: z1, u: [1, 0], n: [0, 1], w, a: 0, tgt: 0, max: 1.4, cx: r.cx, cz: z1, fy: r.fy };
-    D.set = (a) => { D.a = a; piv.rotation.y = -a; };
-    D.seg = () => { const c = Math.cos(D.a), s = Math.sin(D.a); return [D.hx, D.hz, D.hx + c * D.w, D.hz + s * D.w]; };
-    D.set(0); SV.doors.push(D);
-    const pm = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(0.7, w), 0.16), new THREE.MeshBasicMaterial({ map: textTex([{ t: r.plan, s: 36, w: 700, c: '#fff' }], { w: 512, h: 96, y0: 8, bg: r.id === 'elec' ? '#7a1f1f' : '#1f4e79', r: 8 }) }));
-    pm.position.set(r.cx, r.fy + Math.min(1.5, dh - 0.2), z1 + 0.03); B.add(pm);
-    SV.segs.push([x0, z1, hx - 0.02, z1], [hx + w + 0.02, z1, x1, z1]);
-  }
-  const E = SV.rooms.find((r) => r.id === 'elec');
-  SV.rack = { x: E.cx, z: E.cz - 0.15, y: E.fy + 1.2 };
-  const dark = new THREE.MeshStandardMaterial({ color: 0x1b1e22, metalness: 0.6, roughness: 0.4 });
-  B.add(meshOf([boxG(E.cx - 0.28, E.cx + 0.28, E.fy + 1.15, E.fy + 1.7, E.cz - 0.35, E.cz - 0.05)], dark));
-  B.add(meshOf([boxG(E.cx - 0.55, E.cx + 0.55, CEIL - 0.08, CEIL - 0.02, E.cz - 0.15, E.cz + 0.15)], new THREE.MeshStandardMaterial({ color: 0xfff6e8, emissive: 0xfff3dc, emissiveIntensity: 0.8 }), false));
-}
-// cielos rasos solo para el recorrido (no proyectan sombra, para que el interior quede iluminado)
+const SOT = buildSotano({ lv, T8, PM8, tropicalGeo, shapeOf, VMAT });
+const SV = { rooms: SOT.rooms, doors: SOT.doors, ceil: SL.TOP, rack: SOT.rack, at: SOT.at, segs: [] };
+const VEH = { cars: SOT_SPOTS, motos: MOTOS, group: SOT.vehGroup };
+// cielos rasos solo para el recorrido (no proyectan sombra)
 const ceilMat = new THREE.MeshStandardMaterial({ color: 0xe9e7e2, roughness: 0.95, side: THREE.DoubleSide });
-const FPC = { sot: new THREE.Mesh(extrude(withHoles(I.sotx.ceil_in), LEVY.p1 - 0.24, 0.04), ceilMat), floor: new THREE.Mesh(extrude(S.foot2, 2.49, 0.02), ceilMat) };
+const FPC = { sot: new THREE.Mesh(extrude(SD.CEIL, SL.TOP - 0.035, 0.02), ceilMat), floor: new THREE.Mesh(extrude(S.foot2, 2.49, 0.02), ceilMat) };
 FPC.sot.visible = FPC.floor.visible = false; FPC.sot.receiveShadow = FPC.floor.receiveShadow = false; lv('sot').g.add(FPC.sot); scene.add(FPC.floor);
-// carro animado (entra por el portón y baja la rampa)
-// ===== v6: carro de simulación con ruedas que giran; siempre termina en una celda (nunca en el pasillo) =====
-// Es el carro de la celda 3 (hatch vino, como en el inventario de plazas). Estado inicial: estacionado en su celda.
+// ===== carro de simulación (celda 9): baja por la rampa de acceso y la rampa oriente 13.6 %, entra de reversa a su celda =====
 const CAR = { spot: null, state: 'parked', ph: null, s: 0, v: 0, gateClosed: false, wheels: [], m: new THREE.Group(), lit: [] };
 {
   const sp = VEH.cars.find((p) => p.n === DEMO_SPOT); CAR.spot = sp;
@@ -739,26 +365,31 @@ const CAR = { spot: null, state: 'parked', ph: null, s: 0, v: 0, gateClosed: fal
   const body = mergeVehicles([{ parts, m: new THREE.Matrix4() }], VMAT); CAR.m.add(body);
   body.children.forEach((m) => { if (m.material === VMAT.lightF || m.material === VMAT.lightR) { m.material = m.material.clone(); CAR.lit.push(m); } });
   for (const w of parts.wheels) { const steer = new THREE.Group(); steer.position.set(w.x, w.y, w.z); const spin = mergeVehicles([{ parts: w.parts, m: new THREE.Matrix4() }], VMAT); steer.add(spin); CAR.m.add(steer); CAR.wheels.push({ steer, spin, front: w.front }); }
-  CAR.r = CAR_TYPES[sp.t].r; CAR.wb = CAR_TYPES[sp.t].wb; CAR.m.rotation.order = 'YZX';
+  CAR.r = CAR_TYPES[sp.t].r; CAR.wb = CAR_TYPES[sp.t].wb; CAR.t = sp.t; CAR.m.rotation.order = 'YZX';
   lv('sot').g.add(CAR.m);
 }
 const V2 = (x, z) => new THREE.Vector3(x, 0, z);
 const bez = (a, b, c, d) => new THREE.CubicBezierCurve3(V2(...a), V2(...b), V2(...c), V2(...d));
+const LNc = (a, b) => new THREE.LineCurve3(V2(...a), V2(...b));
 function carPaths() {
-  const p = CAR.spot, cx = p.cx, cz = p.cz; const IN = new THREE.CurvePath(); IN.add(new THREE.LineCurve3(V2(-13, 2.3), V2(19, 2.3))); IN.add(bez([19, 2.3], [22.0, 2.3], [23.8, 1.9], [25.2, 1.9])); // frente del carro queda a ≈27,2 (muro ≈27,3)
-  const REV = new THREE.CurvePath(); REV.add(bez([25.2, 1.9], [23.5, 1.9], [cx, cz - 2.6], [cx, cz]));
-  const OUT = new THREE.CurvePath(); OUT.add(bez([cx, cz], [cx, cz - 2.0], [21.5, 2.36], [19.5, 2.36])); OUT.add(new THREE.LineCurve3(V2(19.5, 2.36), V2(-13, 2.3)));
-  return { in: [{ c: IN, dir: 1, vmax: 3.2, gate: 'in' }, { c: REV, dir: -1, vmax: 1.1 }], out: [{ c: OUT, dir: 1, vmax: 3.0, gate: 'out' }] };
+  const p = CAR.spot, cx = p.cx, cz = p.cz;
+  const IN = new THREE.CurvePath(); [LNc([-13, 2.3], [11.5, 2.3]), bez([11.5, 2.3], [14.0, 2.3], [14.5, 3.6], [16.5, 3.6]), LNc([16.5, 3.6], [18.5, 3.6]), bez([18.5, 3.6], [20.5, 3.6], [20.0, 6.6], [22.0, 6.6]),
+    bez([22.0, 6.6], [24.5, 6.6], [25.8, 7.4], [25.8, 10.0]), LNc([25.8, 10.0], [25.8, 16.0]), bez([25.8, 16.0], [25.8, 18.4], [24.6, 19.0], [22.6, 19.0]), LNc([22.6, 19.0], [20.6, 19.0])].forEach((c) => IN.add(c));
+  const REV = new THREE.CurvePath(); REV.add(bez([20.6, 19.0], [22.6, 19.0], [cx, 20.5], [cx, cz]));
+  const OUT1 = new THREE.CurvePath(); [bez([cx, cz], [cx, 20.0], [25.8, 20.4], [25.8, 16.5]), LNc([25.8, 16.5], [25.8, 10.0]), bez([25.8, 10.0], [25.8, 7.4], [24.5, 6.6], [22.0, 6.6]), bez([22.0, 6.6], [20.0, 6.6], [20.5, 3.6], [18.5, 3.6]),
+    LNc([18.5, 3.6], [16.5, 3.6]), bez([16.5, 3.6], [14.5, 3.6], [14.0, 2.3], [11.5, 2.3])].forEach((c) => OUT1.add(c));
+  const OUT2 = new THREE.CurvePath(); OUT2.add(LNc([11.5, 2.3], [-13, 2.3]));
+  return { in: [{ c: IN, dir: 1, vmax: 3.0, gate: 'in' }, { c: REV, dir: -1, vmax: 1.1 }], out: [{ c: OUT1, dir: 1, vmax: 2.8 }, { c: OUT2, dir: 1, vmax: 3.0, gate: 'out' }] };
 }
-function carY(x, z) { if (x < 0) return 0; return driveY(x, z); }
+const carY = (x, z) => sotY(x, z);
 const _cp = new THREE.Vector3(), _ct = new THREE.Vector3();
 function carPose(c, u, dir) {
   c.getPointAt(u, _cp); c.getTangentAt(u, _ct); const fx = _ct.x * dir, fz = _ct.z * dir; const h = Math.atan2(-fz, fx);
-  const x = _cp.x, z = _cp.z, hw = CAR.wb / 2; const yF = carY(x + fx * hw, z + fz * hw), yR = carY(x - fx * hw, z - fz * hw);
-  CAR.m.position.set(x, (yF + yR) / 2 + 0.005, z); CAR.m.rotation.set(0, h, Math.atan2(yF - yR, CAR.wb));
+  const x = _cp.x, z = _cp.z; const P = fitPose(x, z, h, CAR.t, carY); // 4 ruedas sobre el piso real (rampas y curvas verticales)
+  CAR.m.position.set(x, P.y, z); CAR.m.rotation.set(P.roll, h, P.pitch);
   return { x, z, h };
 }
-function carPark() { const p = CAR.spot; CAR.m.position.set(p.cx, p.y + 0.005, p.cz); CAR.m.rotation.set(0, p.yaw, 0); CAR.m.scale.setScalar(p.sc); CAR.m.visible = true; CAR.state = 'parked'; CAR.ph = null; CAR.wheels.forEach((w) => { w.steer.rotation.y = 0; }); carLights(false); carBtn(); }
+function carPark() { const p = CAR.spot, P = p.pose; CAR.m.position.set(p.cx, P.y, p.cz); CAR.m.rotation.set(P.roll, p.h, P.pitch); CAR.m.visible = true; CAR.state = 'parked'; CAR.ph = null; CAR.wheels.forEach((w) => { w.steer.rotation.y = 0; }); carLights(false); carBtn(); }
 function carLights(on) { CAR.lit.forEach((m) => { m.material.emissiveIntensity = on ? (m.material.color.r > 0.5 ? 1.4 : 1.1) : 0.15; }); }
 function carStart(kind) {
   if (CAR.ph) return false;
@@ -786,78 +417,50 @@ function carUpdate(dt) {
     if (CAR.k >= CAR.ph.length) { if (CAR.kind === 'in') carPark(); else { CAR.ph = null; CAR.state = 'out'; CAR.m.visible = false; carLights(false); carBtn(); } } }
 }
 function carBtn() { const b = $('#bCar'); if (!b) return; b.textContent = CAR.ph ? (CAR.kind === 'in' ? 'Entrando a la celda ' + DEMO_SPOT + '…' : 'Saliendo de la celda ' + DEMO_SPOT + '…') : CAR.state === 'parked' ? 'Sacar carro de la celda ' + DEMO_SPOT : 'Entrar carro → celda ' + DEMO_SPOT + ' (libre)'; b.disabled = !!CAR.ph; }
-function carSegs() { if (CAR.state !== 'parked') return []; const p = CAR.spot; return segsOf([{ o: [[p.xMin, p.zMin], [p.xMax, p.zMin], [p.xMax, p.zMax], [p.xMin, p.zMax]] }]); }
+function carSegs() { if (CAR.state !== 'parked') return []; const p = CAR.spot; return SOT.obbSegs(p.cx, p.cz, p.h, p.L / 2 + 0.03, p.Wd / 2 + 0.05); }
 carPark();
 
 
 // ---------- Cubierta ----------
 {
-  const R = lv('cub').g, y = 18.926502;
+  const R = lv('cub').g, y = LEVY.p7 + 3.1; // v10: N+18.30
   R.add(meshOf([extrude(S.foot2, y - 0.2, 0.2)], M.slab));
   // v8: antepecho grueso en revoque café (remate superior de los renders), cerrando también el frente del balcón empotrado
   const par = [], parIn = [];
-  const PT = LEVY.p6 + 2.5, PY = y + 0.75; // desde el cielo del piso 6 hasta el remate (antepecho 0,60 m + losa)
+  const PT = LEVY.p7 + 2.5, PY = y + 0.75; // desde el cielo del piso 7 hasta el remate (antepecho 0,60 m + losa)
   const parC = [];
   for (const sg of FMOD.segs) { if (sg.cls === 'recess') continue; (sg.cls === 'blue' ? parC : par).push(segBox(sg.a, sg.u, sg.n, 0, sg.L, PT, PY, 0.0, 0.14)); parIn.push(segBox(sg.a, sg.u, sg.n, 0, sg.L, y, PY, -0.12, 0.0)); }
   for (const c of FMOD.corners) { const d = 0.14, x0 = Math.min(c.p[0], c.p[0] + (c.n1[0] + c.n2[0]) * d), x1 = Math.max(c.p[0], c.p[0] + (c.n1[0] + c.n2[0]) * d), z0 = Math.min(c.p[1], c.p[1] + (c.n1[1] + c.n2[1]) * d), z1 = Math.max(c.p[1], c.p[1] + (c.n1[1] + c.n2[1]) * d); if (x1 - x0 > 0.01 && z1 - z0 > 0.01) par.push(worldUV(boxG(x0, x1, PT, PY, z0, z1))); }
   par.push(segBox([6.864, 4.069], [0, -1], [-1, 0], 0, 3.45, PT, PY, 0.0, 0.14)); // frente del balcón
   R.add(meshOf(par, F8.render)); R.add(meshOf(parC, F8.char)); R.add(meshOf(parIn, F8.render));
-  const flash = [];
-  for (const sg of FMOD.segs) { if (sg.cls === 'recess') continue; flash.push(segBox(sg.a, sg.u, sg.n, 0, sg.L, PY - 0.015, PY + 0.035, 0.06, 0.2)); }
-  if (flash.length) R.add(meshOf(flash, new THREE.MeshStandardMaterial({ color: 0x2a2c2e, metalness: 0.65, roughness: 0.35 })));
-  { const pv = document.createElement('canvas'); pv.width = pv.height = 256; const g = pv.getContext('2d'); g.fillStyle = '#c0c0c0'; g.fillRect(0, 0, 256, 256);
-    g.strokeStyle = '#8e8e8e'; g.lineWidth = 3; for (let i = 0; i <= 4; i++) { g.beginPath(); g.moveTo(i * 64, 0); g.lineTo(i * 64, 256); g.stroke(); g.beginPath(); g.moveTo(0, i * 64); g.lineTo(256, i * 64); g.stroke(); }
-    const pt = new THREE.CanvasTexture(pv); pt.wrapS = pt.wrapT = THREE.RepeatWrapping; pt.colorSpace = THREE.SRGBColorSpace; pt.repeat.set(0.35, 0.35);
-    const top = new THREE.Mesh(extrude(S.foot2, y + 0.005, 0.015), new THREE.MeshStandardMaterial({ map: pt, color: 0xc0c0c0, roughness: 0.9 })); top.receiveShadow = true; R.add(top); }
   R.add(meshOf([worldUV(boxG(6.864, 7.835, PT, y, 0.718, 3.969))], F8.recess)); // losa/cielo sobre el balcón del piso 7
   // volumen punto fijo sobre cubierta (aproximado, ≈N+24.4) en revoque café como en el video
-  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, 22.826502, 9.4, 12.6))], F8.render));
+  R.add(meshOf([worldUV(boxG(16.75, 23.8, y, y + 3.9, 9.4, 12.6))], F8.render));
   // v8: lucernario de vidrio oscuro sobre la ranura del punto fijo (ref_05) — ilustrativo, no está en planos
-  { const x0 = 22.46, x1 = 25.3, z0 = 8.69, z1 = 12.64, yb = PY + 0.02; const fr = [];
+  { const x0 = 24.46, x1 = 27.3, z0 = 8.69, z1 = 12.64, yb = PY + 0.02; const fr = [];
     fr.push(boxG(x0, x1, yb, yb + 0.08, z0, z0 + 0.06), boxG(x0, x1, yb, yb + 0.08, z1 - 0.06, z1), boxG(x0, x0 + 0.06, yb, yb + 0.08, z0 + 0.06, z1 - 0.06), boxG(x1 - 0.06, x1, yb, yb + 0.08, z0 + 0.06, z1 - 0.06));
     for (const z of [z0 + (z1 - z0) / 3, z0 + 2 * (z1 - z0) / 3]) fr.push(boxG(x0 + 0.06, x1 - 0.06, yb, yb + 0.07, z - 0.025, z + 0.025));
     R.add(meshOf(fr, M.alu));
     const gl = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.1, z1 - z0 - 0.1), new THREE.MeshStandardMaterial({ color: 0x1d2328, metalness: 0.6, roughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
     gl.rotation.x = -Math.PI / 2; gl.position.set((x0 + x1) / 2, yb + 0.045, (z0 + z1) / 2); R.add(gl); gl.material.userData.op = 0.55; gl.material.userData.tr = true; FACADE.push(gl.material); }
-  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, 22.926502, 11.0);
+  const rf = new THREE.BoxGeometry(7.45, 0.08, 3.6); rf.rotateZ(0.05); rf.translate(20.27, y + 4.0, 11.0);
   R.add(meshOf([rf], M.roof));
 }
 
 // ---------- entorno ----------
-let GRIDH = null;
+let GRIDH = null; const GROUND = [];
 {
   const big = new THREE.Shape([new THREE.Vector2(-60, 60), new THREE.Vector2(90, 60), new THREE.Vector2(90, -90), new THREE.Vector2(-60, -90)]);
-  // El hueco del terreno es la torre y el tramo de rampa que está fuera de ella.
-  // El resto del sótano queda bajo relleno hasta la calle.
-  const rampSlot = [[-0.5, 0.45], [8.3, 0.45], [8.3, 4.25], [-0.5, 4.25]];
-  // v9: los dos huecos se solapaban (balcón de la torre dentro del tramo de rampa) y el triangulado tapaba el sótano
-  // bajo la torre con el plano de terreno (se veía verde en primera persona). Un solo hueco = unión torre + rampa.
-  const iA = TOWER.findIndex(([x, z]) => Math.abs(x - 7.88) < 0.02 && Math.abs(z - 6.41) < 0.02), iB = TOWER.findIndex(([x, z]) => Math.abs(x - 27.28) < 0.02 && Math.abs(z - 2.13) < 0.02);
-  const UNION = iA >= 0 && iB > iA ? [[-0.5, 0.45], [8.3, 0.45], [8.3, 0.62], [18.05, 0.62], [18.05, 2.12], [19.85, 2.13], ...TOWER.slice(iA, iB + 1).reverse(), [7.88, 4.25], [-0.5, 4.25]] : null;
-  if (UNION) big.holes.push(new THREE.Path(UNION.map(([x, z]) => new THREE.Vector2(x, -z))));
-  else { big.holes.push(new THREE.Path([...TOWER].reverse().map(([x, z]) => new THREE.Vector2(x, -z)))); big.holes.push(new THREE.Path(rampSlot.map(([x, z]) => new THREE.Vector2(x, -z)))); }
+  const hole = SD.OUTER.o; big.holes.push(new THREE.Path(hole.map(([x, z]) => new THREE.Vector2(x, -z))));
   const gg = new THREE.ShapeGeometry(big); gg.rotateX(-Math.PI / 2);
-  const gm = new THREE.Mesh(gg, M.ground); gm.receiveShadow = true; gm.position.y = -0.005; scene.add(gm);
-  // Tapa solo donde el sótano ya está 2,20 m bajo la calle y fuera de la torre.
-  // Encima de la torre el cielo es la losa del piso 1; la rampa alta queda abierta.
-  const lidMat = new THREE.MeshStandardMaterial({ color: 0xc8c6bf, roughness: 0.95, side: THREE.DoubleSide });
-  const lidBoxes = [];
-  const foot = S.lower[0].o;
-  for (let x = -0.2; x < 27.6; x += 0.8) for (let z = -1; z < 26.2; z += 0.8) {
-    const cx = x + 0.4, cz = z + 0.4;
-    if (!inPoly(foot, cx, cz) || inTower(cx, cz)) continue;
-    if (cx < 8.4 && cz > 0.4 && cz < 4.3) continue;
-    if (floorY(cx, cz) + 2.2 > -0.02) continue;
-    lidBoxes.push(boxG(x, x + 0.8, -0.22, 0, z, z + 0.8));
-  }
-  if (lidBoxes.length) { const lidMesh = meshOf(lidBoxes, lidMat); lidMesh.name = 'relleno'; scene.add(lidMesh); }
+  const gm = new THREE.Mesh(gg, M.ground); gm.receiveShadow = true; gm.position.y = -0.005; scene.add(gm); GROUND.push(gm);
   const street = new THREE.Mesh(new THREE.PlaneGeometry(9, 70), new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 1 }));
-  street.rotation.x = -Math.PI / 2; street.position.set(-5.6, 0.0, 13); street.receiveShadow = true; scene.add(street);
+  street.rotation.x = -Math.PI / 2; street.position.set(-5.6, 0.0, 13); street.receiveShadow = true; scene.add(street); GROUND.push(street);
   const sw = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.15, 70), new THREE.MeshStandardMaterial({ color: 0x6d7178, roughness: 1 }));
-  sw.position.set(-0.6, 0.075, 13); sw.receiveShadow = true; scene.add(sw);
+  sw.position.set(-0.6, 0.075, 13); sw.receiveShadow = true; scene.add(sw); GROUND.push(sw);
   const dash = []; for (let z = -20; z < 48; z += 3) dash.push(boxG(-5.68, -5.52, 0.005, 0.01, z, z + 1.5));
-  scene.add(meshOf(dash, new THREE.MeshBasicMaterial({ color: 0xbfc4ca }), false));
-  const grid = new THREE.GridHelper(160, 80, 0x2a3440, 0x222a33); grid.position.set(15, 0.002, 13); grid.material.transparent = true; grid.material.opacity = 0.35; scene.add(grid); GRIDH = grid;
+  { const dm = meshOf(dash, new THREE.MeshBasicMaterial({ color: 0xbfc4ca }), false); scene.add(dm); GROUND.push(dm); }
+  const grid = new THREE.GridHelper(160, 80, 0x2a3440, 0x222a33); grid.position.set(15, 0.002, 13); grid.material.transparent = true; grid.material.opacity = 0.35; scene.add(grid); GRIDH = grid; GROUND.push(grid);
 }
 
 // ---------- apartamentos (hover) ----------
@@ -870,7 +473,7 @@ const APT = [
 const aptMat = new THREE.MeshBasicMaterial({ color: 0x35d3ff, transparent: true, opacity: 0, depthWrite: false });
 const aptBoxes = [];
 LV.filter((l) => /^p[2-7]$/.test(l.id)).forEach((l) => {
-  const fl = +l.id.slice(1);
+  const fl = FLN(l.id);
   APT.forEach((a) => {
     const m = new THREE.Mesh(boxG(a.x0, a.x1, l.y + 0.05, l.y + 2.45, a.z0, a.z1), aptMat.clone());
     m.userData = { num: fl * 100 + a.n, ...a, lv: l }; m.renderOrder = 5; l.g.add(m); aptBoxes.push(m);
@@ -884,28 +487,32 @@ const PED_LOCK_Y = () => GT.H * GT.hs * 0.443;
 const MK = [
   { id: 'kiosk', lv: 'p1', p: [-0.2, 1.95, GT.kz], c: C_URB, t: 'Kiosko URBAN · Galaxy Tab Active5', s: 'Propuesta', loc: 'Jamba fija derecha del portón (junto a la hoja derecha), en submarco metálico atornillado, centro de pantalla ≈1,50 m, hacia la calle; carcasa metálica con visera y luz frontal; alimentación USB‑C PD por conduit. Tablet 126,8 × 213,8 × 10,1 mm en vertical.', bom: [0, 1, 2, 3, 4],
     why: 'Fase 1: el propietario se acerca, el kiosko reconoce el rostro y libera la puerta peatonal (en el modelo, la pantalla es una simulación ilustrativa). Respaldo: PIN offline y app URBAN. Va en la jamba FIJA para que no se mueva cuando abren las hojas del portón; la visera la protege del sol y la lluvia.' },
-  { id: 'esp', lv: 'p1', p: [0.2, 2.0, 6.82], c: C_URB, t: 'ESP32 en caja con llave', s: 'Propuesta', loc: 'Cara interior del pilar derecho del portón, adentro (alternativa: dentro del edificio, en el acceso).', bom: [11, 12, 13, 14, 16, 17, 19],
+  { id: 'esp', lv: 'sot', p: [0.5, 1.15, 3.76], c: C_URB, t: 'ESP32 en caja con llave', s: 'Propuesta', loc: 'Cara interior del pilar derecho del portón, adentro (alternativa: dentro del edificio, en el acceso).', bom: [11, 12, 13, 14, 16, 17, 19],
     why: 'Controlador local que acciona la cerradura de la puerta peatonal y lee botón de salida y sensor. Va del lado seguro, en caja IP66 con llave, junto a la fuente de respaldo 12 V.' },
   { id: 'lock', lv: 'p1', p: [0.09, 2.0, GT.Z0 + 0.625 * GT.W], c: C_URB, t: 'Cerradura fail-secure (puerta peatonal)', s: 'Propuesta', loc: 'Puerta peatonal integrada en la hoja derecha del portón: cerradura de sobreponer en la cara interior, canto de cierre (lado de la manija), con contraplaca en el panel angosto de la misma hoja. LED en el modelo: rojo = enclavada, verde = liberada.', bom: [5, 9, 10, 6],
     why: 'Sin energía permanece cerrada y abre con llave mecánica. Solo se libera con una orden válida de URBAN (facial, app o PIN). El cierrapuertas asegura que la hoja vuelva y enganche.' },
-  { id: 'rex', lv: 'p1', p: [0.12, 1.2, 6.62], c: C_URB, t: 'Botón de salida', s: 'Propuesta', loc: 'Cara interior de la jamba fija, junto a la puerta peatonal, h≈1.20 m.', bom: [7],
+  { id: 'rex', lv: 'p1', p: [0.12, 1.2, 3.74], c: C_URB, t: 'Botón de salida', s: 'Propuesta', loc: 'Cara interior de la jamba fija, junto a la puerta peatonal, h≈1.20 m.', bom: [7],
     why: 'Salida libre desde adentro sin app ni PIN; queda registrada como solicitud de salida.' },
-  { id: 'sens', lv: 'p1', p: [0.1, 2.3, 4.6], c: C_URB, t: 'Sensor de puerta', s: 'Propuesta', loc: 'Cara interior de la puerta peatonal integrada (hoja derecha), lado de la manija.', bom: [8],
+  { id: 'sens', lv: 'p1', p: [0.1, 1.9, 2.72], c: C_URB, t: 'Sensor de puerta', s: 'Propuesta', loc: 'Cara interior de la puerta peatonal integrada (hoja derecha), lado de la manija.', bom: [8],
     why: 'Informa puerta abierta, cerrada o forzada para alarmas y bitácora.' },
-  { id: 'c1', lv: 'p1', p: [-0.35, 2.6, 2.1], aim: [-4, 1.2, 2.1], c: C_CAM, t: 'C1 · Cámara exterior ingreso', s: 'Propuesta', loc: 'Jamba del acceso oeste, mirando la calle.', bom: [25],
+  { id: 'c1', lv: 'p1', p: [-0.2, 2.55, 4.0], aim: [-5.2, 0.6, 2.2], c: C_CAM, t: 'C1 · Cámara exterior ingreso', s: 'Propuesta', loc: 'Pilar derecho del portón (exterior), mirando el kiosko, el andén y la entrada de carros.', bom: [25],
     why: 'Registra quién se acerca desde la calle y usa el kiosko (rostro y evento).' },
-  { id: 'c2', lv: 'p1', p: [4.2, 2.5, 2.3], aim: [0.2, 1.4, 2.1], c: C_CAM, t: 'C2 · Cámara interior del acceso', s: 'Propuesta', loc: 'Sobre el acceso, mirando el portón.', bom: [26],
+  { id: 'c2', lv: 'sot', p: [6.95, 1.3, 3.7], aim: [0.3, 0.2, 3.1], c: C_CAM, t: 'C2 · Cámara interior (paso peatonal)', s: 'Propuesta', loc: 'Adentro, en la fachada del edificio, mirando el paso peatonal y la puerta.', bom: [26],
     why: 'Confirma quién entró realmente después de cada apertura.' },
-  { id: 'c3', lv: 'p1', p: [8.4, 2.4, 1.15], aim: [16, -0.4, 2.2], c: C_CAM, t: 'C3 · Cámara rampa', s: 'Propuesta', loc: 'Muro norte de la rampa, mirando el acceso hacia el oriente.', bom: [27],
+  { id: 'c3', lv: 'sot', p: [6.95, 1.3, 0.95], aim: [0.0, 0.2, 2.4], c: C_CAM, t: 'C3 · Cámara rampa', s: 'Propuesta', loc: 'Boca de la rampa vehicular, bajo el letrero ED. ALMENDRA de la fachada.', bom: [27],
     why: 'Registra vehículos que entran y salen por la rampa al sótano.' },
-  { id: 'rack', lv: 'sot', p: [SV.rack.x, SV.rack.y + 0.55, SV.rack.z], c: C_URB, t: 'C. Eléctrico / Telecom', s: 'Hecho', s2: 'Propuesta (equipos)', loc: 'Sótano, C. ELECTRICO/TELEC del plano nuevo, en el borde norte del acceso. Rack de pared 7 UR; tableros ilustrativos.', bom: [22, 20, 21, 23, 24, 28, 29, 18],
+  { id: 'rack', lv: 'sot', p: [SV.rack.x, SV.rack.y + 0.55, SV.rack.z], c: C_URB, t: 'Cuarto técnico (C. Eléctrico / Telec. 1.81 m²)', s: 'Hecho', s2: 'Propuesta (equipos)', loc: 'Sótano N-1.00, C. ELÉCTRICO / TELEC. (1.35 × 1.34 m libres = 1.81 m², medido en el plano del sótano), al norte del carril de acceso junto a C. ASEO. Rack en el muro del fondo; tablero en el muro oriente (ilustrativos).', bom: [22, 20, 21, 23, 24, 28, 29, 18],
     why: 'Concentra router VPN, switch PoE, NVR y UPS en un espacio cerrado del sótano. El cuarto existe en el plano; los equipos son propuesta.' },
-  { id: 'door', lv: 'p1', p: [-0.25, 3.2, 2.5], c: 0xc9a77c, t: 'Portón ED. ALMENDRA · 2 hojas (peatonal integrada)', s: 'Aproximado', s2: 'Fase 2: motor del portón', loc: 'Un solo portón en borde de calle bajo el dintel ED.ALMENDRA. Ancho ≈6,1 m (muro norte de la rampa → lindero); alto por proporción del render. Abre en 2 hojas por el eje central (izq. ≈3,0 m, der. ≈2,6 m); la puerta peatonal va dentro de la hoja derecha; jamba fija a la derecha con el kiosko. Medidas por tomar en sitio.', bom: [43, 44],
+  { id: 'door', lv: 'p1', p: [-0.25, 2.9, 2.3], c: 0xc9a77c, t: 'Portón ED. ALMENDRA · 2 hojas (peatonal integrada)', s: 'Aproximado', s2: 'Fase 2: motor del portón', loc: 'Un solo portón en borde de calle bajo el dintel ED.ALMENDRA. Vano del acceso del plano: 3.33 m entre caras exteriores de muros (3.04 m libres); alto por proporción del render (≈2,24 m). Abre en 2 hojas por el eje central (izq. ≈1,51 m, der. ≈1,28 m; la peatonal de ≈0,91 m va dentro de la hoja derecha); la puerta peatonal va dentro de la hoja derecha; jamba fija a la derecha con el kiosko. Medidas por tomar en sitio.', bom: [43, 44],
     why: 'Es la MISMA puerta: para carros abren solo las 2 hojas (la peatonal permanece cerrada y se mueve con su hoja); para personas abre solo la puerta peatonal integrada, con URBAN (facial, app o PIN). Motor y control del vehicular: fase 2.' },
 ];
 const MAJOR = new Set(['kiosk', 'rack', 'c1', 'door']);
-// EMT 3/4" a la vista, por el muro norte del acceso. Lo arma rebuildCable.
-const CABLE = [];
+// v6: trazado ortogonal (cada tramo sigue un solo eje: muro, piso enterrado o cielo raso), sin diagonales en el aire
+// v10: kiosko → jamba → ESP32 (cara interior del muro sur del acceso) → por el muro hasta la losa → bajo la losa (N+1.40) → C. ELÉCTRICO / TELEC.
+const CABLE = [
+  ['p1', 0.06, 1.3, GT.kz], ['p1', 0.14, 1.3, GT.kz], ['sot', 0.14, 1.3, 3.76], ['sot', 0.5, 1.3, 3.76], ['sot', 9.0, 1.3, 3.76], ['sot', 9.0, 1.40, 3.76],
+  ['sot', 9.0, 1.40, 0.9], ['sot', 11.6, 1.40, 0.9], ['sot', 11.6, 1.40, -0.25], ['sot', 11.6, SV.rack.y + 1.4, -0.25],
+];
 const haloMat = (c) => new THREE.SpriteMaterial({ map: texHalo, color: c, transparent: true, sizeAttenuation: false, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending });
 const labels = $('#labels');
 MK.forEach((m) => {
@@ -943,65 +550,33 @@ const cableMat = new THREE.ShaderMaterial({
   fragmentShader: 'uniform float t; uniform float len; uniform vec3 c; varying vec2 vUv; void main(){ float d=fract(vUv.x*len/0.45 - t*1.6); if(d>0.55) discard; gl_FragColor=vec4(c*1.25,0.95);} ',
   transparent: true, depthTest: false, depthWrite: false,
 });
-let cableMesh = null; const cableLabel = document.createElement('div'); cableLabel.className = 'tag cab'; cableLabel.innerHTML = '<i></i><span>Ruta de tubería propuesta (a la vista, por aire)</span>';
+let cableMesh = null; const cableLabel = document.createElement('div'); cableLabel.className = 'tag cab'; cableLabel.innerHTML = '<i></i><span>Ruta de cable · PROPUESTA — medir en sitio</span>';
 cableLabel.onclick = () => openPanel(CAB_MK); labels.appendChild(cableLabel);
-const CAB_MK = { t: 'Ruta de tubería propuesta (a la vista, por aire)', s: 'Propuesta', c: C_CAB, loc: '', bom: [30, 31, 32, 33, 34, 35, 36, 37],
-  why: 'EMT de 3/4" (Ø 23,4 mm) a la vista, alto sobre el muro norte de la rampa, para poder cambiar el cableado sin picar. Barridos de radio 200 mm. Las cámaras, el kiosko, la cerradura, el sensor, el botón y el ESP32 entran a este tubo y siguen hasta C. Eléctrico/Telecom.' };
-function cablePts() { return emtCenterline().map((p) => new THREE.Vector3(p.x, p.y, p.z)); }
+const CAB_MK = { t: 'Ruta de cable (propuesta)', s: 'Propuesta', c: C_CAB, loc: 'Kiosko (jamba del portón) → caja ESP32 en el pilar → ducto enterrado bajo el paso peatonal → pasamuro al sótano → cielo raso de C. Útil 1 y 2 (validar) → cuarto técnico. Recorrido ≈15 m (estimado sobre el modelo); con holguras ≈18–20 m de cable. Trazado indicativo: medir en sitio.', bom: [30, 31, 32, 33, 34, 35, 36, 37],
+  why: 'UTP Cat 6 exterior para datos/PoE y 2×18 AWG para cerradura, sensor y botón, en conduit PVC enterrado bajo el paso y EMT dentro del sótano.' };
+function cablePts() { return CABLE.map(([l, x, y, z]) => new THREE.Vector3(x, y + lv(l).g.position.y, z)); }
 function rebuildCable() {
-  const pts = cablePts(); const path = new THREE.CurvePath(); let trunk = 0;
-  for (let i = 0; i < pts.length - 1; i++) { if (pts[i].distanceTo(pts[i + 1]) < 1e-4) continue; path.add(new THREE.LineCurve3(pts[i], pts[i + 1])); trunk += pts[i].distanceTo(pts[i + 1]); }
-  let L = trunk;
-  const r = EMT_OD / 2;
+  const pts = cablePts(); const path = new THREE.CurvePath(); let L = 0;
+  for (let i = 0; i < pts.length - 1; i++) { path.add(new THREE.LineCurve3(pts[i], pts[i + 1])); L += pts[i].distanceTo(pts[i + 1]); }
   if (cableMesh) { cableMesh.geometry.dispose(); urban.remove(cableMesh); }
-  cableMesh = new THREE.Mesh(new THREE.TubeGeometry(path, 240, r, 8, false), cableMat); cableMesh.renderOrder = 18; urban.add(cableMesh);
+  cableMesh = new THREE.Mesh(new THREE.TubeGeometry(path, 400, 0.035, 6, false), cableMat); cableMesh.renderOrder = 18; urban.add(cableMesh);
   if (window.__cond) { urban.remove(window.__cond); window.__cond.geometry.dispose(); }
-  const steel = new THREE.MeshStandardMaterial({ color: 0xc5c8cc, metalness: 0.75, roughness: 0.35 });
-  const boxM = new THREE.MeshStandardMaterial({ color: 0xd8d2c4, metalness: 0.4, roughness: 0.45 });
-  const cg = [];
-  // grapas al muro norte cada 1,2 m en el tramo recto
-  for (let x = 1.2; x < 10.6; x += 1.2) {
-    const y = floorY(x, 0.62) + CLEAR_H;
-    const arm = new THREE.CylinderGeometry(0.006, 0.006, 0.16, 6); arm.rotateX(Math.PI / 2); arm.translate(x, y, 0.70); cg.push(arm.index ? arm.toNonIndexed() : arm);
-  }
-  for (const b of PULL_BOXES) {
-    const y = floorY(b.x, b.z) + CLEAR_H;
-    cg.push(boxG(b.x - 0.06, b.x + 0.06, y - 0.05, y + 0.05, b.z - 0.05, b.z + 0.04));
-  }
-  // derivaciones de los equipos: suben en vertical y un barrido de 90° las acuesta sobre el tronco
-  const feeds = ['kiosk', 'esp', 'lock', 'rex', 'sens', 'c1', 'c2', 'c3'];
-  for (const id of feeds) {
-    const m = MK.find((q) => q.id === id); if (!m) continue;
-    const x = m.p[0], y = m.p[1], z = m.p[2];
-    const yT = floorY(Math.max(0.3, Math.min(10, x)), 0.62) + CLEAR_H;
-    const xT = Math.max(0.4, Math.min(10.5, x));
-    const whip = [new THREE.Vector3(x, y, z), new THREE.Vector3(x, yT, z)];
-    const steps = 6;
-    for (let i = 1; i <= steps; i++) {
-      const a = (Math.PI / 2) * (i / steps);
-      whip.push(new THREE.Vector3(x + (xT - x) * (1 - Math.cos(a)), yT, z + (0.62 - z) * Math.sin(a)));
-    }
-    whip.push(new THREE.Vector3(xT, yT, 0.62));
-    const wp = new THREE.CurvePath();
-    for (let i = 0; i < whip.length - 1; i++) { if (whip[i].distanceTo(whip[i + 1]) < 1e-3) continue; wp.add(new THREE.LineCurve3(whip[i], whip[i + 1])); L += whip[i].distanceTo(whip[i + 1]); }
-    urban.add(new THREE.Mesh(new THREE.TubeGeometry(wp, 48, r * 0.85, 6, false), steel));
-  }
-  window.__cond = new THREE.Mesh(mergeGeometries(cg), boxM); urban.add(window.__cond);
-  cableMat.uniforms.len.value = L;
-  CAB_MK.mid = path.getPointAt(0.5); CAB_MK.len = L;
-  CAB_MK.loc = `EMT 3/4" (Ø ${Math.round(EMT_OD * 1000)} mm), a la vista sobre el muro norte. Eje a ${CLEAR_H.toFixed(2)} m de la rasante; bajo del tubo a ${(CLEAR_H - r).toFixed(2)} m (paso de vehículo). Tronco ${trunk.toFixed(1)} m. Con las derivaciones de los equipos, ${L.toFixed(1)} m. Tronco: 2 barridos de 90° (radio 200 mm) = 180°. Cajas de paso CJ1 (jamba del acceso), CJ2 (x ≈ 6 m, tramo recto) y CJ3 (entrada a C. Eléctrico/Telecom). Entre cajas no se pasan 90°. Cada equipo entra con un solo barrido de 90°.`;
-  cableLabel.innerHTML = `<i></i><span>Ruta de tubería propuesta (a la vista, por aire) · EMT 3/4" · tronco ${trunk.toFixed(1)} m</span>`;
+  const cg = []; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1]; const d = b.clone().sub(a), Ld = d.length(); if (Ld < 0.01) continue; const c = new THREE.CylinderGeometry(0.019, 0.019, Ld, 8, 1); c.translate(0, Ld / 2, 0); c.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); c.translate(a.x, a.y, a.z); cg.push(c.index ? c.toNonIndexed() : c); const k = new THREE.SphereGeometry(0.026, 8, 6); k.translate(b.x, b.y, b.z); cg.push(k.index ? k.toNonIndexed() : k); }
+  window.__cond = new THREE.Mesh(mergeGeometries(cg), new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.6, roughness: 0.4 })); urban.add(window.__cond);
+  cableMat.uniforms.len.value = L; CAB_MK.mid = path.getPointAt(0.45); CAB_MK.len = L;
 }
 rebuildCable();
 
 // ---------- UI state ----------
-const st = { urban: true, xray: false, explode: 0, cut: null, flow: null };
+const st = { urban: true, xray: false, explode: 0, cut: null, flow: null, plan: false };
 function applyVis() {
   shadowDirty();
   const ci = st.cut == null ? 99 : LV.findIndex((l) => l.id === st.cut);
   LV.forEach((l, i) => { l.g.visible = l.on && i <= ci; });
   urban.visible = st.urban;
-  MK.forEach((m) => { m.g.visible = st.urban; });
+  const secc = st.cut === 'sot' || st.plan || st.explode > 0; GROUND.forEach((m) => { m.visible = !secc; }); // corte del sótano: se lee como sección (sin calle ni prado encima)
+  SOT.earth.forEach((m) => { m.visible = !st.explode && !st.plan; }); SOT.dims.visible = !!st.plan;
+  urban.visible = st.urban && !st.plan; MK.forEach((m) => { m.g.visible = st.urban && !st.plan; });
   FACADE.forEach((m) => {
     if (st.xray) { m.transparent = true; m.opacity = Math.min(m.userData.op, 0.16); m.depthWrite = false; }
     else { m.transparent = m.userData.tr; m.opacity = m.userData.op; m.depthWrite = !m.userData.tr; }
@@ -1009,13 +584,13 @@ function applyVis() {
   });
   if (window.__intVis) window.__intVis();
 }
-function applyExplode() { shadowDirty(); LV.forEach((l) => { l.g.position.y = st.explode * l.k * 2.6; }); rebuildCable(); if (window.__intVis) window.__intVis(); W.cab.visible = !st.explode; }
+function applyExplode() { shadowDirty(); LV.forEach((l) => { l.g.position.y = st.explode * l.k * 2.6; }); rebuildCable(); if (window.__intVis) window.__intVis(); W.cab.visible = !st.explode; applyVis(); }
 
 // floors list
 const fl = $('#floors');
 [...LV].reverse().forEach((l) => {
   const b = document.createElement('label'); b.className = 'chk';
-  b.innerHTML = `<input type="checkbox" checked><span>${l.name}</span>`;
+  b.innerHTML = `<input type="checkbox" checked><span>${l.name}${l.id === 'p1' ? ' <small>N±0.00</small>' : ''}</span>`;
   b.querySelector('input').onchange = (e) => { l.on = e.target.checked; applyVis(); }; fl.appendChild(b);
 });
 const cutSel = $('#cut'); LV.forEach((l) => { const o = document.createElement('option'); o.value = l.id; o.textContent = 'Cortar sobre ' + l.name; cutSel.appendChild(o); });
@@ -1050,13 +625,26 @@ const VIEWS = {
   rampa: { p: [-6, 10, -5.5], t: [9, -1.4, 2.4], cut: null },
   sotano: { p: [1, 21, -9], t: [16, -3, 12], cut: 'sot' },
   tipo: { p: [3, 36, 31], t: [18.5, 14.5, 12.5], cut: 'p6' },
+  // v10: planta del sótano en proyección casi ortográfica (teleobjetivo cenital) con cotas del plano
+  planta: { p: [13.9, 800, 12.62], t: [13.9, -1, 12.6], cut: 'sot', plan: true },
 };
+const CAM0 = { fov: camera.fov, near: camera.near, far: camera.far, maxD: controls.maxDistance };
+function planFov() { const a = camera.aspect || 1; return 2.3 * Math.max(1, 1.12 / a); }
+function planCam(on) {
+  st.plan = on;
+  if (on) { camera.fov = planFov(); camera.near = 700; camera.far = 900; controls.maxDistance = 900; }
+  else { camera.fov = innerWidth < innerHeight ? 55 : 40; camera.near = CAM0.near; camera.far = CAM0.far; controls.maxDistance = CAM0.maxD; }
+  camera.updateProjectionMatrix();
+}
 let tween = null;
 function goView(k, instant) {
   if (FP.on) fpExit();
-  const v = VIEWS[k]; st.cut = v.cut; cutSel.value = v.cut || ''; applyVis();
+  const v = VIEWS[k]; planCam(!!v.plan); st.cut = v.cut; cutSel.value = v.cut || '';
+  if (v.plan && st.explode) { st.explode = 0; $('#explode').value = 0; applyExplode(); }
+  applyVis();
   document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === k));
   const p1 = new THREE.Vector3(...v.p), t1 = new THREE.Vector3(...v.t);
+  if (v.plan) { camera.position.copy(p1); controls.target.copy(t1); controls.update(); return; }
   if (k === 'tipo' || k === 'sotano') { const off = lv(v.cut).g.position.y; p1.y += off; t1.y += off; }
   if (instant) { camera.position.copy(p1); controls.target.copy(t1); controls.update(); return; }
   tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1, t1, s: performance.now(), d: 1100 };
@@ -1121,11 +709,7 @@ canvas.addEventListener('pointerup', (e) => {
 // ---------- apt labels for cut floor ----------
 const aptLbl = APT.map((a) => { const el = document.createElement('div'); el.className = 'apt'; labels.appendChild(el); return { a, el }; });
 const floatLbl = [
-  { t: 'Portón ED. ALMENDRA · carros y peatones', p: [-0.2, 1.8, 2.3], l: 'p1', cls: 'note sm' },
-  ...SV.rooms.map((r) => ({ t: r.plan + ' · ' + r.area.toFixed(2) + ' m²', p: [r.cx, r.fy + 1.2, r.cz], l: 'sot', cls: 'note', only: 'sot' })),
-  { t: 'Sótano N-2.96 · 10 carros + 4 motos', p: [22, -1.2, 26.4], l: 'sot', cls: 'note sm', only: 'sot' },
-  { t: 'Rampa 13.6 % → N-2.96', p: [26, -1.6, 10.4], l: 'sot', cls: 'note sm', only: 'sot' },
-  { t: 'Volumen punto fijo ≈ (aprox.)', p: [18.926502, 23.226502, 11], l: 'cub', cls: 'note sm' },
+  { t: 'Volumen punto fijo ≈ (aprox.)', p: [20.3, LEVY.p7 + 7.4, 11], l: 'cub', cls: 'note sm' },
 ].map((f) => { const el = document.createElement('div'); el.className = f.cls; el.textContent = f.t; labels.appendChild(el); return { ...f, el }; });
 
 
@@ -1212,7 +796,7 @@ function kioskUpdate(dt) {
   if (N.d > 1.8) KS.armed = true;
   const inWay = FP.on && FP.x > -0.9 && FP.x < 2.1 && FP.z > GT.Z0 + GT.U.p0 * GT.W - 0.1 && FP.z < GT.Z0 + GT.U.p1 * GT.W + 0.3;
   switch (KS.st) {
-    case 'idle': break; // no abre al acercarse: solo con E / toque (pedCycle)
+    case 'idle': if (N.look && KS.armed) { KS.st = 'scan'; KS.t = 0; } break;
     case 'scan': if (!N.look && KS.t < 1.6) { KS.st = 'idle'; KS.t = 0; } else if (KS.t >= 2.4) { KS.armed = false; if (pedCycle('face')) welcome(); } break;
     case 'ok': if (KS.t >= 0.45) { GT.ped.tgt = 1; KS.st = 'open'; KS.t = 0; } break;
     case 'open': if (FP.on && FP.x > 1.6) KS.passed = true;
@@ -1235,7 +819,8 @@ function kioskPrompt() {
     if (s === 'ok' || s === 'open') return KS.src === 'face' ? '<span class="kp ok">✓ Bienvenido, propietario · relé ESP32 → cerradura liberada · pasa por la puerta peatonal</span>' : '<span class="kp ok">✓ Puerta peatonal abierta</span>';
     if (s === 'vehopen') return '<span class="kp">Portón vehicular abierto: la peatonal permanece cerrada dentro de su hoja</span>';
     if (s === 'closing' || s === 'done') return '<span class="kp">Puerta cerrándose · cerradura fail‑secure se re‑enclava</span>';
-    return '';
+    if (N.d < 1.2) return '<span class="kp">Mira la pantalla del kiosko para iniciar el reconocimiento facial</span>';
+    return '<span class="kp">Acércate al kiosko (jamba derecha, ≈1,5 m) para reconocimiento facial</span>';
   }
   if (FP.x > 0 && FP.x < 5.5 && (s === 'open' || s === 'closing' || s === 'done')) return '<span class="kp ok">Bienvenido a Ed. Almendra · la puerta se cierra sola detrás de ti</span>';
   return '';
@@ -1248,7 +833,7 @@ function setGateH(k) {
 // ================= RECORRIDO EN PRIMERA PERSONA (v3: tipo videojuego) =================
 const FP = { on: false, x: -5.4, z: 4.4, y: 0, yaw: -Math.PI / 2, pitch: 0, mode: 'ground', floor: null, lvl: 'p1', keys: {}, joy: { x: 0, y: 0 }, prevCut: null, bob: 0, auto: null, focus: null, inCab: false, room: null, spd: 0 };
 const EYE = 1.62, RAD = 0.22, STEPH = 0.45;
-const TIPS = ['p2', 'p3', 'p4', 'p5', 'p6'];
+const TIPS = ['p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
 const { EV, CI, ED, SH, ST: STR, PAIRS, stairY, LEV } = W;
 // v6: fusión de mallas estáticas del interior (hijos directos de cada int_*) por material → menos draw calls
 function batchStatic(g) {
@@ -1270,24 +855,23 @@ function dSeg(px, pz, s) { const [ax, az, bx, bz] = s; const dx = bx - ax, dz = 
 // rejilla espacial de segmentos (1 m)
 function grid(segs) { const G = new Map(); for (const s of segs) { const x0 = Math.floor(Math.min(s[0], s[2]) - 0.4), x1 = Math.floor(Math.max(s[0], s[2]) + 0.4), z0 = Math.floor(Math.min(s[1], s[3]) - 0.4), z1 = Math.floor(Math.max(s[1], s[3]) + 0.4);
   for (let i = x0; i <= x1; i++) for (let j = z0; j <= z1; j++) { const k = i * 1000 + j; if (!G.has(k)) G.set(k, []); G.get(k).push(s); } } return G; }
-const SEGS_SOT = [...segsOf([...I.sotx.walls_in, ...I.sotx.walls_out]), ...segsOf(I.sotx.cols_in), ...SV.segs,
-  ...SOT8.planters.flatMap(([a, z0, b, z1]) => segsOf([{ o: [[a, z0], [b, z0], [b, z1], [a, z1]] }])),
-  ...VEH.cars.filter((p) => p.n !== DEMO_SPOT).flatMap((p) => segsOf([{ o: [[p.xMin, p.zMin], [p.xMax, p.zMin], [p.xMax, p.zMax], [p.xMin, p.zMax]] }])),
-  ...VEH.motos.flatMap((m) => segsOf([{ o: [[m.xMin, m.zMin], [m.xMax, m.zMin], [m.xMax, m.zMax], [m.xMin, m.zMax]] }])), [STR.x0, STR.zm, STR.x0, STR.z1]];
-const SEGS_GROUND = [[1.2, 3.97, 7.884, 3.97], [0, 0.49, 0, 0.64], [0, 6.74, 0, 6.89], [-0.12, 0.49, 0.12, 0.49], [-0.12, 6.89, 0.12, 6.89], [0.1, 6.74, 7.884, 6.74], [7.884, 6.4, 7.884, 6.74], [7.884, 3.9, 7.884, 4.1]];
+// v10: colisiones del sótano = muros/columnas/barandas/cuartos del vector del PDF + vehículos estacionados (sot10.js)
+const SEGS_SOT = [...SOT.segs, [STR.x0, STR.zm, STR.x0, STR.z1]];
+// nivel de calle: contorno exterior del sótano (muros sobre el terreno), salvo el vano del portón; zócalos bajo la torre
+const SEGS_GROUND = [...segsOf([SD.OUTER]).filter((g) => !(Math.max(g[0], g[2]) < 0.3)), ...segsOf(SD.PLINTH), [0, GT.Z0 - 0.15, 0, GT.Z0], [0, GT.Z1, 0, GT.Z1 + 0.15], [0.05, 6.62, 7.9, 6.62]];
 const GRID = {
   sot: grid([...SEGS_SOT, ...W.seg.stair, ...W.seg.elev]),
-  p1: grid([...W.seg.tip, ...W.seg.stair, ...W.seg.elev]),
+  p1: grid([...SEGS_GROUND]),
   tip: grid([...W.seg.tip, ...W.seg.stair, ...W.seg.elev]),
 };
 const P7BAR = [STR.x0, STR.z0, STR.x0, STR.zm];
-function setKey(x, z, y) { if (y < 0.5 && x >= 0 && (onRamp(x, z) || (y < 0 && SV.at(x, z)))) return 'sot'; return lvlOf(y); }
-function lvlOf(y) { if (y < -1.2) return 'sot'; if (y < LEVY.p2 - 1.0) return 'p1'; let id = 'p2'; for (const k of TIPS) if (LEVY[k] <= y + 1.0) id = k; return id; }
+function setKey(x, z, y) { if (y < 0.6 && x >= 0 && inSot(x, z)) return 'sot'; return lvlOf(y); }
+function lvlOf(y) { if (y < -0.5) return 'sot'; if (y < LEVY.p2 - 1.0) return 'p1'; let id = 'p2'; for (const k of TIPS) if (LEVY[k] <= y + 1.0) id = k; return id; }
 function dynSegs(lvl) {
   const out = [];
   const E = LEV[lvl];
   if (E) { for (const d of E.doors) out.push(d.seg()); if (E.bal) out.push(E.bal.seg()); if (E.ent) { const s = E.ent.seg(); if (s) out.push(s); } }
-  if (lvl === 'p6') out.push(P7BAR);
+  if (lvl === 'p7') out.push(P7BAR);
   if (lvl === 'sot') { for (const d of SV.doors) out.push(d.seg()); out.push(...carSegs()); }
   if (lvl === 'p1' || lvl === 'sot') out.push(...gateSegs());
   const here = FLOORS[EV.fi] === lvl && EV.state !== 'moving';
@@ -1309,21 +893,16 @@ function cands(x, z) {
   if (x > CI.x0 && x < CI.x1 + 0.03 && z > CI.z0 && z < CI.z1) { out.push(EV.y); return out; }
   if (x >= CI.x1 && x <= ED[1] + 0.03 && z > ED[2] && z < ED[3]) { out.push(EV.y); FLOORS.forEach((f) => out.push(LEVY[f])); return out; }
   if (x > SH[0] - 0.1 && x < ED[1] && z > SH[1] - 0.1 && z < SH[3] + 0.1) return out;
-  if (onRamp(x, z) || (x >= MOUTH_X0 && x <= RAMP.x1 + 0.05 && z >= RAMP_S - APRON && z <= RAMP_S + 0.2)) out.push(driveY(x, z));
-  else {
-    if (x < 0.4) out.push(0);
-    const sr = SV.at(x, z); if (sr) out.push(sr.fy);
-    if (pip(S.foot4, x, z) && x > 7.6) out.push(RAMP.low);
-  }
-  if (pipH(W.walk.p1, x, z)) out.push(LEVY.p1);
+  if (inSot(x, z)) out.push(sotY(x, z)); // v10: piso real del sótano (rampas con curvas verticales, plataforma N-1.00, nivel bajo N-2.16)
+  else if (!inOuter(x, z)) out.push(0); // calle / jardín N±0.00
   if (pipH(W.walk.tip, x, z)) for (const id of TIPS) out.push(LEVY[id]);
   return out;
 }
 function pickH(x, z, y) { let best = null; for (const h of cands(x, z)) if (h <= y + STEPH && (best === null || h > best)) best = h; if (best !== null && y - best > 0.6) return null; return best; }
 // ---------- interacción ----------
-function roomAt(x, z, lvl) { if (!/^p[1-6]$/.test(lvl)) return null; for (const r of W.rooms) if (r.type !== 'hall' && pipH([r], x, z)) return r; if (pipH(I.hallFloor, x, z)) return W.rooms.find((r) => r.type === 'hall'); return null; }
+function roomAt(x, z, lvl) { if (!/^p[2-7]$/.test(lvl)) return null; for (const r of W.rooms) if (r.type !== 'hall' && pipH([r], x, z)) return r; if (pipH(I.hallFloor, x, z)) return W.rooms.find((r) => r.type === 'hall'); return null; }
 const NAMEAPT = { '01': 'Tipo 1', '02': 'Tipo 1', '03': 'Tipo 2', '04': 'Tipo 3' };
-function doorLabel(d, lvl) { if (d.svc) return d.label; const r = roomAt(FP.x, FP.z, lvl); const other = r && r.id === d.ra ? d.rb : d.ra; const ro = W.rooms.find((q) => q.id === other); if (d.entry) { const a = W.rooms.find((q) => q.id === d.ra)?.apt || W.rooms.find((q) => q.id === d.rb)?.apt; return a ? 'Apto ' + (+lvl.slice(1) * 100 + +a) : 'Apartamento'; } return ro ? ro.name : ''; }
+function doorLabel(d, lvl) { if (d.svc) return d.label; const r = roomAt(FP.x, FP.z, lvl); const other = r && r.id === d.ra ? d.rb : d.ra; const ro = W.rooms.find((q) => q.id === other); if (d.entry) { const a = W.rooms.find((q) => q.id === d.ra)?.apt || W.rooms.find((q) => q.id === d.rb)?.apt; return a ? 'Apto ' + (FLN(lvl) * 100 + +a) : 'Apartamento'; } return ro ? ro.name : ''; }
 function nearElev() { return !FP.inCab && Math.abs(FP.y - LEVY[FP.lvl]) < 0.3 && FP.x > ED[1] - 0.05 && FP.x < ED[1] + 1.6 && FP.z > ED[2] - 0.9 && FP.z < ED[3] + 0.9; }
 function inCabin() { return FP.x > CI.x0 - 0.05 && FP.x < CI.x1 + 0.12 && FP.z > CI.z0 && FP.z < CI.z1 && Math.abs(FP.y - EV.y) < 0.4; }
 function findFocus() {
@@ -1331,7 +910,6 @@ function findFocus() {
   const consider = (o, kind, px, pz, lab) => { const dx = px - FP.x, dz = pz - FP.z, d = Math.hypot(dx, dz); if (d > 1.9) return; const dot = (dx * fx + dz * fz) / (d || 1); if (d > 0.8 && dot < 0.55) return; const sc = d * (1.6 - dot); if (sc < bs) { bs = sc; best = { o, kind, lab }; } };
   if (E && Math.abs(FP.y - E.y) < 1.2) { for (const d of E.doors) consider(d, 'door', d.cx, d.cz); if (E.bal) consider(E.bal, 'bal', E.bal.cx, E.bal.cz); }
   if (FP.lvl === 'sot') for (const d of SV.doors) if (Math.abs(FP.y - d.fy) < 0.7) consider(d, 'door', d.cx, d.cz);
-  if (FP.lvl === 'p1' && E && E.ent && Math.abs(FP.y - LEVY.p1) < 0.6) consider(E.ent, 'ent', E.ent.cx, E.ent.cz);
   if (FP.lvl === 'p1' && FP.x < 3.2 && Math.abs(FP.y) < 0.4) { const pz0 = GT.Z0 + GT.U.p0 * GT.W - 0.4; if (FP.z > pz0 && FP.z < GT.Z1 + 0.8) best = { kind: FP.x > 0 ? 'rex' : 'ped' }; else if (FP.z < pz0 && FP.z > GT.Z0 - 1) best = { kind: 'veh' }; }
   return best;
 }
@@ -1340,7 +918,7 @@ function interact(f = FP.focus) {
   if (FP.inCab) { const k = panelKeyAtCenter(); if (k) { pressKey(k); return; } if (EV.state === 'open' || EV.state === 'opening') evClose(); else evOpen(); return; }
   if (nearElev()) { evRequest(FP.lvl, 'land'); return; }
   if (!f) return;
-  if (f.kind === 'door' || f.kind === 'ent') { f.o.tgt = f.o.tgt ? 0 : 1; f.o.manual = performance.now(); sfx(f.kind === 'ent' ? 'slide' : 'door'); }
+  if (f.kind === 'door') { f.o.tgt = f.o.tgt ? 0 : 1; f.o.manual = performance.now(); sfx('door'); }
   else if (f.kind === 'bal') { f.o.tgt = f.o.tgt ? 0 : 1; sfx('slide'); }
   else if (f.kind === 'ped') { if (KS.st === 'idle') pedCycle('app'); }
   else if (f.kind === 'rex') { if (KS.st === 'idle' || KS.st === 'done') pedCycle('rex'); }
@@ -1397,14 +975,18 @@ function evUpdate(dt) {
 }
 // ---------- puertas ----------
 function doorsUpdate(dt) {
+  const now = performance.now();
   for (const id of FLOORS) { const E = LEV[id]; if (!E || !E.int.visible) continue;
+    const pl = FP.on && Math.abs(FP.y - E.y) < 1.0;
     for (const d of E.doors) {
+      if (pl && !d.tgt && (!d.manual || now - d.manual > 4000)) { const dd = Math.hypot(FP.x - d.cx, FP.z - d.cz); if (dd < 0.95) { const fx = -Math.sin(FP.yaw), fz = -Math.cos(FP.yaw); if (((d.cx - FP.x) * fx + (d.cz - FP.z) * fz) / (dd || 1) > 0.2 || dd < 0.5) { d.tgt = 1; sfx('door'); } } }
       const goal = d.tgt * d.max; if (Math.abs(d.a - goal) > 1e-3) { d.set(d.a + Math.sign(goal - d.a) * Math.min(Math.abs(goal - d.a), dt * 2.4)); MOV.t = performance.now(); }
     }
     if (E.bal) { if (Math.abs(E.bal.a - E.bal.tgt) > 1e-3) E.bal.set(E.bal.a + Math.sign(E.bal.tgt - E.bal.a) * Math.min(Math.abs(E.bal.tgt - E.bal.a), dt * 1.2)); }
-    if (id === 'sot') for (const d of SV.doors) {
+    if (id === 'sot') for (const d of SV.doors) { const pl2 = FP.on && Math.abs(FP.y - d.fy) < 0.7;
+      if (pl2 && !d.tgt && (!d.manual || now - d.manual > 4000)) { const dd = Math.hypot(FP.x - d.cx, FP.z - d.cz); if (dd < 0.95) { const fx = -Math.sin(FP.yaw), fz = -Math.cos(FP.yaw); if (((d.cx - FP.x) * fx + (d.cz - FP.z) * fz) / (dd || 1) > 0.2 || dd < 0.5) { d.tgt = 1; sfx('door'); } } }
       const goal = d.tgt * d.max; if (Math.abs(d.a - goal) > 1e-3) d.set(d.a + Math.sign(goal - d.a) * Math.min(Math.abs(goal - d.a), dt * 2.4)); }
-    if (E.ent) { const want = E.ent.tgt || 0; if (Math.abs(E.ent.a - want) > 1e-3) E.ent.set(E.ent.a + Math.sign(want - E.ent.a) * Math.min(Math.abs(want - E.ent.a), dt * 1.6)); }
+    if (E.ent) { const want = pl && FP.x > 5.2 && FP.x < 10.5 && FP.z > 3.9 && FP.z < 6.9 ? 1 : 0; if (Math.abs(E.ent.a - want) > 1e-3) E.ent.set(E.ent.a + Math.sign(want - E.ent.a) * Math.min(Math.abs(want - E.ent.a), dt * 1.6)); }
   }
 }
 // ---------- sonido (WebAudio, silenciado por defecto) ----------
@@ -1428,13 +1010,13 @@ const FPL = { hemi: new THREE.HemisphereLight(0xfff4e6, 0x8a7f72, 0), pts: [0, 1
 scene.add(FPL.hemi); FPL.pts.forEach((p) => scene.add(p));
 function fpLights(dt) {
   FPL.t -= dt; if (FPL.t > 0) return; FPL.t = 0.4;
-  const indoor = FP.lvl !== 'p1' || FP.x > 7.884;
+  const indoor = FP.lvl !== 'p1' && !(FP.lvl === 'sot' && FP.x < 6.86);
   FPL.hemi.intensity = FP.on ? (indoor ? 0.22 : 0.1) : 0; HEMI.intensity = FP.on && indoor ? 0.5 : 0.9; renderer.toneMappingExposure = FP.on && indoor ? 0.92 : 1.05; scene.environmentIntensity = FP.on ? (indoor ? 0.32 : 0.5) : 0.45;
   const y = (LEV[FP.lvl]?.y ?? 0);
   let pts = [];
   if (/^p[2-7]$/.test(FP.lvl)) pts = W.TIP.lampPts.map((p) => ({ ...p, d: Math.hypot(p.x - FP.x, p.z - FP.z) })).sort((a, b) => a.d - b.d).slice(0, 3).map((p) => [p.x, y + 2.25, p.z]);
-  else if (FP.lvl === 'p1') pts = [[9.8, LEVY.p1 + 2.2, 5.24], [14.2, LEVY.p1 + 2.2, 5.24], [20.4, LEVY.p1 + 2.2, 10.7]].sort((a, b) => Math.hypot(a[0] - FP.x, a[2] - FP.z) - Math.hypot(b[0] - FP.x, b[2] - FP.z));
-  else { const sr = SV.at(FP.x, FP.z); pts = [[20.4, 0.3, 10.7], [21.5, 0.3, 15.5], [20.6, 0.3, 6.2], [21.5, 0.3, 21.5], [12.5, 0.2, 2.3], ...SV.rooms.map((r) => [r.cx, SV.ceil - 0.35, r.cz])].sort((a, b) => Math.hypot(a[0] - FP.x, a[2] - FP.z) - Math.hypot(b[0] - FP.x, b[2] - FP.z)); if (sr) pts = [[sr.cx, SV.ceil - 0.35, sr.cz], ...pts.filter((p) => p[1] > 0.25)]; }
+  else if (FP.lvl === 'p1') pts = [];
+  else { const sr = SV.at(FP.x, FP.z); pts = [...SOT.lampPts.map(([x, z]) => [x, SL.TOP - 0.3, z]), ...SV.rooms.map((r) => [r.cx, SV.ceil - 0.35, r.cz])].sort((a, b) => Math.hypot(a[0] - FP.x, a[2] - FP.z) - Math.hypot(b[0] - FP.x, b[2] - FP.z)); if (sr) pts = [[sr.cx, SV.ceil - 0.35, sr.cz], ...pts.filter((p) => p[1] > 0.25)]; }
   if (FP.inCab) pts = [[(CI.x0 + CI.x1) / 2 + 0.25, EV.y + 2.15, (CI.z0 + CI.z1) / 2], ...pts];
   FPL.pts.forEach((p, i) => { const q = pts[i]; if (FP.on && q && indoor) { p.position.set(...q); p.intensity = i === 0 ? 1.7 : 1.1; } else p.intensity = 0; });
 }
@@ -1465,7 +1047,7 @@ const SKY = new THREE.Group(); SKY.visible = false; scene.add(SKY);
 }
 // ---------- teletransporte con fundido ----------
 const fade = $('#fade');
-const TPP = { inicio: [-5.4, 5.3, -Math.PI / 2, 0], acceso: [6.2, 5.4, -Math.PI / 2, 0] };
+const TPP = { inicio: [-5.4, 3.2, -Math.PI / 2, 0], acceso: [2.2, 3.25, -Math.PI / 2, sotY(2.2, 3.25)] };
 function fpTeleport(k, instant) {
   const go = () => {
     FP.auto = null;
@@ -1496,10 +1078,13 @@ function placeName() {
   const lvl = FP.lvl;
   if (FP.inCab) return ['Ascensor', EV.state === 'moving' ? (EV.dir > 0 ? 'Subiendo ▲ ' : 'Bajando ▼ ') + EV.curLabel + (EV.target ? ' → ' + FLABEL[EV.target] : '') : 'Piso ' + EV.curLabel];
   if (FP.x >= STR.x0 && FP.x <= STR.xl && FP.z >= STR.z0 && FP.z <= STR.z1) { const lo = FLOORS.slice().reverse().find((f) => LEVY[f] <= FP.y + 0.05) || 'sot'; const hi = FLOORS[FLOORS.indexOf(lo) + 1]; return ['Escalera', Math.abs(FP.y - LEVY[lo]) < 0.05 ? (lo === 'sot' ? 'Sótano' : 'Piso ' + FLABEL[lo]) : 'Entre ' + (lo === 'sot' ? 'sótano' : 'piso ' + FLABEL[lo]) + ' y piso ' + FLABEL[hi]]; }
-  if (lvl === 'sot' && SV.at(FP.x, FP.z)) { const r = SV.at(FP.x, FP.z); return ['Sótano · ' + r.name, r.area.toFixed(2).replace('.', ',') + ' m² (cuadro de áreas PL_A004) · altura libre ≈' + r.clear.toFixed(2).replace('.', ',') + ' m'] }
-  if (lvl === 'sot') return [FP.z < 7.2 && FP.x < 24 ? 'Rampa de acceso' : 'Sótano', FP.x >= 24.15 ? 'Pendiente 13,6 %' : 'Parqueaderos · N-2.96'];
-  if (lvl === 'p1') { if (FP.x < 2) return ['Acceso oeste', 'Portón ED. ALMENDRA · nivel de calle']; return ['Piso 1', 'Apartamentos']; }
-  const r = roomAt(FP.x, FP.z, lvl); const fl = +lvl.slice(1);
+  if (lvl === 'sot' && SV.at(FP.x, FP.z)) { const r = SV.at(FP.x, FP.z); return ['Sótano · ' + r.name, r.area.toFixed(2).replace('.', ',') + ' m² (medido en el plano del sótano) · altura libre ≈' + r.clear.toFixed(2).replace('.', ',') + ' m'] }
+  if (lvl === 'sot') { const y = sotY(FP.x, FP.z); const pct = (v) => (Math.abs(v) * 100).toFixed(1).replace('.', ',') + ' %';
+    if (FP.x < 8.1 && FP.z < 4.3) return ['Rampa de acceso', 'Pendiente ' + pct(SL.A / 7.3) + ' · paso peatonal pintado 0,90 m'];
+    if (FP.x >= 24.39 && FP.z >= 8.69 && FP.z <= 17.19) return ['Rampa oriente', 'Pendiente 13,6 % (plano) · 8,50 m'];
+    return ['Sótano · NPT ' + (y > -1.5 ? '-1,00' : '-2,16'), 'Plazas 1–10 · motos M1–M4']; }
+  if (lvl === 'p1') { if (FP.x < -0.05) return ['Andén / calle', 'Frente del edificio · portón ED. ALMENDRA']; return ['Acceso', 'Portón vehicular con peatonal integrada · N±0,00']; }
+  const r = roomAt(FP.x, FP.z, lvl); const fl = FLN(lvl);
   if (!r) return ['Piso ' + fl, ''];
   if (r.type === 'hall') return ['Piso ' + fl + ' · Hall', 'Aptos ' + fl + '01–' + fl + '04 · ascensor · escalera'];
   return ['Piso ' + fl + ' · Apto ' + (fl * 100 + +r.apt) + ' (' + NAMEAPT[r.apt] + ')', r.name + (r.area ? ' · ' + r.area.toFixed(2).replace('.', ',') + ' m²' : '') + ' · amoblado ilustrativo'];
@@ -1512,7 +1097,7 @@ function fpHud() {
   if (FP.auto) pr = '<span class="auto">Recorrido automático…</span>';
   else if (FP.inCab) { pr = EV.state === 'moving' ? (EV.dir > 0 ? '▲ Subiendo' : '▼ Bajando') + ' · piso ' + EV.curLabel + (EV.target ? ' → ' + FLABEL[EV.target] : '') : 'Elige el piso: mira la botonera y <b>E</b>/clic, o teclas <b>1–7</b> · <b>0</b> = Sótano · <b>O</b> abrir · <b>C</b> cerrar'; act = EV.state === 'open' || EV.state === 'opening' ? 'Cerrar' : 'Abrir'; ek = 'cab'; }
   else if (nearElev()) { const here = evHere(FP.lvl); pr = here && EV.door > 0.6 ? 'Puertas abiertas · <b>camina</b> hacia la cabina y elige el piso adentro' : EV.target === FP.lvl || EV.q.includes(FP.lvl) ? 'Llamada registrada · la cabina viene (piso ' + EV.curLabel + ')' + (FP.hint ? ' · entra y elige ' + FLABEL[FP.hint] : '') : '<b>E</b> Llamar ascensor'; act = here && EV.door > 0.6 ? 'Mantener' : 'Llamar'; ek = 'land'; }
-  else if (f) { if (f.kind === 'door' || f.kind === 'ent') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; const que = f.kind === 'ent' ? 'la puerta peatonal' : ('la puerta · ' + doorLabel(f.o, FP.lvl)); pr = `<b>E</b> Presiona E / toca para ${act.toLowerCase()} ${que}`; } else if (f.kind === 'bal') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> Presiona E / toca para ${act.toLowerCase()} la puerta‑ventana del balcón`; } else if (f.kind === 'ped' || f.kind === 'rex') { act = 'Abrir'; pr = '<b>E</b> Presiona E / toca para abrir la puerta peatonal'; } else if (f.kind === 'veh') { act = GT.v1.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>V</b> Presiona V / toca para ${act.toLowerCase()} el portón`; } }
+  else if (f) { if (f.kind === 'door') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta · ${doorLabel(f.o, FP.lvl)}`; } else if (f.kind === 'bal') { act = f.o.tgt ? 'Cerrar' : 'Abrir'; pr = `<b>E</b> ${act} puerta‑ventana del balcón`; } else if (f.kind === 'ped') { act = 'App'; pr = 'Acércate al kiosko para reconocimiento facial · <b>E</b> abrir con la app URBAN (simulado) · <b>V</b> portón vehicular'; } else if (f.kind === 'rex') { act = 'Salir'; pr = '<b>E</b> Botón de salida · abrir puerta peatonal'; } else if (f.kind === 'veh') { act = 'Portón'; pr = '<b>V</b> Abrir portón vehicular · abre en 2 hojas, la peatonal queda cerrada (motor: fase 2)'; } }
   const kp = kioskPrompt(); if (kp && !FP.inCab) pr = kp;
   const key = a + b + pr + act + ek + EV.state + EV.curLabel + EV.target + EV.q.join() + FP.lvl;
   if (key === lastHud) return; lastHud = key;
@@ -1544,11 +1129,11 @@ function autoUpdate(dt) {
   if (A.phase === 'call') { walk(20.15, 10.69, Math.PI / 2, 1.0); if (here && EV.state === 'open') { A.phase = 'enter'; } else if (here && EV.state === 'idle') evCall(FP.lvl); }
   else if (A.phase === 'enter') { if (EV.state === 'open') EV.timer = 3; const done = walk(18.3, 10.69, Math.PI / 2 + 0.0001, 1.0); if (FP.x < 18.6) { const ok = walk(18.3, 10.69, -Math.PI / 2, 0.6); if (ok || A.t > 12) { A.phase = 'ride'; evCall(A.f); } } void done; }
   else if (A.phase === 'ride') { FP.yaw = lerpA(FP.yaw, -Math.PI / 2, Math.min(1, dt * 3)); if (EV.state === 'open' && FLOORS[EV.fi] === A.f) { A.phase = 'exit'; A.t = 0; } }
-    else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(18.926502, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
+  else if (A.phase === 'exit') { if (A.t > 0.5) { EV.timer = 4; if (walk(20.3, 10.69, -Math.PI / 2, 1.0)) FP.auto = null; } }
 }
 // ---------- entrar / salir del modo ----------
 function fpEnter() {
-  if (FP.on) return; FP.on = true; FP.prevCut = st.cut; stopFlow(); closePanel(); tween = null;
+  if (FP.on) return; if (st.plan) planCam(false); FP.on = true; FP.prevCut = st.cut; stopFlow(); closePanel(); tween = null;
   if (st.explode) { st.explode = 0; $('#explode').value = 0; applyExplode(); }
   controls.enabled = false; camera.near = 0.05; camera.fov = innerWidth < innerHeight ? 75 : 68; camera.updateProjectionMatrix();
   document.body.classList.add('fp'); $('#bFP').classList.add('on'); $('#bFP').textContent = 'Salir del recorrido';
@@ -1603,7 +1188,7 @@ function fpUpdate(dt) {
   document.body.classList.toggle('neargate', FP.lvl === 'p1' && FP.x < 4 && Math.abs(FP.y) < 0.5);
 }
 // ---------- entradas ----------
-const KEYF = { Digit0: 'sot', Numpad0: 'sot', KeyB: 'sot', Digit1: 'p1', Digit2: 'p2', Digit3: 'p3', Digit4: 'p4', Digit5: 'p5', Digit6: 'p6', Numpad1: 'p1', Numpad2: 'p2', Numpad3: 'p3', Numpad4: 'p4', Numpad5: 'p5', Numpad6: 'p6' };
+const KEYF = { Digit0: 'sot', Numpad0: 'sot', KeyB: 'sot', Digit1: 'p2', Digit2: 'p3', Digit3: 'p4', Digit4: 'p5', Digit5: 'p6', Digit6: 'p7', Numpad1: 'p2', Numpad2: 'p3', Numpad3: 'p4', Numpad4: 'p5', Numpad5: 'p6', Numpad6: 'p7' }; // v10: teclas = número de piso visible
 addEventListener('keydown', (e) => { if (!FP.on) return; FP.keys[e.code] = true;
   if (e.code === 'KeyE' && !e.repeat) interact();
   if (e.code === 'KeyV') openVeh(!GT.v1.tgt);
@@ -1669,8 +1254,10 @@ function mkMap(kind) {
     for (const w of I.wins) { g.fillStyle = '#7fd3ff'; g.fillRect(w.x0, w.z0, w.x1 - w.x0, w.z1 - w.z0); }
     g.font = '0.34px Segoe UI,Arial'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.85)';
     for (const r of I.rooms) { if (r.type === 'cabina' || r.type === 'hall') continue; const n = r.name.replace('Alcoba principal', 'Alc. ppal').replace('Sala-comedor', 'Sala-com.').replace('Baño alcoba principal', 'Baño').replace('Baño social', 'Baño'); g.fillText(n, r.lp[0], r.lp[1]); }
-  } else if (kind === 'p1') { g.fillStyle = '#d9d6cf'; g.fill(P(S.foot4)); g.fillStyle = '#9aa3ad'; g.font = '0.45px Segoe UI,Arial'; g.fillStyle = '#1d1f23'; g.textAlign = 'center'; g.fillText('Piso 1', 18, 12); }
-  else { g.fillStyle = '#1d2733'; g.fill(P(S.foot4), 'evenodd'); g.fillStyle = '#3a3f46'; g.fill(P(S.band1)); g.fillStyle = '#e8e2d6'; g.fill(P(S.walls4), 'evenodd'); g.font = '0.5px Segoe UI,Arial'; g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText('Parqueaderos', 22, 19); }
+  } else if (kind === 'p1') { g.fillStyle = '#3a3f46'; g.fill(P([SD.OUTER])); g.fillStyle = '#1d2733'; g.fill(P(S.foot2), 'evenodd'); g.font = '0.4px Segoe UI,Arial'; g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText('Acceso', 3, 2.4); }
+  else { g.fillStyle = '#1d2733'; g.fill(P(SD.ZINT), 'evenodd'); g.fillStyle = '#2f4a3a'; g.fillRect(0.05, 2.8, 20.3, 0.9); g.fillRect(19.45, 2.8, 0.9, 8.4); g.fillStyle = '#e8e2d6'; g.fill(P(SD.WALL), 'evenodd'); for (const [x0, x1, z0, z1] of SD.COLS) g.fillRect(x0, z0, x1 - x0, z1 - z0);
+    g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 0.05; for (const sp of SOT_SPOTS) g.strokeRect(sp.r[0], sp.r[2], sp.r[1] - sp.r[0], sp.r[3] - sp.r[2]);
+    g.font = '0.5px Segoe UI,Arial'; g.fillStyle = '#fff'; g.textAlign = 'center'; for (const sp of SOT_SPOTS) g.fillText(String(sp.n), (sp.r[0] + sp.r[1]) / 2, (sp.r[2] + sp.r[3]) / 2 + 0.18); g.fillText('Motos', 18.0, 15.1); }
   // escalera y ascensor
   g.strokeStyle = '#ffb547'; g.lineWidth = 0.06; for (let k = 0; k <= 7; k++) { const x = STR.x0 + k * 0.3; g.beginPath(); g.moveTo(x, STR.z0); g.lineTo(x, STR.z1); g.stroke(); }
   g.strokeRect(STR.x0, STR.z0, STR.xl - STR.x0, STR.z1 - STR.z0);
@@ -1727,6 +1314,17 @@ function qualTick(dt, now) {
 // ---------- loop ----------
 const v3 = new THREE.Vector3(), WP0 = new THREE.Vector3();
 const CR = { w: 1, h: 1 };
+// v10: etiquetas sin superposición — las de mayor prioridad se muestran completas; las que chocan quedan como punto (hover = nombre)
+function declutter() {
+  const L = [...MK.map((m) => ({ el: m.el, p: m.el.classList.contains('sel') || m.el.classList.contains('hl') ? 0 : MAJOR.has(m.id) ? 1 : 2 })), { el: cableLabel, p: 3 }]
+    .filter((o) => o.el._d !== 0 && o.el._x != null).sort((a, b) => a.p - b.p);
+  const acc = [];
+  for (const o of L) { const el = o.el; const isMin = el.classList.contains('min');
+    if (!isMin && !el._w) el._w = el.offsetWidth || 160;
+    const w = isMin ? 18 : el._w, r = [el._x - 10, el._y - 14, el._x - 10 + w + 6, el._y + 14];
+    const hit = acc.some((q) => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]);
+    if (hit && o.p > 0) { el.classList.add('min'); acc.push([el._x - 10, el._y - 10, el._x + 10, el._y + 10]); } else acc.push(r); }
+}
 function hideEl(el) { if (el._d !== 0) { el.style.display = 'none'; el._d = 0; } }
 function place(el, wp, show) {
   if (!show) return hideEl(el);
@@ -1738,7 +1336,7 @@ function place(el, wp, show) {
 }
 function resize() {
   const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; const r = canvas.getBoundingClientRect(); CR.w = r.width; CR.h = r.height; shadowDirty();
-  camera.fov = w < h ? 55 : 40; camera.updateProjectionMatrix();
+  camera.fov = st.plan ? planFov() : FP.on ? (w < h ? 75 : 68) : w < h ? 55 : 40; camera.updateProjectionMatrix();
 }
 // v7: GPU real usada por Chrome (para detectar iGPU / SwiftShader) — se muestra junto a los fps
 const GLR = (() => { try { const gl = renderer.getContext(); const ext = gl.getExtension('WEBGL_debug_renderer_info'); return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)); } catch (_) { return '?'; } })();
@@ -1749,7 +1347,6 @@ $('#qSel') && ($('#qSel').onchange = (e) => setQuality(e.target.value));
 goView('general', true); applyVis();
 const clock = new THREE.Clock();
 function loop(now) {
-  if (glLost) return;
   requestAnimationFrame(loop);
   const t = clock.getElapsedTime();
   if (tween) { const u = Math.min(1, (now - tween.s) / tween.d), k = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
@@ -1768,143 +1365,33 @@ function loop(now) {
   if (FP.on && now - (loop.mini || 0) > 80) { loop.mini = now; drawMini(); }
   const wp = WP0; const kd = FP.on ? kioskNear().d : 99; loop.lab = !loop.lab; if (loop.lab && !tween && FP.on) return; // etiquetas a ~30 Hz en el recorrido
   MK.forEach((m) => { m.g.getWorldPosition(wp); const far = camera.position.distanceTo(wp) > 16 && (isMobile ? !['kiosk', 'rack'].includes(m.id) : !MAJOR.has(m.id)) && !m.el.classList.contains('hl') && !m.el.classList.contains('sel'); m.el.classList.toggle('min', far); const fpOk = !FP.on || (FP.mode !== 'floor' && camera.position.distanceTo(wp) < (FP.mode === 'ground' ? 8 : 14)); wp.y += 0.22; place(m.el, wp, fpOk && st.urban && visibleObj(m.g)); });
-  place(cableLabel, CAB_MK.mid, !FP.on && st.urban && lv('sot').g.visible && lv('p1').g.visible);
+  place(cableLabel, CAB_MK.mid, !FP.on && st.urban && !st.plan && lv('sot').g.visible && lv('p1').g.visible);
+  declutter();
   const cl = !FP.on && st.cut && /^p[2-7]$/.test(st.cut) ? lv(st.cut) : null;
-  aptLbl.forEach(({ a, el }) => { if (!cl) return hideEl(el); const tx = 'APTO ' + (+cl.id.slice(1) * 100 + a.n); if (el._t !== tx) { el._t = tx; el.textContent = tx; } wp.set((a.x0 + a.x1) / 2, cl.y + cl.g.position.y + 1.2, (a.z0 + a.z1) / 2); place(el, wp, true); });
+  aptLbl.forEach(({ a, el }) => { if (!cl) return hideEl(el); const tx = 'APTO ' + (FLN(cl.id) * 100 + a.n); if (el._t !== tx) { el._t = tx; el.textContent = tx; } wp.set((a.x0 + a.x1) / 2, cl.y + cl.g.position.y + 1.2, (a.z0 + a.z1) / 2); place(el, wp, true); });
   floatLbl.forEach((f) => { wp.set(...f.p); wp.y += lv(f.l).g.position.y; place(f.el, wp, lv(f.l).g.visible && (!f.only || st.cut === f.only) && (f.only || !f.cls.includes('sm') || camera.position.distanceTo(wp) < 20) && (!FP.on || (FP.mode !== 'floor' && !FP.inCab && camera.position.distanceTo(wp) < 14 && kd > 2.2))); });
 }
 requestAnimationFrame(loop);
 function sim(sec, step = 1 / 30) { for (let t = 0; t < sec; t += step) { evUpdate(step); if (FP.on) fpUpdate(step); doorsUpdate(step); gateUpdate(step); kioskUpdate(step); carUpdate(step); } }
-const QA_MODE = /(?:^|[?&#])(qa|debug)=1(?:&|$)/.test(location.search + location.hash);
-// Paso libre: un rectángulo del ancho de la plaza, desde la línea de la boca hasta 2,60 m dentro del pasillo.
-// Una columna de eje (cols_in, está en el plano) se anota aparte; un muro, bordillo o baranda que cruce el paso lo cierra.
-const ACCESS = [];
-const ACC_G = new THREE.Group(); ACC_G.name = 'qa-acceso';
-function measureAccess() {
-  const meshes = [];
-  lv('sot').g.updateWorldMatrix(true, true);
-  lv('sot').g.traverse((o) => { if (o.isMesh && o.visible && o.geometry && o.geometry.attributes && o.geometry.attributes.position && o.parent !== VEH.group) meshes.push(o); });
-  const bounds = meshes.map((mesh) => { if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld); });
-  const jobs = [];
-  for (const p of VEH.cars) {
-    const south = p.aisle === 's', zf = south ? p.r[3] : p.r[2];
-    const zA = south ? [zf + 0.03, zf + 2.6] : [zf - 2.6, zf - 0.03];
-    const zM = south ? [zf - 0.16, zf] : [zf, zf + 0.16];
-    jobs.push({ id: String(p.n), kind: 'carro', aisle: p.n <= 3 ? 'rampa' : 'central', x0: p.r[0], x1: p.r[1], z0: zA[0], z1: zA[1], mz0: zM[0], mz1: zM[1], need: 2.5, y: p.y });
-  }
-  for (const m of VEH.motos) jobs.push({ id: 'M' + m.n, kind: 'moto', aisle: 'central', x0: MOTO_X[0], x1: MOTO_X[1], z0: 17.22, z1: 19.6, mz0: m.z0, mz1: m.z1, need: 1.12, y: m.y });
-  const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
-  const inCol = (x, z) => COL_RECTS.find((c) => x >= c.x0 - 0.02 && x <= c.x1 + 0.02 && z >= c.z0 - 0.02 && z <= c.z1 + 0.02);
-  function sweep(job, z0, z1) {
-    const span = job.x1 - job.x0, step = 0.02, n = Math.max(1, Math.ceil(span / step));
-    const bar = new Uint8Array(n), col = new Uint8Array(n);
-    const y0 = job.y + 0.04, y1 = job.y + 1.45;
-    const mark = (xa, xb, asCol) => {
-      const i0 = Math.max(0, Math.floor((xa - job.x0) / step)), i1 = Math.min(n - 1, Math.floor((xb - job.x0) / step));
-      for (let i = i0; i <= i1; i++) { if (asCol) col[i] = 1; else bar[i] = 1; }
-    };
-    for (let mi = 0; mi < meshes.length; mi++) {
-      const mesh = meshes[mi], bb = bounds[mi];
-      if (bb.max.x < job.x0 || bb.min.x > job.x1 || bb.max.z < z0 || bb.min.z > z1 || bb.max.y < y0 || bb.min.y > y1) continue;
-      const g = mesh.geometry, pos = g.attributes.position, idx = g.index, M = mesh.matrixWorld;
-      const nT = idx ? idx.count : pos.count;
-      for (let i = 0; i < nT; i += 3) {
-        const ia = idx ? idx.getX(i) : i, ib = idx ? idx.getX(i + 1) : i + 1, ic = idx ? idx.getX(i + 2) : i + 2;
-        A.fromBufferAttribute(pos, ia).applyMatrix4(M); B.fromBufferAttribute(pos, ib).applyMatrix4(M); C.fromBufferAttribute(pos, ic).applyMatrix4(M);
-        const minx = Math.min(A.x, B.x, C.x), maxx = Math.max(A.x, B.x, C.x);
-        const miny = Math.min(A.y, B.y, C.y), maxy = Math.max(A.y, B.y, C.y);
-        const minz = Math.min(A.z, B.z, C.z), maxz = Math.max(A.z, B.z, C.z);
-        if (maxx < job.x0 || minx > job.x1 || maxz < z0 || minz > z1 || maxy < y0 || miny > y1) continue;
-        const cx = (A.x + B.x + C.x) / 3, cz = (A.z + B.z + C.z) / 3;
-        if (maxy < driveY(cx, cz) + 0.8) continue;
-        const ex = B.x - A.x, ey = B.y - A.y, ez = B.z - A.z, fx = C.x - A.x, fy = C.y - A.y, fz = C.z - A.z;
-        const ny = ez * fx - ex * fz, nl = Math.hypot(ey * fz - ez * fy, ny, ex * fy - ey * fx);
-        if (nl > 1e-8 && Math.abs(ny) / nl > 0.75) continue;
-        if (maxx - minx < 0.3 && maxz - minz < 0.3) continue;
-        const edge = maxx <= job.x0 + 0.16 || minx >= job.x1 - 0.16;
-        if (edge && maxy - miny < 0.14 && maxy < driveY(cx, cz) + 0.18) continue;
-        mark(Math.max(job.x0, minx), Math.min(job.x1, maxx), !!inCol(cx, cz));
-      }
-    }
-    for (const p of VEH.cars) {
-      if (p.n === DEMO_SPOT) continue;
-      if (p.xMax < job.x0 || p.xMin > job.x1 || p.zMax < z0 || p.zMin > z1) continue;
-      if (maxOverlap(p, job, z0, z1) <= 0) continue;
-      mark(Math.max(job.x0, p.xMin), Math.min(job.x1, p.xMax), false);
-    }
-    const both = new Uint8Array(n); for (let i = 0; i < n; i++) both[i] = bar[i] || col[i] ? 1 : 0;
-    const run = (flag) => { let b = 0, c = 0; for (let i = 0; i < n; i++) { if (!flag[i]) { c++; if (c > b) b = c; } else c = 0; } return b * step; };
-    return { libre: Math.min(span, run(bar)), conCol: Math.min(span, run(both)) };
-  }
-  function maxOverlap(p, job, z0, z1) {
-    const xa = Math.max(p.xMin, job.x0), xb = Math.min(p.xMax, job.x1), za = Math.max(p.zMin, z0), zb = Math.min(p.zMax, z1);
-    return xa < xb && za < zb ? (xb - xa) * (zb - za) : 0;
-  }
-  for (const job of jobs) {
-    const aisle = sweep(job, Math.min(job.z0, job.z1), Math.max(job.z0, job.z1));
-    const mouth = job.kind === 'carro' ? sweep(job, job.mz0, job.mz1) : { libre: job.x1 - job.x0, conCol: job.x1 - job.x0 };
-    const ancho = +(job.x1 - job.x0).toFixed(2);
-    const libre = +aisle.libre.toFixed(2), boca = +mouth.libre.toFixed(2), conCol = +Math.min(aisle.conCol, mouth.conCol).toFixed(2);
-    const ok = libre >= Math.min(job.need, ancho) - 0.12 && boca >= ancho - 0.15;
-    const row = { id: job.id, kind: job.kind, aisle: job.aisle, x0: job.x0, x1: job.x1, z0: Math.min(job.z0, job.z1), z1: Math.max(job.z0, job.z1), y: job.y, ancho, libre, boca, conCol, need: job.need, ok };
-    ACCESS.push(row);
-    const key = [job.x0, job.z0, job.x1, job.z1].join(':');
-    if (ACC_G.userData.seen?.has(key)) continue;
-    (ACC_G.userData.seen || (ACC_G.userData.seen = new Set())).add(key);
-    const g = new THREE.BoxGeometry(Math.abs(job.x1 - job.x0), 0.025, Math.abs(job.z1 - job.z0));
-    g.translate((job.x0 + job.x1) / 2, job.y + 0.07, (Math.min(job.z0, job.z1) + Math.max(job.z0, job.z1)) / 2);
-    const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: ok ? 0x3ecf6e : 0xd23b3b, transparent: true, opacity: 0.42, depthWrite: false }));
-    mesh.userData.access = true; mesh.name = 'acceso-' + job.id; ACC_G.add(mesh);
-  }
-  lv('sot').g.add(ACC_G);
+// v10 QA: contacto real llanta-piso. Para cada llanta se toma el vértice más bajo de la malla del vehículo cerca del punto de contacto
+// y se compara con el piso real obtenido por raycast contra las mallas del piso del sótano (tolerancia 1 cm).
+function contactQA() {
+  const ray = new THREE.Raycaster(); const dn = new THREE.Vector3(0, -1, 0); const FM = SOT.floorMeshes; scene.updateMatrixWorld(true);
+  const floorAt = (x, z) => { ray.set(new THREE.Vector3(x, 3, z), dn); const h = ray.intersectObjects(FM, false)[0]; return h ? h.point.y : null; };
+  const verts = []; const v = new THREE.Vector3();
+  SOT.vehGroup.traverse((o) => { if (!o.isMesh) return; const P = o.geometry.attributes.position; for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(o.matrixWorld); verts.push(v.x, v.y, v.z); } });
+  if (CAR.m) CAR.m.traverse((o) => { if (!o.isMesh) return; const P = o.geometry.attributes.position; for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(o.matrixWorld); verts.push(v.x, v.y, v.z); } });
+  const lowNear = (x, z, r) => { let m = Infinity; for (let i = 0; i < verts.length; i += 3) { const dx = verts[i] - x, dz = verts[i + 2] - z; if (dx * dx + dz * dz < r * r && verts[i + 1] < m) m = verts[i + 1]; } return m; };
+  const out = [];
+  for (const s of SOT_SPOTS) { const c = Math.cos(s.h), sn = Math.sin(s.h);
+    const w = wheelLocal(s.t).map(([lx, lz], k) => { const x = s.cx + lx * c + lz * sn, z = s.cz - lx * sn + lz * c; const f = floorAt(x, z), lo = lowNear(x, z, 0.07); return { k, x: +x.toFixed(3), z: +z.toFixed(3), floor: f, low: lo, gap: +(lo - f).toFixed(4) }; });
+    out.push({ id: 'carro ' + s.n + (s.n === DEMO_SPOT ? ' (simulación)' : ''), t: s.t, wheels: w, maxAbs: Math.max(...w.map((q) => Math.abs(q.gap))), ok: w.every((q) => Math.abs(q.gap) <= 0.01) }); }
+  for (const mo of MOTOS) { const c = Math.cos(mo.h), sn = Math.sin(mo.h);
+    const w = [0.69, -0.69].map((lx, k) => { const x0 = mo.x + lx * c, z0 = mo.z - lx * sn; let best = null;
+      for (let d = -0.2; d <= 0.2001; d += 0.01) { const x = x0 + d * c, z = z0 - d * sn; const lo = lowNear(x, z, 0.035); if (!best || lo < best.low) best = { x, z, low: lo }; }
+      const f = floorAt(best.x, best.z); return { k, x: +best.x.toFixed(3), z: +best.z.toFixed(3), floor: f, low: best.low, gap: +(best.low - f).toFixed(4) }; });
+    out.push({ id: 'moto M' + mo.n, wheels: w, maxAbs: Math.max(...w.map((q) => Math.abs(q.gap))), ok: w.every((q) => Math.abs(q.gap) <= 0.01) }); }
+  return out;
 }
-const SOFFIT = LEVY.p1 - 0.2;
-const CLEAR_MIN = 2.20;
-function measureHeadroom() {
-  const ray = new THREE.Raycaster();
-  const dir = new THREE.Vector3(0, 1, 0);
-  const origin = new THREE.Vector3();
-  const targets = [];
-  const drive = (x, z) => (z >= 0.9 && z <= 3.7 && x >= 0.4 && x <= 24) || (x >= 24.3 && x <= 26.9 && z >= 1 && z <= 20.5) || (z >= 17.5 && z <= 20.6 && x >= 16.8 && x <= 27);
-  for (let x = 0.6; x <= 26.8; x += 0.7) for (let z = 1; z <= 20.4; z += 0.7) if (drive(x, z)) targets.push({ id: 'paso', x, z });
-  for (const p of VEH.cars) targets.push({ id: 'plaza ' + p.n, x: p.cx, z: p.cz });
-  for (const m of VEH.motos) targets.push({ id: 'moto ' + m.n, x: m.x, z: m.z });
-  let min = 99, where = null;
-  const rows = [];
-  const worst = [];
-  const meshes = [];
-  scene.updateMatrixWorld(true);
-  const vehicle = (o) => { let p = o; while (p) { if (p === VEH.group || p === CAR.m) return true; p = p.parent; } return false; };
-  const camCone = (o) => o.material && o.material.color && o.material.color.getHex() === C_CAM;
-  scene.traverse((o) => {
-    if (!o.isMesh || !o.visible || o.userData.access || vehicle(o) || camCone(o)) return;
-    if (o.material && o.material.visible === false) return;
-    if (!o.geometry || !o.geometry.attributes || !o.geometry.attributes.position || o.geometry.attributes.position.count < 3 || !o.matrixWorld) return;
-    meshes.push(o);
-  });
-  for (const s of targets) {
-    const y = floorY(s.x, s.z);
-    origin.set(s.x, y + 0.3, s.z);
-    ray.set(origin, dir); ray.far = 12; ray.camera = camera;
-    const hits = ray.intersectObjects(meshes, false);
-    let clear = 99, hitName = 'cielo';
-    for (const h of hits) {
-      if (!h.object.visible || h.point.y < y + 0.45) continue;
-      clear = h.point.y - y; hitName = h.object.name || 'losa';
-      break;
-    }
-    if (inTower(s.x, s.z)) { const slab = SOFFIT - y; if (slab < clear) { clear = slab; hitName = 'losa piso 1'; } }
-    if (clear < min) { min = clear; where = { ...s, y: +y.toFixed(2), clear: +clear.toFixed(2), hit: hitName }; }
-    if (clear < 3) worst.push({ ...s, y: +y.toFixed(2), clear: +clear.toFixed(2), hit: hitName });
-    rows.push({ ...s, clear });
-  }
-  worst.sort((a, b) => a.clear - b.clear);
-  const stalls = {};
-  for (const r of rows) if (r.id !== 'paso') stalls[r.id] = +r.clear.toFixed(2);
-  return { min: +min.toFixed(3), ok: min >= CLEAR_MIN, where, stalls, worst: worst.slice(0, 8) };
-}
-if (QA_MODE) measureAccess();
-const HEADROOM = QA_MODE ? measureHeadroom() : null;
-if (QA_MODE && HEADROOM) console.log('altura libre mínima', HEADROOM.min, HEADROOM.where);
-if (QA_MODE) window.__app = { THREE, SV, VEH, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); }, access: ACCESS, headroom: HEADROOM, showAccess: (on) => { ACC_G.visible = !!on; }, driveY, MOUTH_X0 };
+window.__app = { THREE, SV, VEH, SOT, SD, SL, sotY, contactQA, planCam, cam: (p, t) => { camera.position.set(...p); controls.target.set(...t); controls.update(); }, info: () => ({ ...renderer.info.render, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures, progs: renderer.info.programs.length }), sim, EV, W, evCall, evRequest, evOpen, evClose, pressKey, goFloor, interact, LEVY, carAt: (t) => { carStart(CAR.state === 'parked' ? 'out' : 'in'); }, carStart, carPark, BATCHED: () => BATCHED, CAR, R: renderer, scene, setQuality, QUAL, applyQuality, GT, FP, fpEnter, fpExit, fpTeleport, fpPose, openPed, openVeh, pedCycle, KS, kioskNear, drawKiosk, setGateH: (k) => setGateH(k), goView, startFlow, stopFlow, openPanel: (id) => openPanel(id === 'cable' ? CAB_MK : MK.find((m) => m.id === id)), closePanel, st, applyVis, applyExplode, setCut: (c) => { st.cut = c; cutSel.value = c || ''; applyVis(); } };
 document.body.classList.add('ready');

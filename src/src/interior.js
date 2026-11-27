@@ -233,7 +233,7 @@ export function buildWorld(ctx) {
 
   // ---------- mobiliario ilustrativo (a partir de los bloques de mobiliario del plano) ----------
   // v7: mobiliario y aparatos ilustrativos detallados (src/fur7.js)
-  const FUR = (() => { const r = buildFur7({ I, T, R, pipRing, T8 }); return { coll: r.coll, meshes: r.meshes, setQuality: r.setQuality, register: r.register, sinks: r.sinks }; })();
+  const FUR = (() => { const r = buildFur7({ I, T, R, pipRing, T8, skin: S.skin }); return { coll: r.coll, meshes: r.meshes, setQuality: r.setQuality, register: r.register, sinks: r.sinks }; })();
 
   // ---------- letreros de recintos (adhesivo sutil en el piso, legible en planta y en el recorrido) ----------
   const roomSign = new Map();

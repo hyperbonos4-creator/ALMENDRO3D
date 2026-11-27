@@ -52,6 +52,8 @@ Las cabeceras HSTS, CSP, caché y `robots.txt` viven en el host. La recomendaci�
 
 `v10`: se elimina el lobby (ingreso directo al parqueadero; escalera y ascensor suben al piso 1). El sótano se reconstruye con las cotas exactas del vector del plano nuevo; cada llanta apoya en el piso real (QA automática ≤ 1 cm). Nueva vista *Planta sótano (plano)* con cotas. Portón dorado/bronce por defecto y paso peatonal pintado de 0,90 m se conservan de v8.1. Ver `docs/QA_REPORT_v10.md`.
 
+`v10.1`: corrige un error de extracción: lavadoras, lavaderos, neveras y mesas de noche del plano se habían tomado como columnas de muro a toda altura (el «volumen gris» en los cuartos de ropas). Pasan a ser aparatos a su medida, con colisión. Se añaden las puertas corredizas de 0,70 m de los ropas 03 y 04. Ver `docs/QA_REPORT_v10_1.md`.
+
 ## Licencia
 
 No hay una elegida. El campo `license` de un `package.json` de plantilla no cuenta: este repositorio no adopta ISC ni ninguna otra. La elige el propietario.

@@ -49,7 +49,7 @@ function band(x0, z0, x1, z1, t = 0.18) {
 }
 export const WALLS = [
   // El acceso oeste queda abierto: el portón está en x = 0 y no hay muro detrás.
-  band(0.10, 0.78, 9.91, 0.77),
+  band(0.10, 0.70, 9.91, 0.70, 0.155), // v9: centro del muro norte medido en el PDF (caras 0,625–0,78)
   band(9.91, 0.77, 12.61, 0.63),
   band(12.61, 0.63, 20.81, 0.15),
   band(20.81, 0.15, 27.45, 0.43),
@@ -59,7 +59,7 @@ export const WALLS = [
   band(16.46, 12.04, 16.79, 6.26),
   band(14.09, 6.40, 8.12, 6.55),
   band(8.12, 6.55, 8.05, 3.95),
-  band(8.05, 3.95, 0.15, 3.82),
+  band(8.05, 3.975, 0.15, 3.90, 0.155), // v9: centro del muro sur medido en el PDF (caras 3,82–3,98 → 3,82–4,13)
   // cuartos norte
   band(9.55, -0.86, 12.45, -0.86),
   band(9.55, -0.86, 9.55, 0.55),
@@ -77,15 +77,15 @@ export const SPOTS = [
   { n: 2, r: [17.105, 21.925, 0.368, 2.765], aisle: 's', axis: 'x', nose: -1, t: 'hatch', c: 0xd8d8d4 },
   { n: 3, r: [22.326, 24.674, 0.311, 5.010], aisle: 's', t: 'hatch', c: 0x8d1d24 },
   { n: 4, r: [24.674, 27.024, 0.410, 5.410], aisle: 's', t: 'hatch', c: 0xe4e4e1 },
-  { n: 5, r: [21.889, 24.388, 12.692, 17.191], aisle: 's', t: 'sedan', c: 0xc5c8cc },
-  { n: 6, r: [19.391, 21.889, 12.692, 17.191], aisle: 's', t: 'sedan', c: 0xf2f2f0 },
+  { n: 5, r: [21.889, 24.388, 12.692, 17.191], aisle: 's', t: 'sedan', c: 0x5e0d12 },
+  { n: 6, r: [19.391, 21.889, 12.692, 17.191], aisle: 's', t: 'sedan', c: 0x8d9196 },
   { n: 7, r: [17.121, 19.622, 20.955, 25.452], aisle: 'n', t: 'hatch', c: 0xc8cbcf },
   { n: 8, r: [19.622, 22.124, 20.955, 25.452], aisle: 'n', t: 'sedan', c: 0x111214 },
   { n: 9, r: [22.124, 24.622, 20.955, 25.452], aisle: 'n', t: 'suv', c: 0x16171a },
   { n: 10, r: [24.622, 27.121, 20.955, 25.452], aisle: 'n', t: 'sedan', c: 0xeceae6 },
 ];
 
-export const MOTO_X = [16.68, 19.25];
+export const MOTO_X = [16.68, 19.39]; // v9: fondo 2,71 m del PDF (cara del muro → línea de la plaza 6)
 export const MOTO_Z = [[12.692, 13.812], [13.812, 14.932], [14.932, 16.052], [16.052, 17.192]];
 
 // Centro del tubo, absoluto. Tramo recto por el muro norte del acceso, a 2.25 m de la rasante.

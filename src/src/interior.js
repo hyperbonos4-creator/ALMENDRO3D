@@ -560,38 +560,6 @@ export function buildWorld(ctx) {
   };
   EV.setCallLamp = (id, on) => { const Ld = LAND[id]; if (Ld) Ld.bm.color.set(on ? 0xffb547 : 0xd8dde2); };
 
-  // ====================== PISO 1: lobby aproximado (plancha 1/6 faltante) ======================
-  function lobby(parent) {
-    const B = new GB(1.5, 1.5); const col = C('#eeece8');
-    const wallsG = mergeGeometries(I.f1walls.map((p) => { const g = new THREE.ExtrudeGeometry(shapeOf(p), { depth: H1, bevelEnabled: false, curveSegments: 1 }); g.rotateX(-Math.PI / 2); g.clearGroups(); return g.index ? g.toNonIndexed() : g; }));
-    const pc = wallsG.attributes.position.count; const cc = new Float32Array(pc * 3); for (let i = 0; i < pc; i++) { cc[i * 3] = col.r; cc[i * 3 + 1] = col.g; cc[i * 3 + 2] = col.b; } wallsG.setAttribute('color', new THREE.BufferAttribute(cc, 3));
-    const uv = wallsG.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 1.5, uv.getY(i) / 1.5);
-    parent.add(mesh(wallsG, MI.plaster));
-    const fg = floorGeo(I.lobby, 0.006, T8.tileL, null); parent.add(mesh(fg, std({ map: T8.tileL, roughness: 0.22 }), false)); // v8: porcelanato claro como el hall de los renders
-    // puerta automática de vidrio (acceso desde el paso peatonal)
-    const x = 7.86; const F = new GB(), Gf = new GB(), w = C('#ffffff');
-    F.box(x - 0.04, x + 0.04, 2.3, 2.42, 4.069, 6.413, w); for (const z of [4.069, 4.7, 6.1, 6.373]) F.box(x - 0.04, x + 0.04, 0, 2.3, z, z + 0.04, w); F.box(x - 0.04, x + 0.04, 2.42, H1, 4.069, 6.413, C('#d9d6cf'));
-    Gf.box(x - 0.006, x + 0.006, 0, 2.3, 4.109, 4.7, w); Gf.box(x - 0.006, x + 0.006, 0, 2.3, 6.14, 6.373, w);
-    parent.add(mesh(F.geo(), MI.alu), mesh(Gf.geo(), MI.glass, false));
-    const pL = new GB(), pR = new GB(); pL.box(x + 0.01, x + 0.03, 0.02, 2.29, 4.74, 5.42, w); pR.box(x + 0.01, x + 0.03, 0.02, 2.29, 5.38, 6.06, w);
-    const gL = mesh(pL.geo(), MI.glass, false), gR = mesh(pR.geo(), MI.glass, false); gL.userData.dyn = gR.userData.dyn = true; parent.add(gL, gR);
-    const ent = { g: [gL, gR], a: 0, tgt: 0, cx: x, cz: 5.4 };
-    ent.set = (a) => { ent.a = a; gL.position.z = -0.62 * a; gR.position.z = 0.62 * a; };
-    ent.seg = () => (ent.a > 0.85 ? null : [x + 0.02, 4.7, x + 0.02, 6.1]);
-    // letreros
-    const t = textTex([{ t: 'EDIFICIO ALMENDRA', s: 46, w: 700, c: '#f4efe6', ls: 6 }, { t: 'LOBBY · PISO 1', s: 26, w: 600, c: '#c9a77c', ls: 6 }], { w: 640, h: 130, y0: 12, bg: '#1d1f23', r: 14 });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.284), new THREE.MeshStandardMaterial({ map: t, roughness: 0.4 })); m.position.set(17.88, 2.1, 5.24); m.rotation.y = -Math.PI / 2; parent.add(m);
-    const t2 = textTex([{ t: 'Piso 1 · distribución sin plano', s: 30, w: 700, c: '#ffd59a' }, { t: '(plancha 1/6 faltante: muros del lobby aproximados)', s: 22, w: 500, c: '#e8e2d6' }], { w: 640, h: 96, y0: 10, bg: 'rgba(29,31,35,0.92)', r: 12 });
-    for (const [px, pz, ry] of [[12.3, 6.405, Math.PI], [12.3, 4.077, 0], [16.745, 7.6, Math.PI / 2], [17.905, 7.6, -Math.PI / 2]]) { const q = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.135), new THREE.MeshBasicMaterial({ map: t2, transparent: true })); q.position.set(px, 1.6, pz); q.rotation.y = ry; parent.add(q); }
-    // cielo raso del lobby y luminarias
-    /* v7: cielo raso sin cubrir el hueco de la escalera (antes I.lobbyAll tapaba la vista al subir) */ const cg = floorGeo(I.lobby, H1 - 0.005, null, null); const ce = mesh(cg, MI.ceil, true, true); parent.add(ce);
-    const lg = []; for (const [lx, lz] of [[9.5, 5.24], [11.8, 5.24], [14.1, 5.24], [16.4, 5.24], [17.3, 7.6], [20.4, 10.7], [20.5, 9.2], [22.3, 12.2]]) { const c = new THREE.CircleGeometry(0.14, 20); c.rotateX(Math.PI / 2); c.translate(lx, H1 - 0.012, lz); lg.push(c.toNonIndexed()); }
-    parent.add(mesh(mergeGeometries(lg), MI.lamp, false, false));
-    // buzones (ilustrativo)
-    const Bx = new GB(); Bx.box(16.62, 16.745, 0.9, 1.6, 4.6, 6.1, C('#3b3d42')); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) Bx.box(16.6, 16.62, 0.95 + j * 0.16, 1.07 + j * 0.16, 4.65 + i * 0.36, 4.97 + i * 0.36, C('#9aa0a6'));
-    parent.add(mesh(Bx.geo(), MI.furn));
-    return { ent, ceil: ce };
-  }
 
   // ====================== ensamblar por nivel ======================
   const LEV = {};

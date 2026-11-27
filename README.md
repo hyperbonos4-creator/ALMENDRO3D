@@ -48,6 +48,8 @@ Las cabeceras HSTS, CSP, caché y `robots.txt` viven en el host. La recomendaci�
 
 `v5`, `v6`, `v7` y `v8` están en la historia lineal de `main` (`v5` → `v6` → `v7` → README → `v8`). `git merge-base --is-ancestor v5 main` (y lo mismo con `v6` y `v7`) sale verdadero en este clon: sí son ancestros de `main`, no instantáneas sueltas. Para mirar una: `git checkout v7`.
 
+`v9` (sobre `main` f0782f0): portón dorado/bronce por defecto (grafito en *Estilo*), sendero peatonal pintado portón → escalera/ascensor, muros del acceso y fondo de motos ajustados al PDF, hueco del terreno corregido bajo la torre. Ver `docs/QA_REPORT_v9.md`.
+
 ## Licencia
 
 No hay una elegida. El campo `license` de un `package.json` de plantilla no cuenta: este repositorio no adopta ISC ni ninguna otra. La elige el propietario.
